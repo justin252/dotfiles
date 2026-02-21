@@ -1,10 +1,32 @@
-# ─── Oh My Zsh ───────────────────────────────────────────────────
+# ─── Oh My Zsh ────────────────────────────────────────────────
 export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="robbyrussell"
-plugins=(git)
+plugins=(z)
 source $ZSH/oh-my-zsh.sh
 
-# ─── Git ─────────────────────────────────────────────────────────
+# ─── Environment ──────────────────────────────────────────────
+eval "$(/opt/homebrew/bin/brew shellenv)"
+export EDITOR="vim"
+export VISUAL="vim"
+export PATH="$HOME/code/tools:$HOME/.local/bin:$PATH"
+
+# fzf
+source <(fzf --zsh)
+
+# opam
+[[ ! -r "$HOME/.opam/opam-init/init.zsh" ]] || source "$HOME/.opam/opam-init/init.zsh" > /dev/null 2> /dev/null
+
+# direnv
+eval "$(direnv hook zsh)"
+
+# ─── Navigation ───────────────────────────────────────────────
+alias ..="cd .."
+alias ...="cd ../.."
+alias c="clear"
+alias ll="ls -lAh"
+alias la="ls -a"
+
+# ─── Git ──────────────────────────────────────────────────────
 alias gs="git status"
 alias gco="git checkout"
 alias gb="git branch"
@@ -14,7 +36,8 @@ alias gpush="git push"
 alias gpull="git pull"
 alias gca="git commit --amend --no-edit"
 alias gpushup='git push --set-upstream origin $(git branch --show-current)'
-alias gl="git log"
+alias gl="git log --oneline --graph -20"
+alias gr="git review"
 alias greb="git rebase"
 alias grebi="git rebase -i"
 alias gf="git fetch --prune"
@@ -24,37 +47,34 @@ alias gst="git stash"
 alias gstp="git stash pop"
 alias gu="git reset --soft HEAD~1"
 alias greset="git reset --hard HEAD"
-alias gborrow='(){git fetch origin $1 && git branch $1 FETCH_HEAD && git checkout $1;}'
-
-# ─── Git Helpers ─────────────────────────────────────────────────
+gborrow() { git fetch origin $1 && git branch $1 FETCH_HEAD && git checkout $1; }
+alias gclean="git branch --merged | grep -v '\*\|main\|master' | xargs -n1 git branch -d"
 cdg() { cd "$(git rev-parse --show-toplevel)"; }
-
 gbclean() {
   git fetch -p && git branch -vv | grep 'origin/.*: gone]' | awk '{print $1}' | xargs git branch -D
 }
 
-# ─── Utility ─────────────────────────────────────────────────────
-store_token() {
-	printf "Enter env var name (e.g. FOOBAR_TOKEN): " && \
-	  read TOKEN_NAME && \
-	  printf "Enter API token value: " && \
-	  read TOKEN && \
-	  security add-generic-password -U -a ${USER} -s ${TOKEN_NAME} -w ${TOKEN} && \
-	  unset TOKEN
+# ─── Dev ──────────────────────────────────────────────────────
+alias py="python3"
+alias serve="python3 -m http.server"
+alias ports="lsof -i -P -n | grep LISTEN"
+alias ip="curl -s ifconfig.me"
+alias flushdns="sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder"
 
-	TO_WRITE="\nexport ${TOKEN_NAME}="
-	TO_WRITE+='$(security find-generic-password -a ${USER}'
-	TO_WRITE+=" -s ${TOKEN_NAME} -w)"
-	echo -e "${TO_WRITE}" >> ~/.zshrc
-	unset TOKEN_NAME
-	source ~/.zshrc
-}
+# ─── Files ────────────────────────────────────────────────────
+alias sizeof="du -sh"
+alias ducks="du -cksh * | sort -rh | head -20"
 
+# ─── Claude ───────────────────────────────────────────────────
+alias cc="claude"
+alias ccy="claude --dangerously-skip-permissions"
+alias ccc="claude -c"
+alias ccr="claude -r"
+alias ccp="claude -p"
+alias ccw="claude -w"
+alias ccry="claude -r --dangerously-skip-permissions"
+alias cccy="claude -c --dangerously-skip-permissions"
+
+# ─── Shell ────────────────────────────────────────────────────
 alias sz="source ~/.zshrc"
 alias sync-dotfiles='cd ~/dotfiles && git add -A && git commit -m "chore: sync" && git push && cd -'
-
-# ─── Tools ───────────────────────────────────────────────────────
-[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
-eval "$(direnv hook zsh)"
-export PATH="$PATH:$HOME/.local/bin"
-export PATH="$HOME/tools:$PATH"
