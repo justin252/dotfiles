@@ -8,7 +8,7 @@ source $ZSH/oh-my-zsh.sh
 eval "$(/opt/homebrew/bin/brew shellenv)"
 export EDITOR="vim"
 export VISUAL="vim"
-export PATH="$HOME/code/tools:$HOME/.local/bin:$PATH"
+export PATH="$HOME/tools:$HOME/.local/bin:$PATH"
 
 # fzf
 source <(fzf --zsh)
