@@ -35,3 +35,5 @@ source ~/dotfiles/shell/zshrc
 ## Learning mechanism
 
 Claude captures friction/insights continuously into `CLAUDE.md` and `INBOX.md`. On retro, entries get triaged into: CLAUDE.md rules, zshrc aliases, scripts, or discarded. See `.claude/CLAUDE.md` Meta section for details.
+
+Scripts live in a separate repo: [justin252/tools](https://github.com/justin252/tools/tree/main)
