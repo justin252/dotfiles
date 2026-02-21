@@ -59,3 +59,10 @@ Commands:
 Categories to capture (create sections as needed, date-stamp entries):
 - **Research** — tools, techniques, patterns worth remembering
 - **Learning** — mental models, insights, corrections to wrong assumptions
+
+## Learning
+
+- 2026-02-20: New repos → always `.gitignore` with `.DS_Store` immediately
+- 2026-02-20: Multi-step plans → step-by-step with user confirmation at each step, don't barrel through
+- 2026-02-20: Don't over-abstract config — if it's 3 lines, just set it manually per machine
+- 2026-02-20: Files that tools auto-append to → use loader/sourcing pattern, not symlinks
