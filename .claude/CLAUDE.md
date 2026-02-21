@@ -9,7 +9,6 @@
 - Clean, minimal code. Readability > cleverness.
 - No over-engineering: no unnecessary abstractions, error handling, or features beyond what's asked.
 - No adding comments/docstrings to untouched code.
-- Primarily Go; open to best-fit language.
 
 ## Safety
 
@@ -25,6 +24,24 @@ Even in yolo mode:
 - Always run relevant tests before committing.
 - GitHub CLI for all GitHub interactions.
 - Always rebase, never merge — clean linear history.
+- New repos → always `.gitignore` with `.DS_Store` immediately.
+
+## Pull Requests
+
+- Title: conventional commit format, under 70 chars
+- Body structure:
+  ```
+  ## Summary
+  - <what changed and why>
+
+  ## Context
+  <motivation, link to issue if applicable>
+
+  ## Test plan
+  - [ ] <how to verify>
+  ```
+- Reference issue numbers when applicable
+- Per-repo CLAUDE.md can override this template
 
 ## Agent
 
@@ -41,28 +58,39 @@ Even in yolo mode:
 
 ## Checkpoint
 
-When user says "checkpoint": build + test → update CLAUDE.md if needed → commit. If `~/dotfiles` has uncommitted changes, commit+push there too.
+When user says "checkpoint": build + test → retro (learnings → INBOX.md) → commit.
 
 ## Meta
 
-Continuous learning — don't batch, capture as it happens:
-- On friction (looping, wrong assumption, missing context): try to self-resolve once. If resolved, note the fix in CLAUDE.md for future sessions. If not, ask user, then note answer.
+How learning works: I read CLAUDE.md at session start — no persistent memory beyond this file. All captures go to `~/.claude/INBOX.md` (local, never synced). Only `triage` promotes to CLAUDE.md.
+
+When to capture:
+  Session ending?
+  ├── Friction, loops, wrong assumptions?  → retro
+  ├── Decisions or insights worth keeping? → retro
+  ├── Just routine coding?                → checkpoint or close
+  └── Sparked an idea?                    → log, then close
+  Mid-session?
+  ├── I hit friction and self-resolved     → I suggest INBOX.md entry (best-effort)
+  └── You notice something reusable       → log
+
+When I hit friction:
+- Self-resolve once. If reusable insight, suggest INBOX.md entry.
 - Never loop 3+ times on same failure — stop, note pattern, ask.
-- Proactive mid-session: if you notice something worth remembering, suggest a one-liner CLAUDE.md addition (don't interrupt flow).
 
-Commands:
-- `idea: <thought>` → discuss and refine the idea together.
-- `log` → write current idea thread to `~/dotfiles/INBOX.md` as rich entry (date, context/repo+branch or "general", what was happening, the idea, suggested action).
-- `save` → capture full conversation as markdown: what triggered it, key decisions + why, open questions, action items, what changed.
-- `retro` → deeper review. Suggest CLAUDE.md updates + key takeaways. Triage `~/dotfiles/INBOX.md` entries into: CLAUDE.md rule, zshrc alias, `~/dotfiles/bin/` script, or discard.
+Commands — capture (quick, all write to ~/.claude/):
+- `checkpoint` → build + test + retro + commit
+- `retro` → review this session, learnings → INBOX.md
+- `log` → idea/tangent → INBOX.md (date, context, idea, action)
+- `save` → conversation → ~/.claude/sessions/<date>-<slug>.md
+- `idea: <thought>` → ideate, then log to capture
 
-Categories to capture (create sections as needed, date-stamp entries):
-- **Research** — tools, techniques, patterns worth remembering
-- **Learning** — mental models, insights, corrections to wrong assumptions
+Commands — curate (periodic):
+- `triage` → review ~/.claude/INBOX.md: promote to CLAUDE.md (correct section), zshrc alias, ~/dotfiles/bin/ script, or discard. No sensitive content to CLAUDE.md.
 
-## Learning
+## Setup
 
-- 2026-02-20: New repos → always `.gitignore` with `.DS_Store` immediately
-- 2026-02-20: Multi-step plans → step-by-step with user confirmation at each step, don't barrel through
-- 2026-02-20: Don't over-abstract config — if it's 3 lines, just set it manually per machine
-- 2026-02-20: Files that tools auto-append to → use loader/sourcing pattern, not symlinks
+- `~/.claude/CLAUDE.md` → symlinked from `~/dotfiles/.claude/CLAUDE.md` — only edit the dotfiles copy
+- `install.sh` creates symlinks; this is how the dotfiles repo works
+- `~/.claude/INBOX.md` — local capture scratchpad, never synced
+- `~/.claude/sessions/` — saved conversation logs, never synced
