@@ -9,6 +9,7 @@
 - Clean, minimal code. Readability > cleverness.
 - No over-engineering: no unnecessary abstractions, error handling, or features beyond what's asked.
 - No adding comments/docstrings to untouched code.
+- If a README exists and changes affect it, update it automatically.
 
 ## Safety
 

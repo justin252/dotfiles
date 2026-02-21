@@ -77,4 +77,5 @@ alias cccy="claude -c --dangerously-skip-permissions"
 
 # ─── Shell ────────────────────────────────────────────────────
 alias sz="source ~/.zshrc"
-alias sync-dotfiles='cd ~/dotfiles && git add -A && git commit -m "chore: sync" && git push && cd -'
+alias push-dotfiles='cd ~/dotfiles && git add -A && git commit -m "chore: sync" && git push && cd -'
+alias pull-dotfiles='git -C ~/dotfiles pull --rebase && source ~/.zshrc'
