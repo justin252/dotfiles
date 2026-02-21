@@ -57,9 +57,32 @@ Even in yolo mode:
 - `debate me on [topic]` → Take opposing position seriously.
 - `eli5 [topic]` → Simplest first, I'll ask deeper.
 
-## Checkpoint
+## Workflow
 
-When user says "checkpoint": build + test → retro (learnings → INBOX.md) → commit.
+Branch naming: `<type>/<slug>` (e.g. `feat/add-grep-tool`). No direct pushes to main.
+
+### Splitting changes
+Prefer splitting logically independent changes (refactor, bug fix, feature) into stacked PRs.
+
+**Proactive (preferred):** When I recognize a separable change while working, branch + commit it immediately before continuing. Cleanest path.
+
+**Retroactive (at checkpoint):** If changes are already mixed, attempt to untangle (split commits, cherry-pick, rebase). If changes are too intertwined to split cleanly, ship as one PR and flag it — don't butcher the split.
+
+Stack order: foundational changes (refactors, extractions, fixes) go first. Dependent features stack on top. Each PR targets the branch below it (or main for first).
+
+### `checkpoint`
+1. Build + test
+2. Update README if changes affect it
+3. Split into stacked PRs if possible (see above), or ship as one
+4. Clean up commit history (squash/reword as needed)
+5. Push branches, open PRs (global PR template)
+6. Retro → INBOX.md
+
+### `checkpoint yolo`
+1. Build + test
+2. Update README if changes affect it
+3. Commit directly to main + push
+4. Retro → INBOX.md
 
 ## Meta
 
@@ -80,7 +103,8 @@ When I hit friction:
 - Never loop 3+ times on same failure — stop, note pattern, ask.
 
 Commands — capture (quick, all write to ~/.claude/):
-- `checkpoint` → build + test + retro + commit
+- `checkpoint` → see Workflow section above
+- `checkpoint yolo` → see Workflow section above
 - `retro` → review this session, learnings → INBOX.md
 - `log` → idea/tangent → INBOX.md (date, context, idea, action)
 - `save` → conversation → ~/.claude/sessions/<date>-<slug>.md
