@@ -39,10 +39,23 @@ Even in yolo mode:
 - `debate me on [topic]` → Take opposing position seriously.
 - `eli5 [topic]` → Simplest first, I'll ask deeper.
 
-## Conversation Capture
+## Checkpoint
 
-- `capture this` / `save this` → Generate markdown with: key decisions, open questions, action items, frameworks/mental models.
+When user says "checkpoint": build + test → update CLAUDE.md if needed → commit. If `~/dotfiles` has uncommitted changes, commit+push there too.
 
 ## Meta
 
-- `retro` → Suggest: (1) CLAUDE.md / doc updates from friction noticed, (2) key takeaways worth capturing as doc. Organize into concise personal CLAUDE.md style.
+Continuous learning — don't batch, capture as it happens:
+- On friction (looping, wrong assumption, missing context): try to self-resolve once. If resolved, note the fix in CLAUDE.md for future sessions. If not, ask user, then note answer.
+- Never loop 3+ times on same failure — stop, note pattern, ask.
+- Proactive mid-session: if you notice something worth remembering, suggest a one-liner CLAUDE.md addition (don't interrupt flow).
+
+Commands:
+- `idea: <thought>` → discuss and refine the idea together.
+- `log` → write current idea thread to `~/dotfiles/INBOX.md` as rich entry (date, context/repo+branch or "general", what was happening, the idea, suggested action).
+- `save` → capture full conversation as markdown: what triggered it, key decisions + why, open questions, action items, what changed.
+- `retro` → deeper review. Suggest CLAUDE.md updates + key takeaways. Triage `~/dotfiles/INBOX.md` entries into: CLAUDE.md rule, zshrc alias, `~/dotfiles/bin/` script, or discard.
+
+Categories to capture (create sections as needed, date-stamp entries):
+- **Research** — tools, techniques, patterns worth remembering
+- **Learning** — mental models, insights, corrections to wrong assumptions
