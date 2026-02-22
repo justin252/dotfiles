@@ -45,7 +45,7 @@ repo() {
     return 1
   fi
 }
-_repo() { compadd $(ls "$REPO_ROOT") }
+_repo() { compadd -M 'm:{a-zA-Z}={A-Za-z}' $(ls "$REPO_ROOT") }
 compdef _repo repo
 
 # ─── Git ──────────────────────────────────────────────────────
@@ -99,6 +99,7 @@ alias cccy="claude -c --dangerously-skip-permissions"
 
 # ─── Shell ────────────────────────────────────────────────────
 alias dot="cd ~/dotfiles"
+alias tools="cd ~/tools"
 alias sz="source ~/.zshrc"
 alias push-dot='cd ~/dotfiles && git add -A && git commit -m "chore: sync" && git push && cd -'
 alias pull-dot='git -C ~/dotfiles pull --rebase && source ~/.zshrc'
