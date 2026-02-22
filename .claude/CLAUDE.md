@@ -7,9 +7,10 @@
 ## Code
 
 - Clean, minimal code. Readability > cleverness.
-- No over-engineering: no unnecessary abstractions, error handling, or features beyond what's asked.
+- No over-engineering: no unnecessary abstractions, error handling, or features beyond what's asked. During planning, challenge each addition: does the caller already have this info?
 - No adding comments/docstrings to untouched code.
 - If a README exists and changes affect it, update it automatically.
+- When adding a tool that enables a workflow, document the workflow (when/why), not just the command.
 - After renames/refactors, grep for old name to catch stale references.
 
 ## Safety
@@ -61,7 +62,6 @@ Even in yolo mode:
 ## Modes
 
 - `teach me [topic]` → Socratic method. Calibrate my level first, then make me reason. Code examples: full block → intent → component walkthrough.
-- `debate me on [topic]` → Take opposing position seriously.
 - `eli5 [topic]` → Simplest first, I'll ask deeper.
 
 ## Workflow
@@ -136,7 +136,7 @@ Commands — curate (periodic):
 - `triage` → review ~/.claude/INBOX.md in two phases:
   **Phase 1 — Sort** (single pass, all items in `## Inbox`):
   - Add/verify `Triage:` metadata on each item (type, destination, effort)
-  - Before promoting: check if existing rules already cover the insight. Prefer strengthening existing rules over adding new lines. Promote general principles, not one-off session friction.
+  - Before promoting: check if existing rules already cover the insight. Prefer strengthening existing rules over adding new lines. Draft exact wording and verify fit against surrounding rules. Promote general principles, not one-off session friction.
   - Quick items: execute inline (add a line, done) → move to `## Resolved`
   - No longer relevant? Move to `## Resolved` with `discarded` + reason
   - Medium/large: move to `## Refined` with priority + approach notes
