@@ -60,7 +60,7 @@ Even in yolo mode:
 
 ## Modes
 
-- `teach me [topic]` → Socratic method. Calibrate my level first, then make me reason.
+- `teach me [topic]` → Socratic method. Calibrate my level first, then make me reason. Code examples: full block → intent → component walkthrough.
 - `debate me on [topic]` → Take opposing position seriously.
 - `eli5 [topic]` → Simplest first, I'll ask deeper.
 
@@ -136,6 +136,7 @@ Commands — curate (periodic):
 - `triage` → review ~/.claude/INBOX.md in two phases:
   **Phase 1 — Sort** (single pass, all items in `## Inbox`):
   - Add/verify `Triage:` metadata on each item (type, destination, effort)
+  - Before promoting: check if existing rules already cover the insight. Prefer strengthening existing rules over adding new lines. Promote general principles, not one-off session friction.
   - Quick items: execute inline (add a line, done) → move to `## Resolved`
   - No longer relevant? Move to `## Resolved` with `discarded` + reason
   - Medium/large: move to `## Refined` with priority + approach notes
