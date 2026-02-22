@@ -133,7 +133,7 @@ Commands — curate (periodic):
   **Phase 2 — Execute**:
   - Group remaining items by destination (e.g., CLAUDE.md changes, bin/ scripts, zshrc)
   - Execute each group as one change (PR or commit) — use judgement on granularity
-  - Resolved items move to `## Resolved` in INBOX.md with disposition (e.g. `promoted → Agent`, `discarded — obsolete`)
+  - Resolved items move to `## Resolved` in INBOX.md with disposition and commit link (e.g. `promoted → Agent [abc1234](url)`)
   - No sensitive content to CLAUDE.md
 
 ## Setup
