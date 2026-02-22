@@ -5,9 +5,11 @@ Universal config that works on any machine. Machine-specific overlays (`~/.zshrc
 ## Structure
 
 ```
-shell/zshrc          # Universal shell config (aliases, functions, env)
-.claude/CLAUDE.md    # Claude Code config (symlinked to ~/.claude/CLAUDE.md)
-install.sh           # Sets up symlinks
+shell/zshrc              # Universal shell config (aliases, functions, env)
+.claude/CLAUDE.md        # Claude Code config (symlinked to ~/.claude/CLAUDE.md)
+.claude/commands/        # Custom slash commands (symlinked to ~/.claude/commands/)
+templates/DESIGN.md      # Design doc template (used by /design command)
+install.sh               # Sets up symlinks
 ```
 
 ## Setup
@@ -31,6 +33,7 @@ source ~/dotfiles/shell/zshrc
 - `~/.zshrc.personal` — machine-specific personal overrides — local only
 - `~/.zshrc` is a loader that sources all three in order
 - `~/.claude/CLAUDE.md` is symlinked to this repo
+- `~/.claude/commands/` is symlinked to this repo (custom slash commands like `/design`)
 - `push-dot` commits and pushes this repo
 - `pull-dot` pulls and re-sources zshrc
 - `sz` re-sources zshrc after edits
