@@ -37,11 +37,11 @@ Even in yolo mode:
 - Body: lead with why and what it enables, not just what files changed
 - Body structure:
   ```
+  ## Motivation
+  <why this change, link to issue if applicable>
+
   ## Summary
   - <what changed and why>
-
-  ## Context
-  <motivation, link to issue if applicable>
 
   ## Test plan
   - [ ] <how to verify>
