@@ -50,6 +50,7 @@ Even in yolo mode:
 - Read-only ops (ls, web search, read queries) never need confirmation
 - Log actions for visibility
 - Exit loops if no progress toward verifiable goal
+- Ask before guessing paths/values — don't assume from directory listings
 
 ## Modes
 
@@ -119,3 +120,6 @@ Commands — curate (periodic):
 - `install.sh` creates symlinks; this is how the dotfiles repo works
 - `~/.claude/INBOX.md` — local capture scratchpad, never synced
 - `~/.claude/sessions/` — saved conversation logs, never synced
+- Shell config layers: `dotfiles/shell/zshrc` (universal, synced) → `~/.zshrc.work` (work only) → `~/.zshrc.personal` (personal only). Machine-specific values go in local files.
+- To detect context: check which local zshrc files exist on the machine.
+- Scripts live in separate tools repo at `$TOOLS_PATH` (set per-machine in local zshrc). PRs required, no direct push to main.
