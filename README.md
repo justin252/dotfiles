@@ -31,8 +31,8 @@ source ~/dotfiles/shell/zshrc
 - `~/.zshrc.personal` — machine-specific personal overrides — local only
 - `~/.zshrc` is a loader that sources all three in order
 - `~/.claude/CLAUDE.md` is symlinked to this repo
-- `push-dotfiles` commits and pushes this repo
-- `pull-dotfiles` pulls and re-sources zshrc
+- `push-dot` commits and pushes this repo
+- `pull-dot` pulls and re-sources zshrc
 - `sz` re-sources zshrc after edits
 
 ## Learning mechanism
