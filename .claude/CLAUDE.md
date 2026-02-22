@@ -10,6 +10,7 @@
 - No over-engineering: no unnecessary abstractions, error handling, or features beyond what's asked.
 - No adding comments/docstrings to untouched code.
 - If a README exists and changes affect it, update it automatically.
+- After renames/refactors, grep for old name to catch stale references.
 
 ## Safety
 
@@ -30,6 +31,8 @@ Even in yolo mode:
 ## Pull Requests
 
 - Title: conventional commit format, under 70 chars
+- Title: describe the capability/behavior change, not the file diff
+- Body: lead with why and what it enables, not just what files changed
 - Body structure:
   ```
   ## Summary
@@ -76,13 +79,13 @@ Stack order: foundational changes (refactors, extractions, fixes) go first. Depe
 2. Update README if changes affect it
 3. Split into stacked PRs if possible (see above), or ship as one
 4. Clean up commit history (squash/reword as needed)
-5. Push branches, open PRs (global PR template)
+5. Summarize what changed and why, confirm before pushing. Then push branches, open PRs (global PR template)
 6. Retro → INBOX.md
 
 ### `checkpoint yolo`
 1. Build + test
 2. Update README if changes affect it
-3. Commit directly to main + push
+3. Commit directly to main, summarize what changed and why, push after confirmation
 4. Retro → INBOX.md
 
 ## Meta
