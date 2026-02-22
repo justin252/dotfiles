@@ -70,21 +70,22 @@ alias gstp="git stash pop"
 alias gu="git reset --soft HEAD~1"
 alias greset="git reset --hard HEAD"
 gborrow() { git fetch origin $1 && git branch $1 FETCH_HEAD && git checkout $1; }
+_git_default_branch() { git symbolic-ref refs/remotes/origin/HEAD --short 2>/dev/null | sed 's|origin/||' || echo main; }
+unalias gclean 2>/dev/null
 gclean() {
   git fetch -p
-  local default=$(git symbolic-ref refs/remotes/origin/HEAD --short | sed 's|origin/||')
+  local default=$(_git_default_branch)
   # branches whose remote is gone
   git branch -vv | grep 'origin/.*: gone]' | awk '{print $1}' | xargs git branch -D 2>/dev/null
   # branches merged into default branch
   git branch --merged "$default" | grep -v "\*\|$default" | xargs git branch -d 2>/dev/null
 }
 gsync() {
-  local default_branch=$(git symbolic-ref refs/remotes/origin/HEAD --short | sed 's|origin/||')
-  git fetch origin "$default_branch" && git rebase "origin/$default_branch" --autostash
+  local default=$(_git_default_branch)
+  git fetch origin "$default" && git rebase "origin/$default" --autostash
 }
 gm() {
-  local branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
-  git checkout "${branch:-main}" && git pull --rebase --autostash
+  git checkout "$(_git_default_branch)" && git pull --rebase --autostash
 }
 alias gprc="gh pr checkout"
 gfresh() {
