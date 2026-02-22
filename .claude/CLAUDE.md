@@ -30,6 +30,7 @@ Even in yolo mode:
 - GitHub CLI for all GitHub interactions.
 - Always rebase, never merge — clean linear history.
 - New repos → always `.gitignore` with `.DS_Store` immediately.
+- Never commit without user confirmation — show diff, summarize, wait for go-ahead.
 
 ## Pull Requests
 
@@ -165,3 +166,4 @@ Commands — curate (periodic):
 - Shell config layers: `dotfiles/shell/zshrc` (universal, synced) → `~/.zshrc.work` (work only) → `~/.zshrc.personal` (personal only). Machine-specific values go in local files.
 - To detect context: check which local zshrc files exist on the machine.
 - Personal tools: separate tools repo at `$TOOLS_PATH` (set per-machine in local zshrc). PRs required, no direct push to main.
+- `~/code` — project root for all repos.
