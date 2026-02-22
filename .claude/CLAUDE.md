@@ -79,14 +79,16 @@ Stack order: foundational changes (refactors, extractions, fixes) go first. Depe
 2. Update README if changes affect it
 3. Split into stacked PRs if possible (see above), or ship as one
 4. Clean up commit history (squash/reword as needed)
-5. Summarize what changed and why, confirm before pushing. Then push branches, open PRs (global PR template)
-6. Retro → INBOX.md
+5. Show diff, summarize what changed and why, confirm before committing
+6. Push branches, open PRs (global PR template)
+7. Retro → INBOX.md
 
 ### `checkpoint yolo`
 1. Build + test
 2. Update README if changes affect it
-3. Commit directly to main, summarize what changed and why, push after confirmation
-4. Retro → INBOX.md
+3. Show diff, summarize what changed and why, confirm before committing
+4. Push to main
+5. Retro → INBOX.md
 
 ## Meta
 
@@ -113,6 +115,7 @@ Commands — capture (quick, all write to ~/.claude/):
 - `log` → idea/tangent → INBOX.md (date, context, idea, action)
 - `save` → conversation → ~/.claude/sessions/<date>-<slug>.md
 - `idea: <thought>` → ideate, then log to capture
+- `pick` → work on a backlog item from INBOX.md. Present items, plan chosen one, execute after approval
 
 Capture entries should include a best-effort `Triage:` line:
 - Type: insight (config/rule), task (build something), friction (process issue)
