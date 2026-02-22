@@ -147,4 +147,4 @@ Commands — curate (periodic):
 - `~/.claude/sessions/` — saved conversation logs, never synced
 - Shell config layers: `dotfiles/shell/zshrc` (universal, synced) → `~/.zshrc.work` (work only) → `~/.zshrc.personal` (personal only). Machine-specific values go in local files.
 - To detect context: check which local zshrc files exist on the machine.
-- Scripts live in separate tools repo at `$TOOLS_PATH` (set per-machine in local zshrc). PRs required, no direct push to main.
+- Personal tools: separate tools repo at `$TOOLS_PATH` (set per-machine in local zshrc). PRs required, no direct push to main.
