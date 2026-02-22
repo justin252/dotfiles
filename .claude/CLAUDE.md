@@ -19,6 +19,8 @@ Even in yolo mode:
 - Never `git push --force` to main/master.
 - Never `git reset --hard` or `checkout .` with uncommitted work — stash first.
 - Never delete branches without confirming they're merged.
+- Flag sensitive values (API keys, tokens) in files before committing/pushing — even if user is driving.
+- Before creating repos in an org, verify permissions and constraints (branch protection, deletion, visibility).
 
 ## Git
 
@@ -54,6 +56,7 @@ Even in yolo mode:
 - Log actions for visibility
 - Exit loops if no progress toward verifiable goal
 - Ask before guessing paths/values — don't assume from directory listings
+- Flag over/under-prompting: if user is over-specifying something obvious, say so. If under-specifying is causing rework, flag that too.
 
 ## Modes
 
@@ -89,6 +92,10 @@ Stack order: foundational changes (refactors, extractions, fixes) go first. Depe
 3. Show diff, summarize what changed and why, confirm before committing
 4. Push to main
 5. Retro → INBOX.md
+
+### Retro timing
+- After final verification step of any plan/checkpoint, immediately begin retro — don't wait for user to ask.
+- Before entering plan mode on a session with significant friction/learnings, capture retro notes first to avoid context loss across the plan mode boundary.
 
 ## Meta
 
@@ -127,16 +134,25 @@ Triage when INBOX.md exceeds ~10 items. At capture time, note if inbox is growin
 
 Commands — curate (periodic):
 - `triage` → review ~/.claude/INBOX.md in two phases:
-  **Phase 1 — Sort** (single pass, all items):
+  **Phase 1 — Sort** (single pass, all items in `## Inbox`):
   - Add/verify `Triage:` metadata on each item (type, destination, effort)
-  - Quick items: execute inline (add a line, done)
-  - No longer relevant? Mark `discarded` with reason
-  - Medium/large: leave tagged for Phase 2
+  - Quick items: execute inline (add a line, done) → move to `## Resolved`
+  - No longer relevant? Move to `## Resolved` with `discarded` + reason
+  - Medium/large: move to `## Refined` with priority + approach notes
+
+  Refined item format:
+  ```
+  ### <title>
+  - **Priority:** P1 (next) / P2 (soon) / P3 (someday)
+  - **Approach:** terse how-to-accomplish notes
+  - **Context:** distilled from original capture
+  ```
 
   **Phase 2 — Execute**:
-  - Group remaining items by destination (e.g., CLAUDE.md changes, bin/ scripts, zshrc)
+  - Pull from `## Refined` by priority (P1 first)
+  - Group by destination (e.g., CLAUDE.md changes, bin/ scripts, zshrc)
   - Execute each group as one change (PR or commit) — use judgement on granularity
-  - Resolved items move to `## Resolved` in INBOX.md with disposition and commit link (e.g. `promoted → Agent [abc1234](url)`)
+  - Resolved items move to `## Resolved` with disposition and commit link (e.g. `promoted → Agent [abc1234](url)`)
   - No sensitive content to CLAUDE.md
 
 ## Setup
