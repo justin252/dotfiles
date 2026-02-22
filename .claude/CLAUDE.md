@@ -53,6 +53,7 @@ In all modes:
   - [ ] <how to verify>
   ```
 - Reference issue numbers when applicable
+- After pushing follow-up commits, update the PR body to reflect new changes
 - Per-repo CLAUDE.md can override this template
 
 ## Agent
