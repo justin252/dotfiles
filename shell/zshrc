@@ -82,6 +82,11 @@ alias serve="python3 -m http.server"
 alias ports="lsof -i -P -n | grep LISTEN"
 alias ip="curl -s ifconfig.me"
 alias flushdns="sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder"
+killport() { lsof -ti:$1 | xargs kill -9; }
+
+# ─── GitHub ──────────────────────────────────────────────────
+alias gopen="gh browse"
+alias gpr="gh pr view --web"
 
 # ─── Files ────────────────────────────────────────────────────
 alias sizeof="du -sh"
