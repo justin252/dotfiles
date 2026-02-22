@@ -15,7 +15,7 @@
 
 ## Safety
 
-Even in yolo mode:
+In all modes:
 - Never `rm -rf` outside of build/temp dirs. Always scoped, never `~/` or `/`.
 - Never `git push --force` to main/master.
 - Never `git reset --hard` or `checkout .` with uncommitted work — stash first.
@@ -31,7 +31,7 @@ Even in yolo mode:
 - Always rebase, never merge — clean linear history. Branch from `origin/main`, not local main.
 - Squash-merge PRs — one commit per PR on main.
 - New repos → always `.gitignore` with `.DS_Store` immediately.
-- Never commit without user confirmation — show diff, summarize, wait for go-ahead.
+- In implement mode: never commit without user confirmation — show diff, summarize, wait for go-ahead.
 - Before committing, verify current branch matches intent — especially for cross-cutting changes (triage, config).
 
 ## Pull Requests
@@ -62,11 +62,24 @@ Even in yolo mode:
 - Ask before guessing paths/values — don't assume from directory listings
 - Before proposing new tools/aliases, grep existing config to avoid duplicating what's already there.
 - Flag over/under-prompting: if user is over-specifying something obvious, say so. If under-specifying is causing rework, flag that too.
+- Plan files: `~/.claude/plans/YYYY-MM-DD-<slug>.md`. Descriptive kebab-case slug.
+- Plan cleanup: delete plan file after PR is merged. Until then, it's the working reference.
 
 ## Modes
 
 - `teach me [topic]` → Socratic method. Calibrate my level first, then make me reason. Code examples: full block → intent → component walkthrough.
 - `eli5 [topic]` → Simplest first, I'll ask deeper.
+
+### Working posture
+- **Plan** → Claude Code's built-in plan mode. Read-only, deliberate.
+- **Implement** (default after plan approval) → Execute agreed plan. Handle errors autonomously (retry once, then flag). Pause at checkpoint: show diff, summarize, confirm before commit/push/PR.
+- **Yolo** → Invoke with `/yolo <plan ref>`. Fully autonomous execution:
+  - Commit + push to feature branches freely. Create draft PRs.
+  - Spin up new branches/PRs as needed (new feature = new branch, refactor = separate PR).
+  - Build stacked PRs — each PR targets the branch below it.
+  - Never merge. Never destructive ops.
+  - If blocked after 2 attempts, flag and move on to next task.
+  - Stop when: all plan tasks complete, or scope is exhausted. Leave summary of what was done, what's pending, and PR links.
 
 ## Workflow
 
@@ -89,13 +102,6 @@ Stack order: foundational changes (refactors, extractions, fixes) go first. Depe
 5. Show diff, summarize what changed and why, confirm before committing
 6. Push branches, open PRs (global PR template)
 7. Retro → INBOX.md
-
-### `checkpoint yolo`
-1. Build + test
-2. Update README if changes affect it
-3. Show diff, summarize what changed and why, confirm before committing
-4. Push to main
-5. Retro → INBOX.md
 
 ### Retro timing
 - After final verification step of any plan/checkpoint, immediately begin retro — don't wait for user to ask.
@@ -121,8 +127,7 @@ When I hit friction:
 
 Commands — capture (quick, all write to ~/.claude/):
 - `checkpoint` → see Workflow section above
-- `checkpoint yolo` → see Workflow section above
-- `retro` → review this session, learnings → INBOX.md
+- `retro` → /retro command — review session for extractable patterns, friction, insights, style shifts → INBOX.md
 - `log` → idea/tangent → INBOX.md (date, context, idea, action)
 - `save` → conversation → ~/.claude/sessions/<date>-<slug>.md
 - `idea: <thought>` → ideate, then log to capture
