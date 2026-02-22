@@ -1,12 +1,12 @@
 # dotfiles
 
-Personal config. Work-specific stuff lives outside this repo.
+Universal config that works on any machine. Machine-specific overlays (`~/.zshrc.work`, `~/.zshrc.personal`) stay local, never committed here.
 
 ## Structure
 
 ```
-.claude/CLAUDE.md    # Claude Code personal config (symlinked to ~/.claude/CLAUDE.md)
-shell/zshrc          # Personal shell config (sourced by ~/.zshrc)
+shell/zshrc          # Universal shell config (aliases, functions, env)
+.claude/CLAUDE.md    # Claude Code config (symlinked to ~/.claude/CLAUDE.md)
 install.sh           # Sets up symlinks
 ```
 
@@ -21,13 +21,16 @@ Then add to `~/.zshrc`:
 ```bash
 source ~/dotfiles/shell/zshrc
 [ -f ~/.zshrc.work ] && source ~/.zshrc.work
+[ -f ~/.zshrc.personal ] && source ~/.zshrc.personal
 ```
 
 ## How it works
 
-- `~/.zshrc` is a 2-line loader — sources personal (this repo) and work (local only)
+- `shell/zshrc` — universal config (this repo), works anywhere
+- `~/.zshrc.work` — work-specific (company tools, aliases, env vars) — local only
+- `~/.zshrc.personal` — machine-specific personal overrides — local only
+- `~/.zshrc` is a loader that sources all three in order
 - `~/.claude/CLAUDE.md` is symlinked to this repo
-- Work config (`~/.zshrc.work`, `AGENTS.local.md`) stays local, never committed here
 - `push-dotfiles` commits and pushes this repo
 - `pull-dotfiles` pulls and re-sources zshrc
 - `sz` re-sources zshrc after edits
