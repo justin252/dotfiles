@@ -111,8 +111,27 @@ Commands — capture (quick, all write to ~/.claude/):
 - `save` → conversation → ~/.claude/sessions/<date>-<slug>.md
 - `idea: <thought>` → ideate, then log to capture
 
+Capture entries should include a best-effort `Triage:` line:
+- Type: insight (config/rule), task (build something), friction (process issue)
+- Destination: CLAUDE.md <section>, zshrc, bin/ script, backlog, unsure
+- Effort: quick, medium, large
+- Example: `**Triage:** insight → CLAUDE.md Agent, quick`
+
+Triage when INBOX.md exceeds ~10 items. At capture time, note if inbox is growing and nudge.
+
 Commands — curate (periodic):
-- `triage` → review ~/.claude/INBOX.md: promote to CLAUDE.md (correct section), zshrc alias, ~/dotfiles/bin/ script, or discard. No sensitive content to CLAUDE.md.
+- `triage` → review ~/.claude/INBOX.md in two phases:
+  **Phase 1 — Sort** (single pass, all items):
+  - Add/verify `Triage:` metadata on each item (type, destination, effort)
+  - Quick items: execute inline (add a line, done)
+  - No longer relevant? Mark `discarded` with reason
+  - Medium/large: leave tagged for Phase 2
+
+  **Phase 2 — Execute**:
+  - Group remaining items by destination (e.g., CLAUDE.md changes, bin/ scripts, zshrc)
+  - Execute each group as one change (PR or commit) — use judgement on granularity
+  - Resolved items move to `## Resolved` in INBOX.md with disposition (e.g. `promoted → Agent`, `discarded — obsolete`)
+  - No sensitive content to CLAUDE.md
 
 ## Setup
 
