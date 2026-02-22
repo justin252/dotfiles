@@ -10,6 +10,8 @@ ln -sfn "$DOTFILES/.claude/commands" ~/.claude/commands
 
 ln -sf "$DOTFILES/shell/zshrc" ~/.zshrc
 
+git config --global pull.rebase true
+
 echo "Done. Symlinked:"
 echo "  ~/.claude/CLAUDE.md → $DOTFILES/.claude/CLAUDE.md"
 echo "  ~/.claude/commands/ → $DOTFILES/.claude/commands/"

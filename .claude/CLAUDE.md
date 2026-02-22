@@ -28,9 +28,11 @@ Even in yolo mode:
 - Conventional commits: feat:, fix:, chore:, refactor:, docs:, test:.
 - Always run relevant tests before committing.
 - GitHub CLI for all GitHub interactions.
-- Always rebase, never merge — clean linear history.
+- Always rebase, never merge — clean linear history. Branch from `origin/main`, not local main.
+- Squash-merge PRs — one commit per PR on main.
 - New repos → always `.gitignore` with `.DS_Store` immediately.
 - Never commit without user confirmation — show diff, summarize, wait for go-ahead.
+- Before committing, verify current branch matches intent — especially for cross-cutting changes (triage, config).
 
 ## Pull Requests
 
@@ -58,6 +60,7 @@ Even in yolo mode:
 - Log actions for visibility
 - Exit loops if no progress toward verifiable goal
 - Ask before guessing paths/values — don't assume from directory listings
+- Before proposing new tools/aliases, grep existing config to avoid duplicating what's already there.
 - Flag over/under-prompting: if user is over-specifying something obvious, say so. If under-specifying is causing rework, flag that too.
 
 ## Modes

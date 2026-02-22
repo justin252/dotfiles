@@ -30,7 +30,6 @@ alias ..="cd .."
 alias ...="cd ../.."
 alias c="clear"
 alias ll="ls -lAh"
-alias la="ls -a"
 
 repo() {
   if [[ -z "$1" ]]; then
@@ -55,7 +54,7 @@ alias gb="git branch"
 alias ga="git add"
 alias gc="git commit"
 alias gpush="git push"
-alias gpull="git pull"
+alias gpull="git pull --rebase --autostash"
 alias gca="git commit --amend --no-edit"
 alias gpushup='git push --set-upstream origin $(git branch --show-current)'
 alias gl="git log --oneline --graph -20"
@@ -65,16 +64,33 @@ alias grebi="git rebase -i"
 alias gf="git fetch --prune"
 alias gd="git diff"
 alias gds="git diff --staged"
+alias grs="git restore --staged ."
 alias gst="git stash"
 alias gstp="git stash pop"
 alias gu="git reset --soft HEAD~1"
 alias greset="git reset --hard HEAD"
 gborrow() { git fetch origin $1 && git branch $1 FETCH_HEAD && git checkout $1; }
-alias gclean="git branch --merged | grep -v '\*\|main\|master' | xargs -n1 git branch -d"
-cdg() { cd "$(git rev-parse --show-toplevel)"; }
-gbclean() {
-  git fetch -p && git branch -vv | grep 'origin/.*: gone]' | awk '{print $1}' | xargs git branch -D
+gclean() {
+  git fetch -p
+  local default=$(git symbolic-ref refs/remotes/origin/HEAD --short | sed 's|origin/||')
+  # branches whose remote is gone
+  git branch -vv | grep 'origin/.*: gone]' | awk '{print $1}' | xargs git branch -D 2>/dev/null
+  # branches merged into default branch
+  git branch --merged "$default" | grep -v "\*\|$default" | xargs git branch -d 2>/dev/null
 }
+gsync() {
+  local default_branch=$(git symbolic-ref refs/remotes/origin/HEAD --short | sed 's|origin/||')
+  git fetch origin "$default_branch" && git rebase "origin/$default_branch" --autostash
+}
+alias gprc="gh pr checkout"
+gfresh() {
+  local branch=$(git branch --show-current)
+  git fetch origin "$branch" || { echo "No remote branch origin/$branch"; return 1; }
+  local stash_msg=$(git stash)
+  git reset --hard "origin/$branch"
+  [[ "$stash_msg" != "No local changes to save" ]] && echo "Local changes stashed: git stash pop to recover"
+}
+cdg() { cd "$(git rev-parse --show-toplevel)"; }
 
 # ─── Dev ──────────────────────────────────────────────────────
 alias py="python3"
@@ -104,10 +120,9 @@ alias cccy="claude -c --dangerously-skip-permissions"
 
 # ─── Shell ────────────────────────────────────────────────────
 alias dot="cd ~/dotfiles"
-alias tools="cd ~/tools"
+tools() { cd "${TOOLS_PATH:-$HOME/tools}"; }
 alias sz="source ~/.zshrc"
-alias push-dot='cd ~/dotfiles && git add -A && git commit -m "chore: sync" && git push && cd -'
-alias pull-dot='git -C ~/dotfiles pull --rebase && source ~/.zshrc'
+alias pull-dot='git -C ~/dotfiles pull --rebase --autostash && source ~/.zshrc'
 
 # ─── Work ────────────────────────────────────────────────────
 [ -f ~/.zshrc.work ] && source ~/.zshrc.work
