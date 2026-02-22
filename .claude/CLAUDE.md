@@ -12,6 +12,7 @@
 - If a README exists and changes affect it, update it automatically.
 - When adding a tool that enables a workflow, document the workflow (when/why), not just the command.
 - After renames/refactors, grep for old name to catch stale references.
+- Shell scripts (dotfiles): verify BSD (macOS) vs GNU flag compatibility.
 
 ## Safety
 
@@ -32,7 +33,8 @@ In all modes:
 - Squash-merge PRs — one commit per PR on main.
 - New repos → always `.gitignore` with `.DS_Store` immediately.
 - In implement mode: never commit without user confirmation — show diff, summarize, wait for go-ahead.
-- Before committing, verify current branch matches intent — especially for cross-cutting changes (triage, config).
+- Before committing, verify current branch matches intent — check for open PRs and whether changes belong there.
+- Feature branches: prefer rewriting history (reset + force push) over revert commits. Reverts only on main/shared branches.
 
 ## Pull Requests
 
@@ -162,7 +164,13 @@ Commands — curate (periodic):
   - Pull from `## Refined` by priority (P1 first)
   - Group by destination (e.g., CLAUDE.md changes, bin/ scripts, zshrc)
   - Execute each group as one change (PR or commit) — use judgement on granularity
-  - Resolved items move to `## Resolved` with disposition and commit link (e.g. `promoted → Agent [abc1234](url)`)
+  - Resolved items move to `## Resolved` with disposition + PR link (or commit link if no PR)
+
+  INBOX.md format:
+  - Sections: `## Refined`, `## Inbox`, `## Resolved`
+  - Inbox items: `### YYYY-MM-DD HH:MM — <title>` with body + `**Triage:**` line
+  - Refined items: `### <title>` with Priority/Approach/Context fields
+  - Resolved items: single-line bullets — `` `YYYY-MM-DD HH:MM` — **title** — plain English summary of what happened and why. **Disposition** [PR](url) ``
   - No sensitive content to CLAUDE.md
 
 ## Setup

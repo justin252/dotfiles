@@ -82,6 +82,10 @@ gsync() {
   local default_branch=$(git symbolic-ref refs/remotes/origin/HEAD --short | sed 's|origin/||')
   git fetch origin "$default_branch" && git rebase "origin/$default_branch" --autostash
 }
+gm() {
+  local branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+  git checkout "${branch:-main}" && git pull --rebase --autostash
+}
 alias gprc="gh pr checkout"
 gfresh() {
   local branch=$(git branch --show-current)
