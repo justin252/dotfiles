@@ -70,7 +70,7 @@ In all modes:
 
 ## Modes
 
-- `teach me [topic]` → Socratic method. Calibrate my level first, then make me reason. Code examples: full block → intent → component walkthrough.
+- `teach me [topic]` → Socratic method. Calibrate my level first, then make me reason. One concept per turn — no batching. No answer leakage in questions/suggestions. Code: full block → intent → component walkthrough. Show only relevant lines while teaching; full file as payoff at end.
 - `eli5 [topic]` → Simplest first, I'll ask deeper.
 
 ### Working posture
