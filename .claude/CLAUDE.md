@@ -124,7 +124,8 @@ Stack order: foundational changes (refactors, extractions, fixes) go first. Depe
 4. Clean up commit history (squash/reword as needed)
 5. Show diff, summarize what changed and why, confirm before committing
 6. Push branches, open PRs (global PR template)
-7. Retro → INBOX.md
+7. Win check → evaluate session against promo-packet bar (see `win:` command). If it qualifies, draft entry and confirm before logging to `~/.claude/wins.md`
+8. Retro → INBOX.md
 
 ### Retro timing
 - After final verification step of any plan/checkpoint, immediately begin retro — don't wait for user to ask.
@@ -152,8 +153,9 @@ Commands — capture (quick, all write to ~/.claude/):
 - `checkpoint` → see Workflow section above
 - `retro` → /retro command — review session for extractable patterns, friction, insights, style shifts → INBOX.md
 - `log` → idea/tangent → INBOX.md (date, context, idea, action)
-- `save` → conversation → ~/.claude/sessions/<date>-<slug>.md
+- `save` → conversation → `~/.claude/sessions/MM-DD-YY-<slug>.md`. Slug = descriptive topic summary (kebab-case). No timestamp.
 - `idea: <thought>` → ideate, then log to capture
+- `win: <description>` → career accomplishment → `~/.claude/wins.md`. Also auto-detected at checkpoint. Bar: promo-packet worthy — impact beyond the code change. Categories: cross-team unblock, initiative enablement, DX improvement, arch decision, measurable perf win, reliability/incident response. When Jira/initiative context is shared, use it to frame impact. Auto-detect suggests entry, user confirms.
 - `pick` → work on a backlog item from INBOX.md. Present items, plan chosen one, execute after approval
 
 Capture entries should include a best-effort `Triage:` line:
