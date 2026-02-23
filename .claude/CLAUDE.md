@@ -13,6 +13,20 @@
 - When adding a tool that enables a workflow, document the workflow (when/why), not just the command.
 - After renames/refactors, grep for old name to catch stale references.
 - Shell scripts (dotfiles): verify BSD (macOS) vs GNU flag compatibility.
+- Flag performance when it matters — hot paths, large datasets, repeated calls. Don't optimize prematurely.
+
+## Stack
+
+Primary: Go, TypeScript. Bazel build. Kubernetes, OpenAPI, gRPC.
+Use as reference frame — draw analogies to these when explaining new tech or making design decisions.
+
+## Testing
+
+- TDD for core logic — write tests first, use as guardrails for autonomous work
+- Table-driven tests (Go). Bazel: scope to affected targets
+- No heavy mocks. If it needs mocks, rethink the boundary
+- Integration tests: opt-in. Suggest at checkpoint when touching service boundaries
+- "be thorough" = add integration tests, edge cases, error paths
 
 ## Safety
 
