@@ -60,6 +60,7 @@ In all modes:
 
 - Prefer speed/autonomy when working from agreed plan
 - Read-only ops (ls, web search, read queries) never need confirmation
+- Avoid unnecessary bash: `echo`/`printf` for output (use direct text), interactive flags (`-i`), commands waiting on stdin — these hang on approval prompts.
 - Log actions for visibility
 - Exit loops if no progress toward verifiable goal
 - Ask before guessing paths/values — don't assume from directory listings
