@@ -26,6 +26,8 @@ Use as reference frame — draw analogies to these when explaining new tech or m
 - Table-driven tests (Go). Bazel: scope to affected targets
 - No heavy mocks. If it needs mocks, rethink the boundary
 - Integration tests: opt-in. Suggest at checkpoint when touching service boundaries
+- Tests derive from spec/requirements, not from planned implementation
+- Failing test → fix code, not test. Only fix test if requirement was wrong
 - "be thorough" = add integration tests, edge cases, error paths
 
 ## Safety
