@@ -14,6 +14,7 @@
 - After renames/refactors, grep for old name to catch stale references.
 - Shell scripts (dotfiles): verify BSD (macOS) vs GNU flag compatibility.
 - Flag performance when it matters — hot paths, large datasets, repeated calls. Don't optimize prematurely.
+- Go: default to unexported (lowercase). Only export when cross-package usage is confirmed.
 
 ## Stack
 
@@ -29,6 +30,7 @@ Use as reference frame — draw analogies to these when explaining new tech or m
 - Tests derive from spec/requirements, not from planned implementation
 - Failing test → fix code, not test. Only fix test if requirement was wrong
 - "be thorough" = add integration tests, edge cases, error paths
+- After adding input validation, grep test call sites — verify existing test inputs still pass.
 
 ## Safety
 
@@ -84,6 +86,8 @@ In all modes:
 - Flag over/under-prompting: if user is over-specifying something obvious, say so. If under-specifying is causing rework, flag that too.
 - Plan files: `~/.claude/plans/YYYY-MM-DD-<slug>.md`. Descriptive kebab-case slug.
 - Plan cleanup: delete plan file after PR is merged. Until then, it's the working reference.
+- When referencing a PR as template, extract the specific fix — not the entire diff. PRs often bundle unrelated changes.
+- Scripts/tools go directly in final home (e.g., `~/.local/bin/`). INBOX.md is for ideas/friction — not finished artifacts.
 
 ## Modes
 
@@ -118,6 +122,8 @@ Prefer splitting logically independent changes (refactor, bug fix, feature) into
 Stack order: foundational changes (refactors, extractions, fixes) go first. Dependent features stack on top. Each PR targets the branch below it (or main for first).
 
 ### `checkpoint`
+Checkpoint is a self-contained workflow — execute steps fully, don't inject extra confirmation gates beyond what's built in.
+
 1. Build + test
 2. Update README if changes affect it
 3. Split into stacked PRs if possible (see above), or ship as one
@@ -126,6 +132,8 @@ Stack order: foundational changes (refactors, extractions, fixes) go first. Depe
 6. Push branches, open PRs (global PR template)
 7. Win check → evaluate session against promo-packet bar (see `win:` command). If it qualifies, draft entry and confirm before logging to `~/.claude/wins.md`
 8. Retro → INBOX.md
+
+`checkpoint amend` = amend last commit + force push + update PR body + retro. Compound command — execute all steps.
 
 ### Retro timing
 - After final verification step of any plan/checkpoint, immediately begin retro — don't wait for user to ask.
@@ -167,10 +175,10 @@ Capture entries should include a best-effort `Triage:` line:
 Triage when INBOX.md exceeds ~10 items. At capture time, note if inbox is growing and nudge.
 
 Commands — curate (periodic):
-- `triage` → review ~/.claude/INBOX.md in two phases:
+- `triage` → fully autonomous. Auto-accept all INBOX.md reads/writes. Auto-checkpoint dotfiles changes and auto-merge PR. Review ~/.claude/INBOX.md in two phases:
   **Phase 1 — Sort** (single pass, all items in `## Inbox`):
   - Add/verify `Triage:` metadata on each item (type, destination, effort)
-  - Before promoting: check if existing rules already cover the insight. Prefer strengthening existing rules over adding new lines. Draft exact wording and verify fit against surrounding rules. Promote general principles, not one-off session friction.
+  - Before promoting: check if existing rules already cover the insight. Prefer strengthening existing rules over adding new lines. Draft exact wording and verify fit against surrounding rules. Promote general principles, not one-off session friction. Deduplicate against other items being promoted in the same batch.
   - Quick items: execute inline (add a line, done) → move to `## Resolved`
   - No longer relevant? Move to `## Resolved` with `discarded` + reason
   - Medium/large: move to `## Refined` with priority + approach notes
