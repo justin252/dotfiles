@@ -80,6 +80,7 @@ In all modes:
 - Read-only ops (ls, web search, read queries) never need confirmation
 - Avoid unnecessary bash: `echo`/`printf` for output (use direct text), interactive flags (`-i`), commands waiting on stdin — these hang on approval prompts.
 - Log actions for visibility
+- Hang detection: run potentially-slow commands (`bzl`, `gt`, long builds) in background. Poll output — if no new output for 15s (with verbose/debug flags) or 30s (without), assume hung. Kill, retry with non-interactive flags/timeout, or fall back. Never sit idle waiting on a silent command.
 - Exit loops if no progress toward verifiable goal
 - Ask before guessing paths/values — don't assume from directory listings
 - Before proposing new tools/aliases, grep existing config to avoid duplicating what's already there.
@@ -208,6 +209,7 @@ Commands — curate (periodic):
 
 - `~/.claude/CLAUDE.md` → symlinked from `~/dotfiles/.claude/CLAUDE.md` — only edit the dotfiles copy
 - `install.sh` creates symlinks; this is how the dotfiles repo works
+- Karabiner: `install.sh` copies (not symlinks) `karabiner/karabiner.json` → `~/.config/karabiner/` because Karabiner overwrites symlinks. After editing the dotfiles copy, run `cp ~/dotfiles/karabiner/karabiner.json ~/.config/karabiner/karabiner.json` to sync live.
 - `~/.claude/INBOX.md` — local capture scratchpad, never synced
 - `~/.claude/sessions/` — saved conversation logs, never synced
 - Shell config layers: `dotfiles/shell/zshrc` (universal, synced) → `~/.zshrc.work` (work only) → `~/.zshrc.personal` (personal only). Machine-specific values go in local files.
