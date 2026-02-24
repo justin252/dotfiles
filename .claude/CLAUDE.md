@@ -87,6 +87,7 @@ In all modes:
 - Flag over/under-prompting: if user is over-specifying something obvious, say so. If under-specifying is causing rework, flag that too.
 - Plan files: `~/.claude/plans/YYYY-MM-DD-<slug>.md`. Descriptive kebab-case slug.
 - Plan cleanup: delete plan file after PR is merged. Until then, it's the working reference.
+- Before broad find-replace, verify all match sites — short tokens hit unintended locations.
 - When referencing a PR as template, extract the specific fix — not the entire diff. PRs often bundle unrelated changes.
 - Scripts/tools go directly in final home (e.g., `~/.local/bin/`). INBOX.md is for ideas/friction — not finished artifacts.
 
