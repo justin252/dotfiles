@@ -53,6 +53,7 @@ In all modes:
 - In implement mode: never commit without user confirmation — show diff, summarize, wait for go-ahead.
 - Before committing, verify current branch matches intent — check for open PRs and whether changes belong there.
 - Feature branches: prefer rewriting history (reset + force push) over revert commits. Reverts only on main/shared branches.
+- Never `git reset --soft main` — local main drifts. Use `HEAD~N` (relative) for squashing branch commits.
 
 ## Pull Requests
 
@@ -72,6 +73,7 @@ In all modes:
   ```
 - Reference issue numbers when applicable
 - After pushing follow-up commits, update the PR body to reflect new changes
+- Before `gh pr edit --body`: always `gh pr view --json body` first, merge with existing content. GitHub has no edit history — overwriting destroys user content permanently.
 - Per-repo CLAUDE.md can override this template
 
 ## Agent
