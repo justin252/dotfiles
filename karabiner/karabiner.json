@@ -46,16 +46,7 @@
               {
                 "type": "basic",
                 "from": { "pointing_button": "button9" },
-                "to": [
-                  { "key_code": "t", "modifiers": ["left_command"] },
-                  { "key_code": "c" },
-                  { "key_code": "l" },
-                  { "key_code": "a" },
-                  { "key_code": "u" },
-                  { "key_code": "d" },
-                  { "key_code": "e" },
-                  { "key_code": "return_or_enter" }
-                ],
+                "to": [{ "key_code": "escape" }],
                 "conditions": [{ "type": "device_if", "identifiers": [{ "vendor_id": 1406, "product_id": 8198 }] }]
               },
               {
@@ -79,7 +70,26 @@
               {
                 "type": "basic",
                 "from": { "pointing_button": "button6" },
-                "to": [{ "key_code": "escape" }],
+                "to": [
+                  { "key_code": "t", "modifiers": ["left_command"] },
+                  { "key_code": "r" },
+                  { "key_code": "e" },
+                  { "key_code": "p" },
+                  { "key_code": "o" },
+                  { "key_code": "spacebar" },
+                  { "key_code": "p" },
+                  { "key_code": "e" },
+                  { "key_code": "n" },
+                  { "key_code": "n" },
+                  { "key_code": "y" },
+                  { "key_code": "spacebar" },
+                  { "key_code": "7", "modifiers": ["left_shift"] },
+                  { "key_code": "7", "modifiers": ["left_shift"] },
+                  { "key_code": "spacebar" },
+                  { "key_code": "c" },
+                  { "key_code": "c" },
+                  { "key_code": "return_or_enter" }
+                ],
                 "conditions": [{ "type": "device_if", "identifiers": [{ "vendor_id": 1406, "product_id": 8198 }] }]
               },
               {

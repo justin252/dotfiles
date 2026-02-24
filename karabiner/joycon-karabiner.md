@@ -36,11 +36,11 @@ Buttons (`pointing_button`) go directly into complex modifications, device-scope
 |---|---|---|
 | `pointing_button:button16` | ZL (trigger) | Enter |
 | `pointing_button:button15` | L (shoulder) | Dictation (F5) |
-| `pointing_button:button9` | Minus | New tab + `claude` (⌘T + type) |
+| `pointing_button:button9` | Minus | Escape |
 | `pointing_button:button3` | Dir Up | Up arrow |
 | `pointing_button:button2` | Dir Down | Down arrow |
 | `pointing_button:button5` | SL | Shift+Tab |
-| `pointing_button:button6` | SR | Escape |
+| `pointing_button:button6` | SR | New tab + `repo penny && cc` (⌘T + type) |
 | `pointing_button:button14` | Capture | Option+Delete (delete word) |
 | `pointing_button:button1` | Dir Left | Option+← (word jump left) |
 | `pointing_button:button4` | Dir Right | Option+→ (word jump right) |
