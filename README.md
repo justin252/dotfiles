@@ -8,6 +8,8 @@ Universal config that works on any machine. Machine-specific overlays (`~/.zshrc
 shell/zshrc              # Universal shell config (aliases, functions, env)
 .claude/CLAUDE.md        # Claude Code config (symlinked to ~/.claude/CLAUDE.md)
 .claude/commands/        # Custom slash commands (symlinked to ~/.claude/commands/)
+karabiner/karabiner.json # Karabiner-Elements config (Joy-Con L → Claude Code controls)
+karabiner/joycon-karabiner.md # Joy-Con mapping spec
 templates/DESIGN.md      # Design doc template (used by /design command)
 install.sh               # Sets up symlinks
 ```
@@ -34,6 +36,7 @@ source ~/dotfiles/shell/zshrc
 - `~/.zshrc` is a loader that sources all three in order
 - `~/.claude/CLAUDE.md` is symlinked to this repo
 - `~/.claude/commands/` is symlinked to this repo (custom slash commands like `/design`)
+- `~/.config/karabiner/karabiner.json` is symlinked to this repo (Joy-Con L mappings for one-handed Claude Code in iTerm)
 - `push-dot` commits and pushes this repo
 - `pull-dot` pulls and re-sources zshrc
 - `sz` re-sources zshrc after edits
