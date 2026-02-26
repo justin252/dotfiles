@@ -104,13 +104,7 @@ In all modes:
 ### Working posture
 - **Plan** → Claude Code's built-in plan mode. Read-only, deliberate.
 - **Implement** (default after plan approval) → Execute agreed plan. Handle errors autonomously (retry once, then flag). Pause at checkpoint: show diff, summarize, confirm before commit/push/PR.
-- **Yolo** → Invoke with `/yolo <plan ref>`. `<plan ref>` = saved plan slug (searched in `plans/saved/`). Fully autonomous execution:
-  - Commit + push to feature branches freely. Create draft PRs.
-  - Spin up new branches/PRs as needed (new feature = new branch, refactor = separate PR).
-  - Build stacked PRs — each PR targets the branch below it.
-  - Never merge. Never destructive ops.
-  - If blocked after 2 attempts, flag and move on to next task.
-  - Stop when: all plan tasks complete, or scope is exhausted. Leave summary of what was done, what's pending, and PR links.
+- **Yolo** → `/yolo <plan ref>`. `<plan ref>` = saved plan slug (searched in `plans/saved/`), file path, or issue number. See `/yolo` command for full spec.
 
 ## Workflow
 
@@ -163,19 +157,24 @@ When I hit friction:
 
 Commands — artifacts (`verb type [slug]`, all under `~/.claude/`):
 
-| Verb | plan | session | doc |
+| Verb | plan | convo | doc |
 |---|---|---|---|
-| **save** | `save plan [slug]` | `save session [slug]` | `save doc [slug]` |
-| **list** | `list plans` | `list sessions` | `list docs` |
-| **load** | `load plan <slug>` | `load session <slug>` | `load doc <slug>` |
+| **save** | `save plan [slug]` | `save convo [slug]` | `save doc [slug]` |
+| **list** | `list plans` | `list convos` | `list docs` |
+| **load** | `load plan <slug>` | `load convo <slug>` | `load doc <slug>` |
 | **new** | — (plan mode creates) | — | `new doc [slug]` |
 
 - `save plan [slug]` — copy current plan to `~/.claude/plans/saved/<slug>.md`. Add status header. Derive slug from title if omitted.
-- `save session [slug]` — conversation → `~/.claude/sessions/<slug>.md`. Slug = descriptive kebab-case topic.
+- `save convo [slug]` — conversation → `~/.claude/sessions/<slug>.md`. Incremental: tracks last save point within a session, appends on subsequent saves. Marker: `<!-- saved through: YYYY-MM-DD HH:MM -->`.
 - `save doc [slug]` — snapshot current doc to `~/.claude/docs/<slug>.md`. Header: `# Title` + `> Status: draft | review | final`.
-- `list plans|sessions|docs` — show slug — title for the given bucket.
-- `load plan|session|doc <slug>` — read artifact into session context. Partial prefix match OK — ambiguous → show options.
+- `list plans|convos|docs` — show slug — title for the given bucket.
+- `load plan|convo|doc <slug>` — read artifact into session context. Partial prefix match OK — ambiguous → show options.
 - `new doc [slug]` — create fresh doc in `~/.claude/docs/`. Opens for collaborative editing.
+
+Artifacts promote between buckets — no special commands needed:
+- Plan → doc: `load plan foo` → iterate → `save doc foo-design` (plan expands into design doc)
+- Doc → plans: `load doc foo-design` → break down → `save plan foo-phase1`, `save plan foo-phase2`
+- Each plan → branch → PR
 
 Commands — capture (quick):
 - `checkpoint` → see Workflow section above
