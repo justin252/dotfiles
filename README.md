@@ -6,12 +6,13 @@ Universal config that works on any machine. Machine-specific overlays (`~/.zshrc
 
 ```
 shell/zshrc              # Universal shell config (aliases, functions, env)
+tools/                   # CLI scripts on PATH (symlinked to ~/tools)
 .claude/CLAUDE.md        # Claude Code config (symlinked to ~/.claude/CLAUDE.md)
 .claude/commands/        # Custom slash commands (symlinked to ~/.claude/commands/)
 karabiner/karabiner.json # Karabiner-Elements config (Joy-Con L → Claude Code controls)
 karabiner/joycon-karabiner.md # Joy-Con mapping spec
 templates/DESIGN.md      # Design doc template (used by /design command)
-install.sh               # Sets up symlinks
+install.sh               # Sets up symlinks + installs fzf
 ```
 
 ## Setup
@@ -31,18 +32,16 @@ source ~/dotfiles/shell/zshrc
 ## How it works
 
 - `shell/zshrc` — universal config (this repo), works anywhere
+- `tools/` — CLI scripts, symlinked to `~/tools` (on PATH)
 - `~/.zshrc.work` — work-specific (company tools, aliases, env vars) — local only
 - `~/.zshrc.personal` — machine-specific personal overrides — local only
 - `~/.zshrc` is a loader that sources all three in order
 - `~/.claude/CLAUDE.md` is symlinked to this repo
 - `~/.claude/commands/` is symlinked to this repo (custom slash commands like `/design`)
 - `~/.config/karabiner/karabiner.json` is symlinked to this repo (Joy-Con L mappings for one-handed Claude Code in iTerm)
-- `push-dot` commits and pushes this repo
 - `pull-dot` pulls and re-sources zshrc
 - `sz` re-sources zshrc after edits
 
 ## Learning mechanism
 
 Captures go to `~/.claude/INBOX.md` (local, never synced). On triage, entries get promoted to CLAUDE.md rules, zshrc aliases, scripts, or discarded. See `.claude/CLAUDE.md` Meta section for details.
-
-Scripts live in a separate repo: [justin252/tools](https://github.com/justin252/tools/tree/main)

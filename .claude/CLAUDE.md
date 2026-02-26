@@ -91,7 +91,7 @@ In all modes:
 - Plan cleanup: delete plan file after PR is merged. Until then, it's the working reference.
 - Before broad find-replace, verify all match sites — short tokens hit unintended locations.
 - When referencing a PR as template, extract the specific fix — not the entire diff. PRs often bundle unrelated changes.
-- Scripts/tools go directly in final home (e.g., `~/.local/bin/`). INBOX.md is for ideas/friction — not finished artifacts.
+- Scripts/tools go in `~/tools` (symlinked from dotfiles). INBOX.md is for ideas/friction — not finished artifacts.
 
 ## Modes
 
@@ -217,5 +217,5 @@ Commands — curate (periodic):
 - `~/.claude/sessions/` — saved conversation logs, never synced
 - Shell config layers: `dotfiles/shell/zshrc` (universal, synced) → `~/.zshrc.work` (work only) → `~/.zshrc.personal` (personal only). Machine-specific values go in local files.
 - To detect context: check which local zshrc files exist on the machine.
-- Personal tools: separate tools repo at `$TOOLS_PATH` (set per-machine in local zshrc). PRs required, no direct push to main.
+- Personal tools: `~/tools` (symlinked from `~/dotfiles/tools/`, on PATH).
 - `~/code` — project root for all repos.
