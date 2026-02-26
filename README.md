@@ -37,7 +37,7 @@ source ~/dotfiles/shell/zshrc
 - `~/.zshrc.personal` — machine-specific personal overrides — local only
 - `~/.zshrc` is a loader that sources all three in order
 - `~/.claude/CLAUDE.md` is symlinked to this repo
-- `~/.claude/commands/` is symlinked to this repo (custom slash commands: `/design`, `/checkpoint`, `/triage`, `/retro`, `/yolo`)
+- `~/.claude/commands/` is symlinked to this repo (custom slash commands like `/design`)
 - `~/.config/karabiner/karabiner.json` is symlinked to this repo (Joy-Con L mappings for one-handed Claude Code in iTerm)
 - `pull-dot` pulls and re-sources zshrc
 - `sz` re-sources zshrc after edits
