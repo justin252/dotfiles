@@ -103,41 +103,29 @@ In all modes:
 
 ### Working posture
 - **Plan** → Claude Code's built-in plan mode. Read-only, deliberate.
-- **Implement** (default after plan approval) → Execute agreed plan. Handle errors autonomously (retry once, then flag). Pause at checkpoint: show diff, summarize, confirm before commit/push/PR.
-- **Yolo** → Invoke with `/yolo <plan ref>`. Fully autonomous execution:
-  - Commit + push to feature branches freely. Create draft PRs.
-  - Spin up new branches/PRs as needed (new feature = new branch, refactor = separate PR).
-  - Build stacked PRs — each PR targets the branch below it.
-  - Never merge. Never destructive ops.
-  - If blocked after 2 attempts, flag and move on to next task.
-  - Stop when: all plan tasks complete, or scope is exhausted. Leave summary of what was done, what's pending, and PR links.
+- **Implement** (default after plan approval) → Execute agreed plan. Handle errors autonomously (retry once, then flag). Pause at checkpoint.
+- **Yolo** → `/yolo <plan ref>`. Fully autonomous — draft PRs only, never merge, never destroy.
 
 ## Workflow
 
 Branch naming: `<type>/<slug>` (e.g. `feat/add-grep-tool`). No direct pushes to main.
 
-### Splitting changes
-Prefer splitting logically independent changes (refactor, bug fix, feature) into stacked PRs.
+### Commands
 
-**Proactive (preferred):** When I recognize a separable change while working, branch + commit it immediately before continuing. Cleanest path.
+Slash commands hold detailed prompts — CLAUDE.md says when/why, command file says how.
 
-**Retroactive (at checkpoint):** If changes are already mixed, attempt to untangle (split commits, cherry-pick, rebase). If changes are too intertwined to split cleanly, ship as one PR and flag it — don't butcher the split.
+- `/checkpoint [amend]` — build, test, commit, push draft PR, retro. Trigger anytime to save progress.
+- `/retro` — review session for patterns/friction/insights → INBOX.md. Auto-runs at end of checkpoint.
+- `/save <slug>` — save session to `~/.claude/sessions/MM-DD-YY-<slug>.md`
+- `/triage` — process INBOX.md: sort, prioritize, execute. Trigger when inbox exceeds ~10 items.
+- `/yolo <plan>` — autonomous plan execution. Draft PRs only, never merge.
+- `/design [name]` — scaffold design doc from template
 
-Stack order: foundational changes (refactors, extractions, fixes) go first. Dependent features stack on top. Each PR targets the branch below it (or main for first).
-
-### `checkpoint`
-Checkpoint is a self-contained workflow — execute steps fully, don't inject extra confirmation gates beyond what's built in.
-
-1. Build + test
-2. Update README if changes affect it
-3. Split into stacked PRs if possible (see above), or ship as one
-4. Clean up commit history (squash/reword as needed)
-5. Show diff, summarize what changed and why, confirm before committing
-6. Push branches, open PRs (global PR template)
-7. Win check → evaluate session against promo-packet bar (see `win:` command). If it qualifies, draft entry and confirm before logging to `~/.claude/wins.md`
-8. Retro → INBOX.md
-
-`checkpoint amend` = amend last commit + force push + update PR body + retro. Compound command — execute all steps.
+Inline commands (no command file):
+- `log` → idea/tangent → INBOX.md (date, context, idea, action)
+- `idea: <thought>` → ideate, then log
+- `win: <description>` → promo-packet entry → `~/.claude/wins.md`. Auto-detected at checkpoint. Bar: cross-team unblock, initiative enablement, DX improvement, arch decision, measurable perf win, reliability/incident response.
+- `pick` → work on a backlog item from INBOX.md
 
 ### Retro timing
 - After final verification step of any plan/checkpoint, immediately begin retro — don't wait for user to ask.
@@ -145,68 +133,23 @@ Checkpoint is a self-contained workflow — execute steps fully, don't inject ex
 
 ## Meta
 
-How learning works: I read CLAUDE.md at session start — no persistent memory beyond this file. All captures go to `~/.claude/INBOX.md` (local, never synced). Only `triage` promotes to CLAUDE.md.
+I read CLAUDE.md at session start — no persistent memory beyond this file. All captures go to `~/.claude/INBOX.md` (local, never synced). Only `/triage` promotes to CLAUDE.md.
 
 When to capture:
   Session ending?
-  ├── Friction, loops, wrong assumptions?  → retro
-  ├── Decisions or insights worth keeping? → retro
-  ├── Just routine coding?                → checkpoint or close
-  └── Sparked an idea?                    → log, then close
+  ├── Friction, loops, wrong assumptions?  → `/retro`
+  ├── Decisions or insights worth keeping? → `/retro`
+  ├── Just routine coding?                → `/checkpoint` or close
+  └── Sparked an idea?                    → `log`, then close
   Mid-session?
   ├── I hit friction and self-resolved     → I suggest INBOX.md entry (best-effort)
-  └── You notice something reusable       → log
+  └── You notice something reusable       → `log`
 
 When I hit friction:
 - Self-resolve once. If reusable insight, suggest INBOX.md entry.
 - Never loop 3+ times on same failure — stop, note pattern, ask.
 
-Commands — capture (quick, all write to ~/.claude/):
-- `checkpoint` → see Workflow section above
-- `retro` → /retro command — review session for extractable patterns, friction, insights, style shifts → INBOX.md
-- `log` → idea/tangent → INBOX.md (date, context, idea, action)
-- `save` → conversation → `~/.claude/sessions/MM-DD-YY-<slug>.md`. Slug = descriptive topic summary (kebab-case). No timestamp.
-- `idea: <thought>` → ideate, then log to capture
-- `win: <description>` → career accomplishment → `~/.claude/wins.md`. Also auto-detected at checkpoint. Bar: promo-packet worthy — impact beyond the code change. Categories: cross-team unblock, initiative enablement, DX improvement, arch decision, measurable perf win, reliability/incident response. When Jira/initiative context is shared, use it to frame impact. Auto-detect suggests entry, user confirms.
-- `pick` → work on a backlog item from INBOX.md. Present items, plan chosen one, execute after approval
-
-Capture entries should include a best-effort `Triage:` line:
-- Type: insight (config/rule), task (build something), friction (process issue)
-- Destination: CLAUDE.md <section>, zshrc, bin/ script, backlog, unsure
-- Effort: quick, medium, large
-- Example: `**Triage:** insight → CLAUDE.md Agent, quick`
-
-Triage when INBOX.md exceeds ~10 items. At capture time, note if inbox is growing and nudge.
-
-Commands — curate (periodic):
-- `triage` → fully autonomous. Auto-accept all INBOX.md reads/writes. Auto-checkpoint dotfiles changes and auto-merge PR. Review ~/.claude/INBOX.md in two phases:
-  **Phase 1 — Sort** (single pass, all items in `## Inbox`):
-  - Add/verify `Triage:` metadata on each item (type, destination, effort)
-  - Before promoting: check if existing rules already cover the insight. Prefer strengthening existing rules over adding new lines. Draft exact wording and verify fit against surrounding rules. Promote general principles, not one-off session friction. Deduplicate against other items being promoted in the same batch.
-  - Quick items: execute inline (add a line, done) → move to `## Resolved`
-  - No longer relevant? Move to `## Resolved` with `discarded` + reason
-  - Medium/large: move to `## Refined` with priority + approach notes
-
-  Refined item format:
-  ```
-  ### <title>
-  - **Priority:** P1 (next) / P2 (soon) / P3 (someday)
-  - **Approach:** terse how-to-accomplish notes
-  - **Context:** distilled from original capture
-  ```
-
-  **Phase 2 — Execute**:
-  - Pull from `## Refined` by priority (P1 first)
-  - Group by destination (e.g., CLAUDE.md changes, bin/ scripts, zshrc)
-  - Execute each group as one change (PR or commit) — use judgement on granularity
-  - Resolved items move to `## Resolved` with disposition + PR link (or commit link if no PR)
-
-  INBOX.md format:
-  - Sections: `## Refined`, `## Inbox`, `## Resolved`
-  - Inbox items: `### YYYY-MM-DD HH:MM — <title>` with body + `**Triage:**` line
-  - Refined items: `### <title>` with Priority/Approach/Context fields
-  - Resolved items: single-line bullets — `` `YYYY-MM-DD HH:MM` — **title** — plain English summary of what happened and why. **Disposition** [PR](url) ``
-  - No sensitive content to CLAUDE.md
+Capture entries include a `**Triage:**` line — type, destination, effort. See `/triage` for format.
 
 ## Setup
 
