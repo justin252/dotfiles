@@ -120,18 +120,7 @@ Prefer splitting logically independent changes (refactor, bug fix, feature) into
 Stack order: foundational changes (refactors, extractions, fixes) go first. Dependent features stack on top. Each PR targets the branch below it (or main for first).
 
 ### `checkpoint`
-Checkpoint is a self-contained workflow — execute steps fully, don't inject extra confirmation gates beyond what's built in.
-
-1. Build + test
-2. Update README if changes affect it
-3. Split into stacked PRs if possible (see above), or ship as one
-4. Clean up commit history (squash/reword as needed)
-5. Show diff, summarize what changed and why, confirm before committing
-6. Push branches, open PRs (global PR template)
-7. Win check → evaluate session against promo-packet bar (see `win:` command). If it qualifies, draft entry and confirm before logging to `~/.claude/wins.md`
-8. Retro → INBOX.md
-
-`checkpoint amend` = amend last commit + force push + update PR body + retro. Compound command — execute all steps.
+Build, test, split/ship PRs, commit, push, win check, retro. Full spec: /checkpoint command.
 
 ### Retro timing
 - After final verification step of any plan/checkpoint, immediately begin retro — don't wait for user to ask.
@@ -142,14 +131,8 @@ Checkpoint is a self-contained workflow — execute steps fully, don't inject ex
 How learning works: I read CLAUDE.md at session start — no persistent memory beyond this file. All captures go to `~/.claude/INBOX.md` (local, never synced). Only `triage` promotes to CLAUDE.md.
 
 When to capture:
-  Session ending?
-  ├── Friction, loops, wrong assumptions?  → retro
-  ├── Decisions or insights worth keeping? → retro
-  ├── Just routine coding?                → checkpoint or close
-  └── Sparked an idea?                    → log, then close
-  Mid-session?
-  ├── I hit friction and self-resolved     → I suggest INBOX.md entry (best-effort)
-  └── You notice something reusable       → log
+- Session ending with friction/insights/ideas? → retro or log
+- Mid-session friction, self-resolved? → suggest INBOX.md entry
 
 When I hit friction:
 - Self-resolve once. If reusable insight, suggest INBOX.md entry.
@@ -164,63 +147,22 @@ Commands — artifacts (`verb type [slug]`, all under `~/.claude/`):
 | **load** | `load plan <slug>` | `load convo <slug>` | `load doc <slug>` |
 | **new** | — (plan mode creates) | — | `new doc [slug]` |
 
-- `save plan [slug]` — copy current plan to `~/.claude/plans/saved/<slug>.md`. Add status header. Derive slug from title if omitted.
-- `save convo [slug]` — conversation → `~/.claude/sessions/<slug>.md`. Incremental: tracks last save point within a session, appends on subsequent saves. Marker: `<!-- saved through: YYYY-MM-DD HH:MM -->`.
-- `save doc [slug]` — snapshot current doc to `~/.claude/docs/<slug>.md`. Header: `# Title` + `> Status: draft | review | final`.
-- `list plans|convos|docs` — show slug — title for the given bucket.
-- `load plan|convo|doc <slug>` — read artifact into session context. Partial prefix match OK — ambiguous → show options.
-- `new doc [slug]` — create fresh doc in `~/.claude/docs/`. Opens for collaborative editing.
-
-Artifacts promote between buckets — no special commands needed:
-- Plan → doc: `load plan foo` → iterate → `save doc foo-design` (plan expands into design doc)
-- Doc → plans: `load doc foo-design` → break down → `save plan foo-phase1`, `save plan foo-phase2`
-- Each plan → branch → PR
+- `save`: copies to respective bucket. Plans get status header; slug derived from title if omitted. Convos are incremental (appends).
+- `list/load`: show slug — title. Load reads into context; partial prefix match, ambiguous → show options.
+- `new doc [slug]`: create fresh doc in `~/.claude/docs/`.
 
 Commands — capture (quick):
-- `checkpoint` → see Workflow section above
-- `retro` → /retro command — review session for extractable patterns, friction, insights, style shifts → INBOX.md
+- `checkpoint` → /checkpoint command
+- `retro` → /retro command
 - `log` → idea/tangent → INBOX.md (date, context, idea, action)
-- `idea: <thought>` → ideate, then log to capture
-- `win: <description>` → career accomplishment → `~/.claude/wins.md`. Also auto-detected at checkpoint. Bar: promo-packet worthy — impact beyond the code change. Categories: cross-team unblock, initiative enablement, DX improvement, arch decision, measurable perf win, reliability/incident response. When Jira/initiative context is shared, use it to frame impact. Auto-detect suggests entry, user confirms.
-- `pick` → work on a backlog item from INBOX.md. Present items, plan chosen one, execute after approval
+- `idea: <thought>` → ideate, then log
+- `win: <description>` → promo-packet worthy accomplishment → `~/.claude/wins.md`. Also auto-detected at checkpoint.
+- `pick` → backlog item from INBOX.md. Present items, plan, execute after approval
 
-Capture entries should include a best-effort `Triage:` line:
-- Type: insight (config/rule), task (build something), friction (process issue)
-- Destination: CLAUDE.md <section>, zshrc, bin/ script, backlog, unsure
-- Effort: quick, medium, large
-- Example: `**Triage:** insight → CLAUDE.md Agent, quick`
+Capture entries: `**Triage:** <type> → <destination>, <effort>` (e.g. `insight → CLAUDE.md Agent, quick`).
 
-Triage when INBOX.md exceeds ~10 items. At capture time, note if inbox is growing and nudge.
-
-Commands — curate (periodic):
-- `triage` → fully autonomous. Auto-accept all INBOX.md reads/writes. Auto-checkpoint dotfiles changes and auto-merge PR. Review ~/.claude/INBOX.md in two phases:
-  **Phase 1 — Sort** (single pass, all items in `## Inbox`):
-  - Add/verify `Triage:` metadata on each item (type, destination, effort)
-  - Before promoting: check if existing rules already cover the insight. Prefer strengthening existing rules over adding new lines. Draft exact wording and verify fit against surrounding rules. Promote general principles, not one-off session friction. Deduplicate against other items being promoted in the same batch.
-  - Quick items: execute inline (add a line, done) → move to `## Resolved`
-  - No longer relevant? Move to `## Resolved` with `discarded` + reason
-  - Medium/large: move to `## Refined` with priority + approach notes
-
-  Refined item format:
-  ```
-  ### <title>
-  - **Priority:** P1 (next) / P2 (soon) / P3 (someday)
-  - **Approach:** terse how-to-accomplish notes
-  - **Context:** distilled from original capture
-  ```
-
-  **Phase 2 — Execute**:
-  - Pull from `## Refined` by priority (P1 first)
-  - Group by destination (e.g., CLAUDE.md changes, bin/ scripts, zshrc)
-  - Execute each group as one change (PR or commit) — use judgement on granularity
-  - Resolved items move to `## Resolved` with disposition + PR link (or commit link if no PR)
-
-  INBOX.md format:
-  - Sections: `## Refined`, `## Inbox`, `## Resolved`
-  - Inbox items: `### YYYY-MM-DD HH:MM — <title>` with body + `**Triage:**` line
-  - Refined items: `### <title>` with Priority/Approach/Context fields
-  - Resolved items: single-line bullets — `` `YYYY-MM-DD HH:MM` — **title** — plain English summary of what happened and why. **Disposition** [PR](url) ``
-  - No sensitive content to CLAUDE.md
+Triage when INBOX.md exceeds ~10 items. At capture time, note if growing and nudge.
+- `triage` → /triage. Sort INBOX items (promote/discard/refine), execute by priority.
 
 ## Setup
 
