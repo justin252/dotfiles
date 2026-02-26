@@ -131,6 +131,16 @@ alias dot="cd ~/dotfiles"
 tools() { cd "${TOOLS_PATH:-$HOME/tools}"; }
 alias sz="source ~/.zshrc"
 alias pull-dot='git -C ~/dotfiles pull --rebase --autostash && source ~/.zshrc'
+alias pull-tools='git -C ~/tools pull --rebase --autostash'
+push-tools() {
+  local msg="${1:-update}"
+  local branch="chore/$(date +%Y%m%d)-${msg// /-}"
+  git -C ~/tools checkout -b "$branch" && \
+  git -C ~/tools add -A && \
+  git -C ~/tools commit -m "chore: $msg" && \
+  git -C ~/tools push -u origin "$branch" && \
+  gh pr create -R justin252/tools --fill
+}
 
 # ─── Work ────────────────────────────────────────────────────
 [ -f ~/.zshrc.work ] && source ~/.zshrc.work
