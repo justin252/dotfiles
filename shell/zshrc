@@ -86,8 +86,17 @@ gclean() {
   local default=$(_git_default_branch)
   # branches whose remote is gone
   git branch -vv | grep 'origin/.*: gone]' | awk '{print $1}' | xargs git branch -D 2>/dev/null
-  # branches merged into default branch
+  # branches merged into default branch (catches regular merges)
   git branch --merged "$default" | grep -v "\*\|$default" | xargs git branch -d 2>/dev/null
+  # branches with merged PRs on GitHub (catches squash-merges)
+  local branch
+  for branch in $(git branch --format='%(refname:short)' | grep -v "^${default}$"); do
+    local state=$(gh pr list --head "$branch" --state merged --json state --jq '.[0].state' 2>/dev/null)
+    if [[ "$state" == "MERGED" ]]; then
+      echo "deleting $branch (PR merged)"
+      git branch -D "$branch" 2>/dev/null
+    fi
+  done
 }
 gsync() {
   local default=$(_git_default_branch)
@@ -123,14 +132,23 @@ alias sizeof="du -sh"
 alias ducks="du -cksh * | sort -rh | head -20"
 
 # ─── Claude ───────────────────────────────────────────────────
+# Core
 alias cc="claude"
-alias ccy="claude --dangerously-skip-permissions"
 alias ccc="claude -c"
 alias ccr="claude -r"
 alias ccp="claude -p"
 alias ccw="claude -w"
-alias ccry="claude -r --dangerously-skip-permissions"
+
+# Yolo (skip all permission prompts)
+alias ccy="claude --dangerously-skip-permissions"
 alias cccy="claude -c --dangerously-skip-permissions"
+alias ccry="claude -r --dangerously-skip-permissions"
+alias ccwy="claude -w --dangerously-skip-permissions"
+
+# Autonomous agents: planner (read-only) → approval → executor (yolo)
+alias ccplan="claude -p --permission-mode plan --dangerously-skip-permissions"
+alias ccbot="claude -p --dangerously-skip-permissions"
+alias ccpipe="claude -p --dangerously-skip-permissions --output-format stream-json"
 
 # ─── Shell ────────────────────────────────────────────────────
 alias dot="cd ~/dotfiles"
