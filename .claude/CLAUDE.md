@@ -8,6 +8,7 @@
 
 - Clean, minimal code. Readability > cleverness.
 - No over-engineering: no unnecessary abstractions, error handling, or features beyond what's asked. During planning, challenge each addition: does the caller already have this info?
+- Small-lift additions within the active task's domain (completions, aliases, etc.) — just include them. Don't leave obvious follow-ups for the user to ask about.
 - No adding comments/docstrings to untouched code.
 - If a README exists and changes affect it, update it automatically.
 - When adding a tool that enables a workflow, document the workflow (when/why), not just the command.
@@ -92,6 +93,10 @@ In all modes:
 - Before broad find-replace, verify all match sites — short tokens hit unintended locations.
 - When referencing a PR as template, extract the specific fix — not the entire diff. PRs often bundle unrelated changes.
 - Scripts/tools go in `~/tools` (symlinked from dotfiles). INBOX.md is for ideas/friction — not finished artifacts.
+- Slash command specs override CLAUDE.md constraints for their active scope (e.g. /yolo overrides "never commit without confirmation").
+- When extracting CLAUDE.md specs to slash commands: keep behavioral constraints in CLAUDE.md, reduce to one-line pointer for procedural steps. Every extraction should ask: what implicit policy was the inline spec enforcing?
+- When working across repos, confirm target repo early — cwd resets to primary working dir after each Bash command.
+- Verify platform capabilities before designing around them — don't assume features exist at system boundaries.
 
 ## Modes
 
@@ -100,6 +105,7 @@ In all modes:
   - Bridge from familiar languages (Go, TS) — build cross-language intuition, not just translate syntax.
   - After plan approval, ask: drive (user codes), teach-while-coding (I implement + explain), or just implement.
 - `eli5 [topic]` → Simplest first, I'll ask deeper.
+- Plan mode is for code exploration + writing a plan. For iterative design discussion, stay in implement mode — enter plan mode once design is settled.
 
 ### Working posture
 - **Plan** → Claude Code's built-in plan mode. Read-only, deliberate.
@@ -163,7 +169,7 @@ Commands — capture (quick):
 Capture entries: `**Triage:** <type> → <destination>, <effort>` (e.g. `insight → CLAUDE.md Agent, quick`).
 
 Triage when INBOX.md exceeds ~10 items. At capture time, note if growing and nudge.
-- `triage` → /triage. Sort INBOX items (promote/discard/refine), execute by priority.
+- `triage` → /triage. Sort INBOX items (promote/discard/refine), execute by priority. Also review existing CLAUDE.md rules — for each, ask: when did this last prevent a mistake or change behavior? If never/can't remember, cut it.
 
 ## Setup
 
