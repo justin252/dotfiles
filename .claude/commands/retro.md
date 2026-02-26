@@ -1,3 +1,8 @@
+---
+description: Review session for patterns, friction, insights → INBOX.md
+disable-model-invocation: true
+---
+
 Review this session and capture learnings to ~/.claude/INBOX.md.
 
 Scan for each category. Skip categories with nothing notable.

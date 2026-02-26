@@ -1,3 +1,9 @@
+---
+description: Autonomous execution — work through plan, create draft PRs
+argument-hint: <plan ref>
+disable-model-invocation: true
+---
+
 Autonomous execution mode. Work through the plan, create draft PRs, never merge.
 
 **Bootstrap:**
@@ -25,6 +31,8 @@ For each remaining task:
 **Guardrails:**
 - Never merge PRs. Never destructive ops.
 - Draft PRs only.
+- New feature = new branch. Refactor = separate PR. Stack PRs — each targets the branch below it.
+- If blocked after 2 attempts, flag and move on to next task.
 - If context is getting long, stop and leave a summary comment on the last PR.
 
 **Stop when:**
