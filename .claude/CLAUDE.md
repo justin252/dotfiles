@@ -87,8 +87,8 @@ In all modes:
 - Ask before guessing paths/values — don't assume from directory listings
 - Before proposing new tools/aliases, grep existing config to avoid duplicating what's already there.
 - Flag over/under-prompting: if user is over-specifying something obvious, say so. If under-specifying is causing rework, flag that too.
-- Plan files: `~/.claude/plans/YYYY-MM-DD-<slug>.md`. Descriptive kebab-case slug.
-- Plan cleanup: delete plan file after PR is merged. Until then, it's the working reference.
+- Plan files: auto-generated plans stay in `~/.claude/plans/` (Claude Code manages). Saved plans promoted to `~/.claude/plans/saved/<slug>.md` via `save plan`. Header: `# Title` + `> Status: draft | active | done` + `> Repo: <repo> | Branch: <branch>`.
+- Plan cleanup: delete saved plan after PR is merged. Until then, it's the working reference.
 - Before broad find-replace, verify all match sites — short tokens hit unintended locations.
 - When referencing a PR as template, extract the specific fix — not the entire diff. PRs often bundle unrelated changes.
 - Scripts/tools go in `~/tools` (symlinked from dotfiles). INBOX.md is for ideas/friction — not finished artifacts.
@@ -104,13 +104,7 @@ In all modes:
 ### Working posture
 - **Plan** → Claude Code's built-in plan mode. Read-only, deliberate.
 - **Implement** (default after plan approval) → Execute agreed plan. Handle errors autonomously (retry once, then flag). Pause at checkpoint: show diff, summarize, confirm before commit/push/PR.
-- **Yolo** → Invoke with `/yolo <plan ref>`. Fully autonomous execution:
-  - Commit + push to feature branches freely. Create draft PRs.
-  - Spin up new branches/PRs as needed (new feature = new branch, refactor = separate PR).
-  - Build stacked PRs — each PR targets the branch below it.
-  - Never merge. Never destructive ops.
-  - If blocked after 2 attempts, flag and move on to next task.
-  - Stop when: all plan tasks complete, or scope is exhausted. Leave summary of what was done, what's pending, and PR links.
+- **Yolo** → `/yolo <plan ref>`. `<plan ref>` = saved plan slug (searched in `plans/saved/`), file path, or issue number. See `/yolo` command for full spec.
 
 ## Workflow
 
@@ -161,11 +155,31 @@ When I hit friction:
 - Self-resolve once. If reusable insight, suggest INBOX.md entry.
 - Never loop 3+ times on same failure — stop, note pattern, ask.
 
-Commands — capture (quick, all write to ~/.claude/):
+Commands — artifacts (`verb type [slug]`, all under `~/.claude/`):
+
+| Verb | plan | convo | doc |
+|---|---|---|---|
+| **save** | `save plan [slug]` | `save convo [slug]` | `save doc [slug]` |
+| **list** | `list plans` | `list convos` | `list docs` |
+| **load** | `load plan <slug>` | `load convo <slug>` | `load doc <slug>` |
+| **new** | — (plan mode creates) | — | `new doc [slug]` |
+
+- `save plan [slug]` — copy current plan to `~/.claude/plans/saved/<slug>.md`. Add status header. Derive slug from title if omitted.
+- `save convo [slug]` — conversation → `~/.claude/sessions/<slug>.md`. Incremental: tracks last save point within a session, appends on subsequent saves. Marker: `<!-- saved through: YYYY-MM-DD HH:MM -->`.
+- `save doc [slug]` — snapshot current doc to `~/.claude/docs/<slug>.md`. Header: `# Title` + `> Status: draft | review | final`.
+- `list plans|convos|docs` — show slug — title for the given bucket.
+- `load plan|convo|doc <slug>` — read artifact into session context. Partial prefix match OK — ambiguous → show options.
+- `new doc [slug]` — create fresh doc in `~/.claude/docs/`. Opens for collaborative editing.
+
+Artifacts promote between buckets — no special commands needed:
+- Plan → doc: `load plan foo` → iterate → `save doc foo-design` (plan expands into design doc)
+- Doc → plans: `load doc foo-design` → break down → `save plan foo-phase1`, `save plan foo-phase2`
+- Each plan → branch → PR
+
+Commands — capture (quick):
 - `checkpoint` → see Workflow section above
 - `retro` → /retro command — review session for extractable patterns, friction, insights, style shifts → INBOX.md
 - `log` → idea/tangent → INBOX.md (date, context, idea, action)
-- `save` → conversation → `~/.claude/sessions/MM-DD-YY-<slug>.md`. Slug = descriptive topic summary (kebab-case). No timestamp.
 - `idea: <thought>` → ideate, then log to capture
 - `win: <description>` → career accomplishment → `~/.claude/wins.md`. Also auto-detected at checkpoint. Bar: promo-packet worthy — impact beyond the code change. Categories: cross-team unblock, initiative enablement, DX improvement, arch decision, measurable perf win, reliability/incident response. When Jira/initiative context is shared, use it to frame impact. Auto-detect suggests entry, user confirms.
 - `pick` → work on a backlog item from INBOX.md. Present items, plan chosen one, execute after approval
@@ -214,7 +228,9 @@ Commands — curate (periodic):
 - `install.sh` creates symlinks; this is how the dotfiles repo works
 - Karabiner: `install.sh` copies (not symlinks) `karabiner/karabiner.json` → `~/.config/karabiner/` because Karabiner overwrites symlinks. After editing the dotfiles copy, run `cp ~/dotfiles/karabiner/karabiner.json ~/.config/karabiner/karabiner.json` to sync live.
 - `~/.claude/INBOX.md` — local capture scratchpad, never synced
+- `~/.claude/plans/saved/` — saved plans (promoted from auto-generated `plans/`), never synced
 - `~/.claude/sessions/` — saved conversation logs, never synced
+- `~/.claude/docs/` — long-lived documents (RFCs, design docs, proposals), never synced
 - Shell config layers: `dotfiles/shell/zshrc` (universal, synced) → `~/.zshrc.work` (work only) → `~/.zshrc.personal` (personal only). Machine-specific values go in local files.
 - To detect context: check which local zshrc files exist on the machine.
 - Personal tools: `~/tools` (symlinked from `~/dotfiles/tools/`, on PATH).
