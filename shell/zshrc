@@ -17,7 +17,13 @@ export VISUAL="vim"
 export PATH="$HOME/tools:$HOME/.local/bin:$PATH"
 
 # fzf
-source <(fzf --zsh)
+if command -v fzf &>/dev/null; then
+  if fzf --zsh &>/dev/null; then
+    source <(fzf --zsh)
+  elif [[ -f /usr/share/doc/fzf/examples/key-bindings.zsh ]]; then
+    source /usr/share/doc/fzf/examples/key-bindings.zsh
+  fi
+fi
 
 # cargo
 [[ -f "$HOME/.cargo/env" ]] && source "$HOME/.cargo/env"
@@ -131,16 +137,6 @@ alias dot="cd ~/dotfiles"
 tools() { cd "${TOOLS_PATH:-$HOME/tools}"; }
 alias sz="source ~/.zshrc"
 alias pull-dot='git -C ~/dotfiles pull --rebase --autostash && source ~/.zshrc'
-alias pull-tools='git -C ~/tools pull --rebase --autostash'
-push-tools() {
-  local msg="${1:-update}"
-  local branch="chore/$(date +%Y%m%d)-${msg// /-}"
-  git -C ~/tools checkout -b "$branch" && \
-  git -C ~/tools add -A && \
-  git -C ~/tools commit -m "chore: $msg" && \
-  git -C ~/tools push -u origin "$branch" && \
-  gh pr create -R justin252/tools --fill
-}
 
 # ─── Work ────────────────────────────────────────────────────
 [ -f ~/.zshrc.work ] && source ~/.zshrc.work

@@ -15,14 +15,8 @@ if ! command -v fzf &> /dev/null; then
   fi
 fi
 
-# Clone tools repo if missing
-if [[ ! -d "$HOME/tools" ]]; then
-  echo "Cloning tools repo..."
-  git clone git@github.com:justin252/tools.git "$HOME/tools"
-else
-  echo "Updating tools repo..."
-  git -C "$HOME/tools" pull --rebase --autostash
-fi
+# Symlink tools
+ln -sfn "$DOTFILES/tools" ~/tools
 
 mkdir -p ~/.claude
 
@@ -37,6 +31,7 @@ cp "$DOTFILES/karabiner/karabiner.json" ~/.config/karabiner/karabiner.json
 git config --global pull.rebase true
 
 echo "Done. Symlinked:"
+echo "  ~/tools → $DOTFILES/tools"
 echo "  ~/.claude/CLAUDE.md → $DOTFILES/.claude/CLAUDE.md"
 echo "  ~/.claude/commands/ → $DOTFILES/.claude/commands/"
 echo "  ~/.zshrc → $DOTFILES/shell/zshrc"
