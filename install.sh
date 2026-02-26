@@ -3,6 +3,27 @@ set -e
 
 DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 
+# Install fzf if missing
+if ! command -v fzf &> /dev/null; then
+  echo "Installing fzf..."
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    brew install fzf
+  elif command -v apt-get &> /dev/null; then
+    sudo apt-get update && sudo apt-get install -y fzf
+  else
+    echo "Warning: fzf not found, install manually"
+  fi
+fi
+
+# Clone tools repo if missing
+if [[ ! -d "$HOME/tools" ]]; then
+  echo "Cloning tools repo..."
+  git clone git@github.com:justin252/tools.git "$HOME/tools"
+else
+  echo "Updating tools repo..."
+  git -C "$HOME/tools" pull --rebase --autostash
+fi
+
 mkdir -p ~/.claude
 
 ln -sf "$DOTFILES/.claude/CLAUDE.md" ~/.claude/CLAUDE.md
