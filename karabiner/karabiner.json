@@ -46,7 +46,7 @@
               {
                 "type": "basic",
                 "from": { "pointing_button": "button9" },
-                "to": [{ "key_code": "escape" }],
+                "to": [{ "key_code": "c", "modifiers": ["left_control"] }],
                 "conditions": [{ "type": "device_if", "identifiers": [{ "vendor_id": 1406, "product_id": 8198 }] }]
               },
               {
