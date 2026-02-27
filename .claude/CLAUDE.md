@@ -56,6 +56,7 @@ In all modes:
 - Before committing, verify current branch matches intent – check for open PRs and whether changes belong there.
 - Feature branches: prefer rewriting history (reset + force push) over revert commits. Reverts only on main/shared branches.
 - Never `git reset --soft main` – local main drifts. Use `HEAD~N` (relative) for squashing branch commits.
+- Don't auto-squash branch commits at checkpoint – distinct logical commits (move, fix, feature) tell a story. Ask first.
 
 ## Pull Requests
 
@@ -84,7 +85,8 @@ In all modes:
 - Read-only ops (ls, web search, read queries) never need confirmation
 - Avoid unnecessary bash: `echo`/`printf` for output (use direct text), interactive flags (`-i`), commands waiting on stdin – these hang on approval prompts.
 - Log actions for visibility
-- Hang detection: run potentially-slow commands (`bzl`, `gt`, long builds) in background. Poll output – if no new output for 15s (with verbose/debug flags) or 30s (without), assume hung. Kill, retry with non-interactive flags/timeout, or fall back. Never sit idle waiting on a silent command.
+- CLI tools (`gt`, `bzl`, etc.): always pass `--no-interactive` or equivalent. Never let a CLI block on stdin.
+- Hang detection: run potentially-slow commands in background. Poll output – if no new output for 15s (with verbose/debug flags) or 30s (without), assume hung. Kill, retry with timeout, or fall back. Never sit idle waiting on a silent command.
 - Exit loops if no progress toward verifiable goal
 - Ask before guessing paths/values – don't assume from directory listings
 - Before proposing new tools/aliases, grep existing config to avoid duplicating what's already there.
