@@ -57,6 +57,9 @@ _repo() { compadd -M 'm:{a-zA-Z}={A-Za-z}' $(ls "$REPO_ROOT") }
 compdef _repo repo
 
 # ─── Git ──────────────────────────────────────────────────────
+# Hygiene: gm (back to main + cleanup), gsync (rebase onto main), gclean (cleanup only)
+# All use self-healing fetch – auto-rebuilds refs on stale packed-ref conflicts
+# Graphite stacks: use gtr not gsync
 alias gs="git status"
 alias gco="git checkout"
 alias gb="git branch"
@@ -80,30 +83,35 @@ alias gu="git reset --soft HEAD~1"
 alias greset="git reset --hard HEAD"
 gborrow() { git fetch origin $1 && git branch $1 FETCH_HEAD && git checkout $1; }
 _git_default_branch() { local b; b=$(git symbolic-ref refs/remotes/origin/HEAD --short 2>/dev/null | sed 's|origin/||'); echo "${b:-main}"; }
-unalias gclean 2>/dev/null
-gclean() {
-  git fetch -p
+# Prune + auto-rebuild refs on packed-ref conflict
+_git_fetch_clean() {
+  if ! git fetch --prune origin 2>/dev/null; then
+    git for-each-ref --format='delete %(refname)' refs/remotes/origin \
+      | git update-ref --stdin
+    git fetch origin
+  fi
+}
+# Delete gone, merged, and squash-merged branches
+_gclean_branches() {
   local default=$(_git_default_branch)
-  # branches whose remote is gone
   git branch -vv | grep 'origin/.*: gone]' | awk '{print $1}' | xargs git branch -D 2>/dev/null
-  # branches merged into default branch (catches regular merges)
   git branch --merged "$default" | grep -v "\*\|$default" | xargs git branch -d 2>/dev/null
-  # branches with merged PRs on GitHub (catches squash-merges)
   local branch
   for branch in $(git branch --format='%(refname:short)' | grep -v "^${default}$"); do
     local state=$(gh pr list --head "$branch" --state merged --json state --jq '.[0].state' 2>/dev/null)
-    if [[ "$state" == "MERGED" ]]; then
-      echo "deleting $branch (PR merged)"
-      git branch -D "$branch" 2>/dev/null
-    fi
+    [[ "$state" == "MERGED" ]] && echo "deleted $branch (PR merged)" && git branch -D "$branch" 2>/dev/null
   done
 }
+unalias gclean 2>/dev/null
+gclean() { _git_fetch_clean && _gclean_branches; }
 gsync() {
   local default=$(_git_default_branch)
-  git fetch origin "$default" && git rebase "origin/$default" --autostash
+  _git_fetch_clean && git rebase "origin/$default" --autostash
 }
 gm() {
+  _git_fetch_clean
   git checkout "$(_git_default_branch)" && git pull --rebase --autostash
+  _gclean_branches
 }
 alias gprc="gh pr checkout"
 gfresh() {
