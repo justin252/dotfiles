@@ -36,7 +36,7 @@ Buttons (`pointing_button`) go directly into complex modifications, device-scope
 |---|---|---|
 | `pointing_button:button16` | ZL (trigger) | Enter |
 | `pointing_button:button15` | L (shoulder) | Dictation (F5) |
-| `pointing_button:button9` | Minus | Escape |
+| `pointing_button:button9` | Minus | Ctrl+C |
 | `pointing_button:button3` | Dir Up | Up arrow |
 | `pointing_button:button2` | Dir Down | Down arrow |
 | `pointing_button:button5` | SL | Shift+Tab |
