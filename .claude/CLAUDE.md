@@ -122,6 +122,12 @@ Checkpoint is the only release path. Never offer bare commit+push – always rou
 
 ### Splitting changes
 Prefer splitting logically independent changes (refactor, bug fix, feature) into stacked PRs.
+Stacked PRs use Graphite (`gt`), not raw git:
+- `gt create <branch>` not `git checkout -b` – creates branch and tracks stack
+- `gt submit` (`gtsub`) not `git push` + `gh pr create` – creates/updates PRs for entire stack
+- `gt restack` (`gtr`) not `git rebase` – rebases stack after changes
+- `gt sync` not `git fetch` – pulls latest main into Graphite tracking
+- `gt log short --stack` (`gts`) – view current stack
 
 **Proactive (preferred):** When I recognize a separable change while working, branch + commit it immediately before continuing. Cleanest path.
 
@@ -132,16 +138,23 @@ Stack order: foundational changes (refactors, extractions, fixes) go first. Depe
 ### `checkpoint`
 Build, test, split/ship PRs, commit, push, win check, retro. Full spec: /checkpoint command.
 
-### Retro timing
-- After final verification step of any plan/checkpoint, immediately begin retro – don't wait for user to ask.
-- Before entering plan mode on a session with significant friction/learnings, capture retro notes first to avoid context loss across the plan mode boundary.
+### Retro
+Two tiers:
+- `retro` (full) → /retro command. At checkpoint or session end. Full session review.
+- `retro:quick` → Before any context-loss event. Scan conversation for decisions, friction, wrong assumptions. Write quick INBOX.md entries. 30 seconds, not a full review.
+
+Context-loss triggers (always run `retro:quick` before these):
+- Entering plan mode
+- Clearing context
+- Switching repos/tasks
+- Long break (user says "pause", "stop", "done for now")
 
 ## Meta
 
 How learning works: I read CLAUDE.md at session start – no persistent memory beyond this file. All captures go to `~/.claude/INBOX.md` (local, never synced). Only `triage` promotes to CLAUDE.md.
 
 When to capture:
-- Session ending with friction/insights/ideas? → retro or log
+- Context-loss event imminent? → `retro:quick`
 - Mid-session friction, self-resolved? → suggest INBOX.md entry
 
 When I hit friction:
@@ -163,7 +176,8 @@ Commands – artifacts (`verb type [slug]`, all under `~/.claude/`):
 
 Commands – capture (quick):
 - `checkpoint` → /checkpoint command
-- `retro` → /retro command
+- `retro` → /retro command (full, at checkpoint/session end)
+- `retro:quick` → scan for decisions/friction, write INBOX.md entries (before context loss)
 - `log` → idea/tangent → INBOX.md (date, context, idea, action)
 - `idea: <thought>` → ideate, then log
 - `win: <description>` → promo-packet worthy accomplishment → `~/.claude/wins.md`. Also auto-detected at checkpoint.

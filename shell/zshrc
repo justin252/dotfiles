@@ -115,6 +115,11 @@ gfresh() {
 }
 cdg() { cd "$(git rev-parse --show-toplevel)"; }
 
+# ─── Graphite ────────────────────────────────────────────────
+alias gts="gt log short --stack"
+alias gtsub="gt submit"
+alias gtr="gt restack"
+
 # ─── Dev ──────────────────────────────────────────────────────
 alias py="python3"
 alias serve="python3 -m http.server"
