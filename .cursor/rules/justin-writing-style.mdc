@@ -1,0 +1,29 @@
+---
+description: Justin's writing style for proposals, pitches, and informal technical docs. NOT for formal RFCs, architecture decision records, or API specs.
+globs: "**/*.md"
+alwaysApply: false
+---
+
+# Writing Style – Proposals & Pitches
+
+Use this voice when helping write or edit proposals, pitches, team docs, and informal technical writeups.
+
+## Voice
+
+- **Narrative, not definitional.** Walk the reader through the experience. Show the thing in action – don't define it in a glossary.
+- **Second person by default.** "You tell the agent to pick up SDA-1234." "You start a session and cd to..."
+- **First person for opinions.** "I like to force the agent to ask me probing questions." "I'm envisioning three types of tasks."
+- **Concrete examples over abstractions.** "Say, a weird Bazel edge case" beats "learnings captured automatically."
+
+## Rhythm
+
+- Short punchy sentences mixed with longer ones.
+- En dashes (`–`) for asides – not em dashes, not double hyphens, not parentheses.
+- **Bold** to introduce a term, then immediately ground it in something tangible.
+- Parenthetical tool-specifics kept brief: (Claude Code: X; Cursor: Y).
+
+## Anti-patterns
+
+- Never glossary voice: "Subagents are isolated agent instances with their own context, system prompt, tools, and permissions." – Kill this. Show the subagent doing something instead.
+- Never recap what was already shown: "The example above showed routing..." – The reader already saw it. Advance.
+- Never list features. Tell a story.

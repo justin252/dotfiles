@@ -1,0 +1,20 @@
+---
+description: Personal preferences – soft shim to ~/.claude/CLAUDE.md (single source of truth)
+alwaysApply: true
+---
+
+# Preferences
+
+Read `~/.claude/CLAUDE.md` for full preferences (style, code, testing, safety, git, PRs, agent behavior, workflow). That file is the single source of truth – apply all sections.
+
+## Cursor-specific overrides
+
+These adapt Claude Code conventions to Cursor equivalents:
+
+- **Commands**: `/checkpoint`, `/retro`, `/triage` live in `~/.cursor/commands/` (not `~/.claude/commands/`)
+- **Scoped rules**: `~/.cursor/rules/*.mdc` for writing style, scenario-specific behavior
+- **Inbox**: shared at `~/.claude/INBOX.md` – both tools read/write the same file
+- **Wins**: shared at `~/.claude/wins.md`
+- **Triage destinations**: promoted rules go to `~/.claude/CLAUDE.md` (shared, both tools benefit). Cursor-only scoped rules go to `~/.cursor/rules/`
+- **Plan mode**: Cursor has built-in plan mode. Use it for exploration + planning. Switch off for execution.
+- **Retro on context loss**: Cursor doesn't auto-detect context-loss events. Run `retro:quick` manually before clearing context or switching tasks.

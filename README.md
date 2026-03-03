@@ -9,6 +9,9 @@ shell/zshrc              # Universal shell config (aliases, functions, env)
 tools/                   # CLI scripts on PATH (symlinked to ~/tools)
 .claude/CLAUDE.md        # Claude Code config (symlinked to ~/.claude/CLAUDE.md)
 .claude/commands/        # Custom slash commands (symlinked to ~/.claude/commands/)
+.cursor/rules/           # Cursor-specific rules (symlinked to ~/.cursor/rules/)
+.cursor/commands/        # Cursor-specific commands (symlinked to ~/.cursor/commands/)
+docs/                    # Workflow docs
 karabiner/karabiner.json # Karabiner-Elements config (Joy-Con L → Claude Code controls)
 karabiner/joycon-karabiner.md # Joy-Con mapping spec
 templates/DESIGN.md      # Design doc template (used by /design command)
@@ -31,13 +34,15 @@ source ~/dotfiles/shell/zshrc
 
 ## How it works
 
-- `shell/zshrc` — universal config (this repo), works anywhere
+- `shell/zshrc` — universal config (this repo), works anywhere, refactored to remove Oh My Zsh dependency
 - `tools/` — CLI scripts, symlinked to `~/tools` (on PATH)
 - `~/.zshrc.work` — work-specific (company tools, aliases, env vars) — local only
 - `~/.zshrc.personal` — machine-specific personal overrides — local only
 - `~/.zshrc` is a loader that sources all three in order
-- `~/.claude/CLAUDE.md` is symlinked to this repo
-- `~/.claude/commands/` is symlinked to this repo (custom slash commands: `/design`, `/checkpoint`, `/triage`, `/retro`, `/yolo`)
+- `~/.claude/CLAUDE.md` is symlinked to this repo – single source of truth for Claude Code preferences
+- `~/.claude/commands/` is symlinked to this repo (custom slash commands)
+- `~/.cursor/rules/` is symlinked to this repo (Cursor-specific rules and style guides)
+- `~/.cursor/commands/` is symlinked to this repo (Cursor-specific command overrides)
 - `~/.config/karabiner/karabiner.json` is symlinked to this repo (Joy-Con L mappings for one-handed Claude Code in iTerm)
 - `pull-dot` pulls and re-sources zshrc
 - `sz` re-sources zshrc after edits
