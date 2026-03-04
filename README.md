@@ -5,14 +5,17 @@ Universal config that works on any machine. Machine-specific overlays (`~/.zshrc
 ## Structure
 
 ```
-shell/zshrc              # Universal shell config (aliases, functions, env)
-tools/                   # CLI scripts on PATH (symlinked to ~/tools)
-.claude/CLAUDE.md        # Claude Code config (symlinked to ~/.claude/CLAUDE.md)
-.claude/commands/        # Custom slash commands (symlinked to ~/.claude/commands/)
-karabiner/karabiner.json # Karabiner-Elements config (Joy-Con L → Claude Code controls)
+.agents/AGENTS.md            # Shared agent instructions (cross-tool source of truth)
+.agents/skills/              # Agent skills (symlinked to ~/.agents/, ~/.claude/, ~/.cursor/)
+.claude/CLAUDE.md            # Claude Code config (@imports AGENTS.md + Claude-specific)
+.cursor/rules/base.mdc       # Cursor project rules
+shell/zshrc                  # Universal shell config (aliases, functions, env)
+tools/                       # CLI scripts on PATH (symlinked to ~/tools)
+karabiner/karabiner.json     # Karabiner-Elements config (Joy-Con L → Claude Code controls)
 karabiner/joycon-karabiner.md # Joy-Con mapping spec
-templates/DESIGN.md      # Design doc template (used by /design command)
-install.sh               # Sets up symlinks + installs fzf
+templates/DESIGN.md          # Design doc template (used by /design command)
+install.sh                   # Sets up symlinks + installs fzf
+AGENTS.md                    # Repo-level agent instructions (this repo)
 ```
 
 ## Setup
@@ -36,12 +39,14 @@ source ~/dotfiles/shell/zshrc
 - `~/.zshrc.work` — work-specific (company tools, aliases, env vars) — local only
 - `~/.zshrc.personal` — machine-specific personal overrides — local only
 - `~/.zshrc` is a loader that sources all three in order
-- `~/.claude/CLAUDE.md` is symlinked to this repo
-- `~/.claude/commands/` is symlinked to this repo (custom slash commands: `/design`, `/checkpoint`, `/triage`, `/retro`, `/yolo`)
-- `~/.config/karabiner/karabiner.json` is symlinked to this repo (Joy-Con L mappings for one-handed Claude Code in iTerm)
+- `~/.agents/AGENTS.md` — shared agent instructions, symlinked to this repo
+- `~/.agents/skills/` — agent skills, symlinked to this repo (both Claude Code and Cursor discover here)
+- `~/.claude/CLAUDE.md` — Claude Code config, symlinked to this repo (@imports shared AGENTS.md)
+- `~/.cursor/rules/` — Cursor project rules, symlinked to this repo
+- `~/.config/karabiner/karabiner.json` is copied from this repo (Karabiner breaks symlinks)
 - `pull-dot` pulls and re-sources zshrc
 - `sz` re-sources zshrc after edits
 
 ## Learning mechanism
 
-Captures go to `~/.claude/INBOX.md` (local, never synced). On triage, entries get promoted to CLAUDE.md rules, zshrc aliases, scripts, or discarded. See `.claude/CLAUDE.md` Meta section for details.
+Captures go to `~/.agents/INBOX.md` (local, never synced). On triage, entries get promoted to AGENTS.md rules, zshrc aliases, scripts, or discarded. See `.claude/CLAUDE.md` Meta section for details.

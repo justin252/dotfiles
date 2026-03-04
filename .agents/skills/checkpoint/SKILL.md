@@ -8,11 +8,11 @@ Self-contained workflow – execute steps fully, don't inject extra confirmation
 
 1. Build + test (scope to affected targets)
 2. Update README if changes affect it
-3. Split into stacked PRs if possible (see Workflow > Splitting changes in `~/.claude/CLAUDE.md`), or ship as one
+3. Split into stacked PRs if possible (see Workflow > Splitting changes in CLAUDE.md), or ship as one
 4. Clean up commit history (squash/reword as needed)
 5. Show diff, summarize what changed and why, confirm before committing
-6. Push branches, open PRs (use PR template from `~/.claude/CLAUDE.md` > Pull Requests)
-7. Win check – evaluate session against promo-packet bar (see below). If it qualifies, draft entry and confirm before logging to `~/.claude/wins.md`
+6. Push branches, open PRs (use PR template from `~/.agents/AGENTS.md` > Pull Requests)
+7. Win check – evaluate session against promo-packet bar (see below). If it qualifies, draft entry and confirm before logging to `~/.agents/wins.md`
 8. Retro – run /retro
 
 **`checkpoint amend`** = amend last commit + force push + update PR body + retro. Compound – execute all steps.
