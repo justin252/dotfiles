@@ -1,12 +1,14 @@
 ---
 name: retro
-description: Review session and capture learnings to ~/.agents/INBOX.md. Run at checkpoint or session end.
-disable-model-invocation: true
+description: Capture friction and learnings to ~/.agents/INBOX.md. Context-aware – abbreviated before context loss, full at checkpoint/session end.
+
 ---
 
 Review this session and capture learnings to `~/.agents/INBOX.md`.
 
-Scan for each category. Skip categories with nothing notable.
+**Context-aware scope:**
+- **Full** (checkpoint, session end): scan all categories below. Skip categories with nothing notable.
+- **Abbreviated** (before context loss – plan mode exit, clear, repo switch, pause): friction + key decisions only. 30 seconds.
 
 **Extractable patterns:**
 - Ad-hoc scripts, bash pipelines, or multi-step sequences generated this session
@@ -21,14 +23,9 @@ Scan for each category. Skip categories with nothing notable.
 **Process insights:**
 - What worked well, what didn't
 - AGENTS.md rules that helped or were missing
-- Cursor-specific: rules that should be added to `~/.cursor/rules/`
 
 **Style/context shifts:**
 - Points where conversation depth, tone, or approach shifted
 - Whether the shift was appropriate or signals a calibration gap
 
 Write each finding as a separate INBOX.md entry under `## Inbox` with `**Triage:**` metadata. Group related items naturally.
-
----
-
-**`retro:quick`** – before any context-loss event. Scan conversation for decisions, friction, wrong assumptions. Write quick INBOX.md entries. 30 seconds, not a full review.
