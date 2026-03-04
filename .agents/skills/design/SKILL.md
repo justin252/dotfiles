@@ -2,7 +2,7 @@
 name: design
 description: Scaffold a design doc from template for a new project or feature.
 argument-hint: "[project or feature name]"
-disable-model-invocation: true
+
 ---
 
 Scaffold a design doc using the template at `~/dotfiles/templates/DESIGN.md`.

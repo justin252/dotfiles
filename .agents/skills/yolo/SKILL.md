@@ -1,7 +1,7 @@
 ---
 name: yolo
 description: Autonomous execution mode. Work through a plan, create draft PRs, never merge.
-disable-model-invocation: true
+
 ---
 
 Autonomous execution mode. Work through the plan, create draft PRs, never merge.
