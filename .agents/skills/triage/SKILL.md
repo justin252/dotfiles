@@ -1,10 +1,12 @@
 ---
 name: triage
 description: Sort and execute INBOX.md items. Promotes stable patterns to AGENTS.md or tool-specific rules.
-disable-model-invocation: true
+
 ---
 
 Fully autonomous. Auto-accept all INBOX.md reads/writes. Auto-checkpoint dotfiles changes and auto-merge PR.
+
+**Batch limit:** Process max 10 items per invocation (across both phases) to prevent context bloat. If more remain, stop and note "run /triage again for remaining items."
 
 Review ~/.agents/INBOX.md in two phases:
 

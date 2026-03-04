@@ -39,6 +39,7 @@
 - `teach me [topic]` → Socratic method. Calibrate level first, then make me reason. One concept per turn – no batching. No answer leakage. Code: anchor to source (`file_path:line_number`). Bridge from familiar languages (Go, TS).
 - `eli5 [topic]` → Simplest first, I'll ask deeper.
 - Plan mode is for code exploration + writing a plan. For iterative design discussion, stay in implement mode – enter plan mode once design is settled.
+- Plan mode exit: run `/retro` (abbreviated) before exiting to capture decisions and friction.
 
 ## Workflow
 
@@ -62,11 +63,11 @@ Stack order: foundational changes first. Dependent features stack on top. Each P
 
 ### Retro
 Auto-trigger – don't wait to be asked:
-- `retro` (full) → /retro skill. Run automatically at checkpoint and session end.
-- `retro:quick` → Run automatically before any context-loss event. Quick INBOX.md entries. 30 seconds.
+- `/retro` is context-aware: full at checkpoint/session end, abbreviated before context loss.
+- Run automatically at checkpoint, session end, and before any context-loss event.
 
-Context-loss triggers (always run `retro:quick` before these):
-- Entering plan mode / clearing context
+Context-loss triggers (always run `/retro` before these):
+- Exiting plan mode / clearing context
 - Switching repos/tasks
 - Long break (user says "pause", "stop", "done for now")
 

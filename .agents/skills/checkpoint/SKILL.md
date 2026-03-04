@@ -1,7 +1,7 @@
 ---
 name: checkpoint
 description: Build, test, split/ship PRs, commit, push, win check, retro. The only release path.
-disable-model-invocation: true
+
 ---
 
 Self-contained workflow – execute steps fully, don't inject extra confirmation gates beyond what's built in.
