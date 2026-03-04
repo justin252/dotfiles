@@ -18,10 +18,11 @@ fi
 # Symlink tools
 ln -sfn "$DOTFILES/tools" ~/tools
 
-mkdir -p ~/.claude
+mkdir -p ~/.claude ~/.cursor
 
 ln -sf "$DOTFILES/.claude/CLAUDE.md" ~/.claude/CLAUDE.md
-ln -sfn "$DOTFILES/.claude/commands" ~/.claude/commands
+ln -sfn "$DOTFILES/.claude/skills" ~/.claude/skills
+ln -sfn "$DOTFILES/.cursor/rules" ~/.cursor/rules
 
 ln -sf "$DOTFILES/shell/zshrc" ~/.zshrc
 
@@ -33,6 +34,7 @@ git config --global pull.rebase true
 echo "Done. Symlinked:"
 echo "  ~/tools → $DOTFILES/tools"
 echo "  ~/.claude/CLAUDE.md → $DOTFILES/.claude/CLAUDE.md"
-echo "  ~/.claude/commands/ → $DOTFILES/.claude/commands/"
+echo "  ~/.claude/skills/ → $DOTFILES/.claude/skills/"
+echo "  ~/.cursor/rules/ → $DOTFILES/.cursor/rules/"
 echo "  ~/.zshrc → $DOTFILES/shell/zshrc"
 echo "  ~/.config/karabiner/karabiner.json ← $DOTFILES/karabiner/karabiner.json (copied, Karabiner breaks symlinks)"

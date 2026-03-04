@@ -1,7 +1,8 @@
 ---
-description: Scaffold a design doc from template for a new project or feature
-argument-hint: [project or feature name]
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+name: design
+description: Scaffold a design doc from template for a new project or feature.
+argument-hint: "[project or feature name]"
+disable-model-invocation: true
 ---
 
 Scaffold a design doc using the template at `~/dotfiles/templates/DESIGN.md`.
@@ -15,7 +16,7 @@ Scaffold a design doc using the template at `~/dotfiles/templates/DESIGN.md`.
    - Create `~/code/<name>/` (project root per CLAUDE.md)
    - `git init`, create `.gitignore` (include `.DS_Store`)
    - Copy template as `DESIGN.md`, replacing `$PROJECT_NAME` with the project name
-   - Walk through each section interactively — ask the user to fill in or skip each one
+   - Walk through each section interactively – ask the user to fill in or skip each one
    - Commit when the user says go
 
 3. **New feature:**
@@ -24,7 +25,7 @@ Scaffold a design doc using the template at `~/dotfiles/templates/DESIGN.md`.
    - Ensure `docs/design/` exists under that directory
    - Create `<dir>/docs/design/<feature>.md` from template
    - Replace `$PROJECT_NAME` with the feature name
-   - Skip Architecture section (parent project owns that) — delete it from the copy
+   - Skip Architecture section (parent project owns that) – delete it from the copy
    - Walk through remaining sections interactively
    - Commit when the user says go
 

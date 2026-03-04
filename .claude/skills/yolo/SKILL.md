@@ -1,3 +1,9 @@
+---
+name: yolo
+description: Autonomous execution mode. Work through a plan, create draft PRs, never merge.
+disable-model-invocation: true
+---
+
 Autonomous execution mode. Work through the plan, create draft PRs, never merge.
 
 **Bootstrap:**
@@ -8,7 +14,7 @@ Autonomous execution mode. Work through the plan, create draft PRs, never merge.
 **Execution loop:**
 For each remaining task:
 1. Create feature branch: `<type>/<slug>` from latest main
-2. Implement the task — handle errors (retry once, then flag and skip)
+2. Implement the task – handle errors (retry once, then flag and skip)
 3. Build + test. If failing, fix. If stuck after 2 attempts, commit WIP and note in PR.
 4. Commit with conventional message
 5. Push branch, create draft PR:
@@ -30,7 +36,7 @@ For each remaining task:
 **Stop when:**
 - All plan tasks have PRs, OR
 - Blocked on user input, OR
-- Context is getting long — leave breadcrumbs and stop
+- Context is getting long – leave breadcrumbs and stop
 
 **On stop**, output a summary:
 - PRs created (with links)
