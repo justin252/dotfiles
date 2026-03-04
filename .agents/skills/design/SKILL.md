@@ -13,7 +13,7 @@ Scaffold a design doc using the template at `~/dotfiles/templates/DESIGN.md`.
 
 2. **New project:**
    - Ask for project name (use $ARGUMENTS if provided)
-   - Create `~/code/<name>/` (project root per CLAUDE.md)
+   - Create `~/code/<name>/` (project root)
    - `git init`, create `.gitignore` (include `.DS_Store`)
    - Copy template as `DESIGN.md`, replacing `$PROJECT_NAME` with the project name
    - Walk through each section interactively – ask the user to fill in or skip each one

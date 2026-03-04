@@ -13,10 +13,62 @@
 - No adding comments/docstrings to untouched code.
 - If a README exists and changes affect it, update it automatically.
 - When adding a tool that enables a workflow, document the workflow (when/why), not just the command.
-- After renames/refactors, grep for old name to catch stale references.
+- After renames/refactors, grep for old name to catch stale references. Before broad find-replace, verify all match sites – short tokens hit unintended locations.
+- Before proposing new tools/aliases, grep existing config to avoid duplicating what's already there.
+- Verify platform capabilities before designing around them – don't assume features exist at system boundaries.
 - Shell scripts (dotfiles): verify BSD (macOS) vs GNU flag compatibility.
 - Flag performance when it matters – hot paths, large datasets, repeated calls. Don't optimize prematurely.
+- Shell startup (.zshrc, etc.): never source commands that hit the network. Auth/token refreshes → on-demand or lazy.
 - Go: default to unexported (lowercase). Only export when cross-package usage is confirmed.
+
+## Agent
+
+- Prefer speed/autonomy when working from agreed plan
+- Log actions for visibility
+- CLI tools (`gt`, `bzl`, etc.): always pass `--no-interactive` or equivalent. Never let a CLI block on stdin.
+- Hang detection: run potentially-slow commands in background. Poll output – if no new output for 15s (with verbose/debug flags) or 30s (without), assume hung. Kill, retry with timeout, or fall back.
+- Exit loops if no progress toward verifiable goal. Never loop 3+ times on same failure – stop, note pattern, ask.
+- Ask before guessing paths/values – don't assume from directory listings.
+- Flag over/under-prompting: if user is over-specifying something obvious, say so. If under-specifying is causing rework, flag that too.
+- When working across repos, confirm target repo early.
+- After disruptions (tool rejection, context restore, mode switch), verify actual state (git status, git diff, ls) before retrying.
+- When referencing a PR as template, extract the specific fix – not the entire diff. PRs often bundle unrelated changes.
+
+## Modes
+
+- `teach me [topic]` → Socratic method. Calibrate level first, then make me reason. One concept per turn – no batching. No answer leakage. Code: anchor to source (`file_path:line_number`). Bridge from familiar languages (Go, TS).
+- `eli5 [topic]` → Simplest first, I'll ask deeper.
+- Plan mode is for code exploration + writing a plan. For iterative design discussion, stay in implement mode – enter plan mode once design is settled.
+
+## Workflow
+
+Branch naming: `<type>/<slug>` (e.g. `feat/add-grep-tool`). All changes to main require a PR.
+Checkpoint is the only release path – route through /checkpoint skill. After completing a task or set of changes, offer to checkpoint automatically. Never offer bare commit+push.
+
+### Splitting changes
+Prefer splitting logically independent changes (refactor, bug fix, feature) into stacked PRs.
+Stacked PRs use Graphite (`gt`), not raw git:
+- `gt create <branch>` not `git checkout -b` – creates branch and tracks stack
+- `gt submit` (`gtsub`) not `git push` + `gh pr create` – creates/updates PRs for entire stack
+- `gt restack` (`gtr`) not `git rebase` – rebases stack after changes
+- `gt sync` not `git fetch` – pulls latest main into Graphite tracking
+- `gt log short --stack` (`gts`) – view current stack
+
+**Proactive (preferred):** When I recognize a separable change while working, branch + commit it immediately before continuing.
+
+**Retroactive (at checkpoint):** If changes are already mixed, attempt to untangle. If too intertwined, ship as one PR and flag it.
+
+Stack order: foundational changes first. Dependent features stack on top. Each PR targets the branch below it (or main for first).
+
+### Retro
+Auto-trigger – don't wait to be asked:
+- `retro` (full) → /retro skill. Run automatically at checkpoint and session end.
+- `retro:quick` → Run automatically before any context-loss event. Quick INBOX.md entries. 30 seconds.
+
+Context-loss triggers (always run `retro:quick` before these):
+- Entering plan mode / clearing context
+- Switching repos/tasks
+- Long break (user says "pause", "stop", "done for now")
 
 ## Stack
 
@@ -78,5 +130,24 @@ In all modes:
   ```
 - Reference issue numbers when applicable
 - After pushing follow-up commits, update the PR body to reflect new changes
+- Descriptions = current intent, not changelog. No "what changed from v1" sections. Commit history handles evolution.
 - Before `gh pr edit --body`: always `gh pr view --json body` first, merge with existing content. GitHub has no edit history; overwriting destroys user content permanently.
 - Per-repo CLAUDE.md can override this template
+
+## Memory
+
+Model: session → INBOX.md (short-term) → triage → AGENTS.md (long-term)
+
+- AGENTS.md = long-term memory. Cross-tool, synced via dotfiles. Only triage writes here.
+- INBOX.md (`~/.agents/INBOX.md`) = short-term capture. Local, never synced.
+- retro = capture process → INBOX.md. triage = promotion → AGENTS.md or discard.
+- Triage when INBOX.md exceeds ~10 items. Proactively check and suggest `/triage` when it's growing – don't wait to be asked.
+- Skills (shared workflows) live in `~/.agents/skills/` – both Claude Code and Cursor read from here.
+
+Capture triggers:
+- `log` / `idea: <thought>` → append to INBOX.md (date, context, idea)
+- `win: <description>` → `~/.agents/wins.md` (promo-packet worthy)
+
+When capturing friction:
+- Self-resolve once. If reusable insight, suggest INBOX.md entry.
+- At capture time, note if INBOX.md is growing and nudge toward triage.
