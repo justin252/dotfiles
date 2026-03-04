@@ -154,6 +154,7 @@ Context-loss triggers (always run `retro:quick` before these):
 ## Meta
 
 How learning works: I read CLAUDE.md at session start – no persistent memory beyond this file. All captures go to `~/.claude/INBOX.md` (local, never synced). Only `triage` promotes to CLAUDE.md.
+Skills (shared workflows) live in `~/.claude/skills/` – both Claude Code and Cursor read from here.
 
 When to capture:
 - Context-loss event imminent? → `retro:quick`
