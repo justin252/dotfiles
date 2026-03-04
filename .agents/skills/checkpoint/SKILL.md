@@ -8,7 +8,7 @@ Self-contained workflow – execute steps fully, don't inject extra confirmation
 
 1. Build + test (scope to affected targets)
 2. Update README if changes affect it
-3. Split into stacked PRs if possible (see Workflow > Splitting changes in CLAUDE.md), or ship as one
+3. Split into stacked PRs if possible (see Workflow > Splitting changes in AGENTS.md), or ship as one
 4. Clean up commit history (squash/reword as needed)
 5. Show diff, summarize what changed and why, confirm before committing
 6. Push branches, open PRs (use PR template from `~/.agents/AGENTS.md` > Pull Requests)
