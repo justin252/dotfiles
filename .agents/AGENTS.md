@@ -31,7 +31,7 @@
 - Ask before guessing paths/values – don't assume from directory listings.
 - Flag over/under-prompting: if user is over-specifying something obvious, say so. If under-specifying is causing rework, flag that too.
 - When working across repos, confirm target repo early.
-- After disruptions (tool rejection, context restore, mode switch), verify actual state (git status, git diff, ls) before retrying.
+- After disruptions (tool rejection, context restore, mode switch, concurrent edits from another tool), verify actual state (git status, git diff, ls) before retrying.
 - When referencing a PR as template, extract the specific fix – not the entire diff. PRs often bundle unrelated changes.
 
 ## Modes
@@ -50,10 +50,11 @@ Checkpoint is the only release path – route through /checkpoint skill. After c
 Prefer splitting logically independent changes (refactor, bug fix, feature) into stacked PRs.
 Stacked PRs use Graphite (`gt`), not raw git:
 - `gt create <branch>` not `git checkout -b` – creates branch and tracks stack
-- `gt submit` (`gtsub`) not `git push` + `gh pr create` – creates/updates PRs for entire stack
+- `gt submit --draft` (`gtsub`) not `git push` + `gh pr create` – creates/updates PRs for entire stack. Always `--draft`; never `--publish` (means "not draft")
 - `gt restack` (`gtr`) not `git rebase` – rebases stack after changes
 - `gt sync` not `git fetch` – pulls latest main into Graphite tracking
 - `gt log short --stack` (`gts`) – view current stack
+- Graphite fallback: if `gt submit` fails (permissions, trunk behind), don't debug – fall back to `git push -u origin <branch>` + `gh pr create --draft`
 
 **Proactive (preferred):** When I recognize a separable change while working, branch + commit it immediately before continuing.
 
