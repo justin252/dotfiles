@@ -1,10 +1,10 @@
 ---
 name: retro
-description: Review session and capture learnings to ~/.claude/INBOX.md. Run at checkpoint or session end.
+description: Review session and capture learnings to ~/.agents/INBOX.md. Run at checkpoint or session end.
 disable-model-invocation: true
 ---
 
-Review this session and capture learnings to `~/.claude/INBOX.md`.
+Review this session and capture learnings to `~/.agents/INBOX.md`.
 
 Scan for each category. Skip categories with nothing notable.
 
@@ -20,7 +20,7 @@ Scan for each category. Skip categories with nothing notable.
 
 **Process insights:**
 - What worked well, what didn't
-- CLAUDE.md rules that helped or were missing
+- AGENTS.md rules that helped or were missing
 - Cursor-specific: rules that should be added to `~/.cursor/rules/`
 
 **Style/context shifts:**

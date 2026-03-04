@@ -18,10 +18,18 @@ fi
 # Symlink tools
 ln -sfn "$DOTFILES/tools" ~/tools
 
-mkdir -p ~/.claude ~/.cursor
+mkdir -p ~/.claude ~/.cursor ~/.agents
 
+# Shared source of truth
+ln -sfn "$DOTFILES/.agents/skills" ~/.agents/skills
+ln -sf "$DOTFILES/.agents/AGENTS.md" ~/.agents/AGENTS.md
+
+# Claude Code discovery
+ln -sfn "$DOTFILES/.agents/skills" ~/.claude/skills
 ln -sf "$DOTFILES/.claude/CLAUDE.md" ~/.claude/CLAUDE.md
-ln -sfn "$DOTFILES/.claude/skills" ~/.claude/skills
+
+# Cursor discovery
+ln -sfn "$DOTFILES/.agents/skills" ~/.cursor/skills
 ln -sfn "$DOTFILES/.cursor/rules" ~/.cursor/rules
 
 ln -sf "$DOTFILES/shell/zshrc" ~/.zshrc
@@ -33,8 +41,11 @@ git config --global pull.rebase true
 
 echo "Done. Symlinked:"
 echo "  ~/tools → $DOTFILES/tools"
+echo "  ~/.agents/AGENTS.md → $DOTFILES/.agents/AGENTS.md"
+echo "  ~/.agents/skills/ → $DOTFILES/.agents/skills/"
 echo "  ~/.claude/CLAUDE.md → $DOTFILES/.claude/CLAUDE.md"
-echo "  ~/.claude/skills/ → $DOTFILES/.claude/skills/"
+echo "  ~/.claude/skills/ → $DOTFILES/.agents/skills/"
+echo "  ~/.cursor/skills/ → $DOTFILES/.agents/skills/"
 echo "  ~/.cursor/rules/ → $DOTFILES/.cursor/rules/"
 echo "  ~/.zshrc → $DOTFILES/shell/zshrc"
 echo "  ~/.config/karabiner/karabiner.json ← $DOTFILES/karabiner/karabiner.json (copied, Karabiner breaks symlinks)"
