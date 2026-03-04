@@ -1,6 +1,0 @@
----
-description: "Base agent instructions"
-globs: "**/*"
----
-
-See `.agents/AGENTS.md` for shared instructions.
