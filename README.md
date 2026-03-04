@@ -47,6 +47,23 @@ source ~/dotfiles/shell/zshrc
 - `pull-dot` pulls and re-sources zshrc
 - `sz` re-sources zshrc after edits
 
-## Learning mechanism
+## Agent memory
 
-Captures go to `~/.agents/INBOX.md` (local, never synced). On triage, entries get promoted to AGENTS.md rules, zshrc aliases, scripts, or discarded. See `.claude/CLAUDE.md` Meta section for details.
+Self-learning feedback loop across Claude Code and Cursor sessions.
+
+```
+session → friction/insights
+    → retro captures to INBOX.md (short-term, local)
+    → triage promotes to AGENTS.md (long-term, synced)
+    → both tools read AGENTS.md at startup
+    → better instructions → repeat
+```
+
+| Layer | File | Scope | Who writes |
+|-------|------|-------|------------|
+| Long-term | `.agents/AGENTS.md` | Cross-tool, synced | triage only |
+| Short-term | `~/.agents/INBOX.md` | Local, never synced | retro, log, idea |
+| Per-project | `~/.claude/projects/*/memory/` | Claude Code auto-memory | Claude Code |
+
+Capture triggers (both tools): `log`, `idea: <thought>`, `win: <description>`.
+Triage (`/triage`) promotes INBOX items to AGENTS.md rules, zshrc aliases, scripts, or discards them.
