@@ -8,6 +8,8 @@ Universal config that works on any machine. Machine-specific overlays (`~/.zshrc
 .agents/AGENTS.md            # Shared agent instructions (cross-tool source of truth)
 .agents/skills/              # Agent skills (symlinked to ~/.agents/, ~/.claude/, ~/.cursor/)
 .claude/CLAUDE.md            # Claude Code config (@imports AGENTS.md + Claude-specific)
+.claude/settings.json        # Claude Code permissions (dontAsk allow list)
+docs/claude-modes.md         # Quick reference: Plan / Execute / Yolo modes
 shell/zshrc                  # Universal shell config (aliases, functions, env)
 tools/                       # CLI scripts on PATH (symlinked to ~/tools)
 karabiner/karabiner.json     # Karabiner-Elements config (Joy-Con L → Claude Code controls)
