@@ -2,6 +2,33 @@
 
 Universal config that works on any machine. Machine-specific overlays (`~/.zshrc.work`, `~/.zshrc.personal`) stay local, never committed here.
 
+## Quick start
+
+> **Warning:** `install.sh` symlinks `~/.zshrc` – back up your existing shell config first.
+
+```bash
+git clone git@github.com:justin252/dotfiles.git ~/dotfiles
+bash ~/dotfiles/install.sh
+```
+
+**Interactive learning path** – explore the repo with [Claude Code](https://docs.anthropic.com/en/docs/claude-code):
+
+```bash
+cd ~/dotfiles && claude
+# then type: teach me how this works
+```
+
+Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, so the teaching mode works even before running `install.sh`. The repo is useful without Claude Code too – it's just shell config, tools, and agent instructions.
+
+## What install.sh does
+
+- Symlinks shell config (`~/.zshrc` → `shell/zshrc`), tools (`~/tools`), agent config (`~/.agents/`, `~/.claude/`, `~/.cursor/`)
+- Copies Karabiner config (can't symlink – Karabiner overwrites symlinks)
+- Sets `git pull.rebase true`
+- Installs fzf if missing
+
+`~/.zshrc` layering: `shell/zshrc` (universal, synced) sources `~/.zshrc.work` (work-only) and `~/.zshrc.personal` (personal-only) if they exist. Machine-specific values go in local files.
+
 ## Structure
 
 ```
@@ -19,26 +46,16 @@ install.sh                   # Sets up symlinks + installs fzf
 AGENTS.md                    # Repo-level agent instructions (this repo)
 ```
 
-## Setup
-
-```bash
-git clone git@github.com:justin252/dotfiles.git ~/dotfiles
-bash ~/dotfiles/install.sh
-```
-
-`install.sh` symlinks `~/.zshrc` → `shell/zshrc` (which auto-sources `~/.zshrc.work` and `~/.zshrc.personal` if they exist).
-
 ## How it works
 
-- `shell/zshrc` — universal config (this repo), works anywhere
-- `tools/` — CLI scripts, symlinked to `~/tools` (on PATH)
-- `~/.zshrc.work` — work-specific (company tools, aliases, env vars) — local only
-- `~/.zshrc.personal` — machine-specific personal overrides — local only
-- `~/.zshrc` is a loader that sources all three in order
-- `~/.agents/AGENTS.md` — shared agent instructions, symlinked to this repo
-- `~/.agents/skills/` — agent skills, symlinked to this repo (both Claude Code and Cursor discover here)
-- `~/.claude/CLAUDE.md` — Claude Code config, symlinked to this repo (@imports shared AGENTS.md)
-- **Cursor global prefs** — paste AGENTS.md content into Cursor Settings > Rules > User Rules (no file-based auto-load for global prefs; per-project prefs use `AGENTS.md` at project root, auto-discovered natively)
+- `shell/zshrc` – universal config (this repo), works anywhere
+- `tools/` – CLI scripts, symlinked to `~/tools` (on PATH)
+- `~/.zshrc.work` – work-specific (company tools, aliases, env vars) – local only
+- `~/.zshrc.personal` – machine-specific personal overrides – local only
+- `~/.agents/AGENTS.md` – shared agent instructions, symlinked to this repo
+- `~/.agents/skills/` – agent skills, symlinked to this repo (both Claude Code and Cursor discover here)
+- `~/.claude/CLAUDE.md` – Claude Code config, symlinked to this repo (@imports shared AGENTS.md)
+- **Cursor global prefs** – paste AGENTS.md content into Cursor Settings > Rules > User Rules (no file-based auto-load for global prefs; per-project prefs use `AGENTS.md` at project root, auto-discovered natively)
 - `~/.config/karabiner/karabiner.json` is copied from this repo (Karabiner breaks symlinks)
 - `pull-dot` pulls and re-sources zshrc
 - `sz` re-sources zshrc after edits
