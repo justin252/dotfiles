@@ -164,6 +164,9 @@ alias ccplani="claude --permission-mode plan --dangerously-skip-permissions"
 alias ccbot="claude -p --dangerously-skip-permissions"
 alias ccpipe="claude -p --dangerously-skip-permissions --output-format stream-json"
 
+# Continue with extra repo access: ccadd ~/code/repo-a ~/code/repo-b
+ccadd() { local a=(); for d; do a+=(--add-dir "$d"); done; claude -c "${a[@]}"; }
+
 # Plans
 openplan() { cursor "$(ls -t ~/.claude/plans/*.md 2>/dev/null | head -1)"; }
 
