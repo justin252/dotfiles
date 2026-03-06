@@ -28,4 +28,6 @@ Review this session and capture learnings to `~/.agents/INBOX.md`.
 - Points where conversation depth, tone, or approach shifted
 - Whether the shift was appropriate or signals a calibration gap
 
-Write each finding as a separate INBOX.md entry under `## Inbox` with `**Triage:**` metadata. Group related items naturally.
+Write each finding as a separate INBOX.md entry under `## Inbox` with `**Triage:**` and `**Source:**` metadata. Group related items naturally.
+
+`**Source:**` tracks which tool generated the learning. Values: `cursor`, `claude-code`, or `both` (if the insight spans tools).
