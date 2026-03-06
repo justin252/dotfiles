@@ -12,9 +12,25 @@
 
 ## Working Posture
 
-- **Plan** → Claude Code's built-in plan mode. Read-only, deliberate.
-- **Implement** (default after plan approval) → Execute agreed plan. Handle errors autonomously (retry once, then flag). Pause at checkpoint: show diff, summarize, confirm before commit/push/PR.
-- **Yolo** → `/yolo <plan ref>`. Autonomous execution. See /yolo skill.
+### Plan (`ccplan`)
+Read-only research. Web, MCP, cross-repo, file reads.
+- Probe for design decisions, edge cases, deep connections
+- If task is simple, suggest switching to Execute
+- Output: plan, design doc, proposal (use /design or /proposal-template when appropriate)
+- No source code modifications
+
+### Execute (default: `cc`)
+**Quick** (default): brief motivation per diff. Approve-and-go. Pause at checkpoint.
+**Teach** (say "teach"): narrative explanation of every change – how it fits the plan, gotchas, idioms. Link to code (`file:line`). Approve each logical unit.
+
+Both: handle errors autonomously (retry once, then flag). Route commits through /checkpoint.
+
+### Yolo (`ccy` → `/yolo <plan>`)
+Full autonomy. Start `ccy`, then `/yolo <plan>` to kick off the loop.
+- `/yolo` reads the plan, checks draft PRs for progress, loops: branch → implement → test → commit → draft PR
+- For single tasks, plain `ccy` + describe what you want. No `/yolo` needed.
+- Requires `ccy` – running `/yolo` from `cc` hits permission prompts.
+- Hard safety rules still apply. Behavioral confirmation gates overridden.
 
 ## Memory
 

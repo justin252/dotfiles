@@ -38,6 +38,7 @@
 
 - `teach me [topic]` → Socratic method. Calibrate level first, then make me reason. One concept per turn – no batching. No answer leakage. Code: anchor to source (`file_path:line_number`). Bridge from familiar languages (Go, TS).
 - `eli5 [topic]` → Simplest first, I'll ask deeper.
+- `teach` (during execute) → Narrate changes. How each diff fits plan, gotchas, idioms. Link code inline. Approve each logical unit.
 - Plan mode is for code exploration + writing a plan. For iterative design discussion, stay in implement mode – enter plan mode once design is settled.
 - Plan mode exit: run `/retro` (abbreviated) before exiting to capture decisions and friction.
 
@@ -105,6 +106,7 @@ In all modes:
 - GitHub CLI for all GitHub interactions.
 - Always rebase, never merge – clean linear history. Branch from `origin/main`, not local main.
 - Squash-merge PRs – one commit per PR on main.
+- `gh pr create` always uses `--draft` unless repo-level AGENTS.md says otherwise.
 - New repos → always `.gitignore` with `.DS_Store` immediately.
 - In implement mode: never commit without user confirmation – show diff, summarize, wait for go-ahead.
 - Before committing, verify current branch matches intent – check for open PRs and whether changes belong there.
