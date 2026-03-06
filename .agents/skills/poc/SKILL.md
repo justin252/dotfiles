@@ -55,6 +55,6 @@ Prove an idea works with minimal effort. Research feasibility, build the shortes
 ## Guardrails
 
 - Never merge PRs. Draft only.
-- Override all behavioral confirmation gates (same as /yolo)
-- Hard safety rules still apply (never force-push main, never rm -rf ~/, never delete unmerged branches)
+- Override behavioral confirmation gates (same as /yolo).
+- Hard safety rules still apply (AGENTS.md § Safety).
 - Single branch, single PR – no stacking
