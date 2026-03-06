@@ -24,12 +24,7 @@ git clone git@github.com:justin252/dotfiles.git ~/dotfiles
 bash ~/dotfiles/install.sh
 ```
 
-Then add to `~/.zshrc`:
-```bash
-source ~/dotfiles/shell/zshrc
-[ -f ~/.zshrc.work ] && source ~/.zshrc.work
-[ -f ~/.zshrc.personal ] && source ~/.zshrc.personal
-```
+`install.sh` symlinks `~/.zshrc` → `shell/zshrc` (which auto-sources `~/.zshrc.work` and `~/.zshrc.personal` if they exist).
 
 ## How it works
 
