@@ -32,6 +32,11 @@ Full autonomy. Start `ccy`, then `/yolo <plan>` to kick off the loop.
 - Requires `ccy` – running `/yolo` from `cc` hits permission prompts.
 - Hard safety rules still apply. Behavioral confirmation gates overridden.
 
+### POC (`ccy` → `/poc <idea>`)
+Prove an idea works fast. Single branch, single PR.
+- Takes a one-sentence idea, explores feasibility first, builds minimal proof, ships draft PR with structured gaps template
+- Requires `ccy` – same as yolo. Hard safety rules still apply.
+
 ## Memory
 
 See AGENTS.md § Memory for the model.
