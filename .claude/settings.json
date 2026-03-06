@@ -7,30 +7,14 @@
   "includeCoAuthoredBy": false,
   "permissions": {
     "allow": [
-      "Read",
-      "Glob",
-      "Grep",
-      "Edit",
-      "Write",
-      "WebFetch",
-      "WebSearch",
-      "ToolSearch",
-      "Agent(Explore)",
-      "Agent(Plan)",
-      "Agent(Bash)",
-      "Agent(general-purpose)",
-      "Agent(running-bzl)",
-      "Agent(claude-code-guide)",
-      "ListMcpResourcesTool",
-      "ReadMcpResourceTool",
-      "mcp__atlassian__*",
-      "mcp__datadog__*",
+      "Read", "Glob", "Grep", "Edit", "Write",
+      "WebFetch", "WebSearch", "ToolSearch",
+      "Task(Explore)", "Task(Plan)", "Task(Bash)",
+      "Task(general-purpose)", "Task(running-bzl)", "Task(claude-code-guide)",
+      "ListMcpResourcesTool", "ReadMcpResourceTool",
       "Bash"
     ],
     "defaultMode": "dontAsk"
   },
-  "model": "opus",
-  "enabledPlugins": {
-    "gopls-lsp@claude-plugins-official": false
-  }
+  "model": "opus"
 }

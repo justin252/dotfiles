@@ -1,12 +1,10 @@
 ---
 name: yolo
-description: Autonomous execution mode. Requires `ccy` (dangerously-skip-permissions). Loops through a plan, creates draft PRs, never merges.
+description: Autonomous execution mode. Work through a plan, create draft PRs, never merge.
 
 ---
 
-Autonomous execution loop. Reads a plan, implements each task, ships draft PRs.
-
-**Requires:** `ccy` (dangerously-skip-permissions). Running from `cc` will hit permission prompts and break the autonomous loop.
+Autonomous execution mode. Work through the plan, create draft PRs, never merge.
 
 **Bootstrap:**
 1. Read the plan: $ARGUMENTS (file path, issue number, or inline description)
@@ -33,8 +31,8 @@ For each remaining task:
 **Guardrails:**
 - Never merge PRs. Never destructive ops.
 - Draft PRs only.
-- Override all behavioral confirmation gates (AGENTS.md "never commit without confirmation" does not apply)
-- Hard safety rules still apply (never force-push main, never rm -rf ~/, never delete unmerged branches)
+- Override behavioral confirmation gates (AGENTS.md "never commit without confirmation" does not apply).
+- Hard safety rules still apply (AGENTS.md § Safety).
 - If context is getting long, stop and leave a summary comment on the last PR.
 
 **Stop when:**
