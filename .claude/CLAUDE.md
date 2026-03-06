@@ -12,30 +12,11 @@
 
 ## Working Posture
 
-### Plan (`ccplan`)
-Read-only research. Web, MCP, cross-repo, file reads.
-- Probe for design decisions, edge cases, deep connections
-- If task is simple, suggest switching to Execute
-- Output: plan, design doc, proposal (use /design or /proposal-template when appropriate)
-- No source code modifications
-
-### Execute (default: `cc`)
-**Quick** (default): brief motivation per diff. Approve-and-go. Pause at checkpoint.
-**Teach** (say "teach"): narrative explanation of every change – how it fits the plan, gotchas, idioms. Link to code (`file:line`). Approve each logical unit.
-
-Both: handle errors autonomously (retry once, then flag). Route commits through /checkpoint.
-
-### Yolo (`ccy` → `/yolo <plan>`)
-Full autonomy. Start `ccy`, then `/yolo <plan>` to kick off the loop.
-- `/yolo` reads the plan, checks draft PRs for progress, loops: branch → implement → test → commit → draft PR
-- For single tasks, plain `ccy` + describe what you want. No `/yolo` needed.
-- Requires `ccy` – running `/yolo` from `cc` hits permission prompts.
-- Hard safety rules still apply. Behavioral confirmation gates overridden.
-
-### POC (`ccy` → `/poc <idea>`)
-Prove an idea works fast. Single branch, single PR.
-- Takes a one-sentence idea, explores feasibility first, builds minimal proof, ships draft PR with structured gaps template
-- Requires `ccy` – same as yolo. Hard safety rules still apply.
+- **Plan** → Claude Code's built-in plan mode. Read-only, deliberate.
+- **Implement** (default after plan approval) → Execute agreed plan. Handle errors autonomously (retry once, then flag). Pause at checkpoint: show diff, summarize, confirm before commit/push/PR.
+- **Yolo** → `/yolo <plan ref>`. Autonomous execution. See /yolo skill.
+- **POC** → `/poc <idea>`. Prove an idea works fast. See /poc skill.
+- Yolo/POC override behavioral confirmation gates. Hard safety rules still apply.
 
 ## Memory
 
@@ -50,6 +31,7 @@ Claude Code additions:
 ## Setup
 
 - `~/.claude/CLAUDE.md` → symlinked from `~/dotfiles/.claude/CLAUDE.md` – only edit the dotfiles copy
+- `~/.claude/settings.json` → symlinked from `~/dotfiles/.claude/settings.json` – universal permissions. Work-specific MCP entries go in `~/.claude/settings.local.json` (not synced; arrays merge).
 - `~/.agents/AGENTS.md` → symlinked from `~/dotfiles/.agents/AGENTS.md` – shared cross-tool instructions
 - `install.sh` creates symlinks; this is how the dotfiles repo works
 - Karabiner: `install.sh` copies (not symlinks) `karabiner/karabiner.json` → `~/.config/karabiner/` because Karabiner overwrites symlinks. After editing the dotfiles copy, run `cp ~/dotfiles/karabiner/karabiner.json ~/.config/karabiner/karabiner.json` to sync live.

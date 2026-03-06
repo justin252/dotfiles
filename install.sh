@@ -27,6 +27,7 @@ ln -sf "$DOTFILES/.agents/AGENTS.md" ~/.agents/AGENTS.md
 # Claude Code discovery
 ln -sfn "$DOTFILES/.agents/skills" ~/.claude/skills
 ln -sf "$DOTFILES/.claude/CLAUDE.md" ~/.claude/CLAUDE.md
+ln -sf "$DOTFILES/.claude/settings.json" ~/.claude/settings.json
 
 # Cursor discovery
 ln -sfn "$DOTFILES/.agents/skills" ~/.cursor/skills
@@ -44,6 +45,7 @@ echo "  ~/tools → $DOTFILES/tools"
 echo "  ~/.agents/AGENTS.md → $DOTFILES/.agents/AGENTS.md"
 echo "  ~/.agents/skills/ → $DOTFILES/.agents/skills/"
 echo "  ~/.claude/CLAUDE.md → $DOTFILES/.claude/CLAUDE.md"
+echo "  ~/.claude/settings.json → $DOTFILES/.claude/settings.json"
 echo "  ~/.claude/skills/ → $DOTFILES/.agents/skills/"
 echo "  ~/.cursor/skills/ → $DOTFILES/.agents/skills/"
 echo "  ~/.cursor/rules/ → $DOTFILES/.cursor/rules/"
