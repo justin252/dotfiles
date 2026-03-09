@@ -8,10 +8,29 @@ if ! command -v fzf &> /dev/null; then
   echo "Installing fzf..."
   if [[ "$OSTYPE" == "darwin"* ]]; then
     brew install fzf
-  elif command -v apt-get &> /dev/null; then
-    sudo apt-get update && sudo apt-get install -y fzf
+  elif command -v apt-get &> /dev/null && apt-get install -y fzf 2>/dev/null; then
+    echo "fzf installed via apt-get"
   else
-    echo "Warning: fzf not found, install manually"
+    # Binary download fallback (works without sudo, behind proxies)
+    echo "Downloading fzf binary from GitHub..."
+    FZF_VERSION=$(curl -fsSL https://api.github.com/repos/junegunn/fzf/releases/latest | grep '"tag_name"' | cut -d'"' -f4 | sed 's/^v//')
+    if [[ -n "$FZF_VERSION" ]]; then
+      ARCH=$(uname -m)
+      case "$ARCH" in
+        x86_64)  FZF_ARCH="linux_amd64" ;;
+        aarch64) FZF_ARCH="linux_arm64" ;;
+        *)       FZF_ARCH="" ;;
+      esac
+      if [[ -n "$FZF_ARCH" ]]; then
+        mkdir -p "$HOME/.local/bin"
+        curl -fsSL "https://github.com/junegunn/fzf/releases/download/v${FZF_VERSION}/fzf-${FZF_VERSION}-${FZF_ARCH}.tar.gz" | tar xz -C "$HOME/.local/bin"
+        echo "fzf installed to ~/.local/bin/fzf (ensure ~/.local/bin is on PATH)"
+      else
+        echo "Warning: unsupported architecture $ARCH – install fzf manually"
+      fi
+    else
+      echo "Warning: could not determine fzf version – install fzf manually"
+    fi
   fi
 fi
 
@@ -32,7 +51,6 @@ ln -sf "$DOTFILES/.claude/settings.json" ~/.claude/settings.json
 
 # Cursor discovery
 ln -sfn "$DOTFILES/.agents/skills" ~/.cursor/skills
-ln -sfn "$DOTFILES/.cursor/rules" ~/.cursor/rules
 
 ln -sf "$DOTFILES/shell/zshrc" ~/.zshrc
 
@@ -53,6 +71,5 @@ echo "  ~/.claude/CLAUDE.md → $DOTFILES/.claude/CLAUDE.md"
 echo "  ~/.claude/settings.json → $DOTFILES/.claude/settings.json"
 echo "  ~/.claude/skills/ → $DOTFILES/.agents/skills/"
 echo "  ~/.cursor/skills/ → $DOTFILES/.agents/skills/"
-echo "  ~/.cursor/rules/ → $DOTFILES/.cursor/rules/"
 echo "  ~/.zshrc → $DOTFILES/shell/zshrc"
 [[ "$OSTYPE" == darwin* ]] && echo "  ~/.config/karabiner/karabiner.json ← $DOTFILES/karabiner/karabiner.json (copied, Karabiner breaks symlinks)"
