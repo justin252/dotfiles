@@ -36,8 +36,11 @@ ln -sfn "$DOTFILES/.cursor/rules" ~/.cursor/rules
 
 ln -sf "$DOTFILES/shell/zshrc" ~/.zshrc
 
-mkdir -p ~/.config/karabiner
-cp "$DOTFILES/karabiner/karabiner.json" ~/.config/karabiner/karabiner.json
+# Karabiner (macOS only)
+if [[ "$OSTYPE" == darwin* ]]; then
+  mkdir -p ~/.config/karabiner
+  cp "$DOTFILES/karabiner/karabiner.json" ~/.config/karabiner/karabiner.json
+fi
 
 git config --global pull.rebase true
 
@@ -52,4 +55,4 @@ echo "  ~/.claude/skills/ → $DOTFILES/.agents/skills/"
 echo "  ~/.cursor/skills/ → $DOTFILES/.agents/skills/"
 echo "  ~/.cursor/rules/ → $DOTFILES/.cursor/rules/"
 echo "  ~/.zshrc → $DOTFILES/shell/zshrc"
-echo "  ~/.config/karabiner/karabiner.json ← $DOTFILES/karabiner/karabiner.json (copied, Karabiner breaks symlinks)"
+[[ "$OSTYPE" == darwin* ]] && echo "  ~/.config/karabiner/karabiner.json ← $DOTFILES/karabiner/karabiner.json (copied, Karabiner breaks symlinks)"

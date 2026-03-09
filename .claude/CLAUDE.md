@@ -1,4 +1,5 @@
 @../.agents/AGENTS.md
+@../.agents/AGENTS-work.md
 
 ## Agent
 
@@ -33,12 +34,14 @@ Claude Code additions:
 - `~/.claude/CLAUDE.md` → symlinked from `~/dotfiles/.claude/CLAUDE.md` – only edit the dotfiles copy
 - `~/.claude/settings.json` → symlinked from `~/dotfiles/.claude/settings.json` – universal permissions. Work-specific MCP entries go in `~/.claude/settings.local.json` (not synced; arrays merge).
 - `~/.agents/AGENTS.md` → symlinked from `~/dotfiles/.agents/AGENTS.md` – shared cross-tool instructions
+- `~/.agents/AGENTS-work.md` → symlinked from work dotfiles repo (no-op if missing; work-specific agent persona)
 - `install.sh` creates symlinks; this is how the dotfiles repo works
 - Karabiner: `install.sh` copies (not symlinks) `karabiner/karabiner.json` → `~/.config/karabiner/` because Karabiner overwrites symlinks. After editing the dotfiles copy, run `cp ~/dotfiles/karabiner/karabiner.json ~/.config/karabiner/karabiner.json` to sync live.
 - `~/.agents/INBOX.md` – local capture scratchpad, never synced
 - `~/.claude/plans/saved/` – saved plans (promoted from auto-generated `plans/`), never synced
 - `~/.claude/docs/` – long-lived documents, never synced
-- Shell config layers: `dotfiles/shell/zshrc` (universal, synced) → `~/.zshrc.work` (work only) → `~/.zshrc.personal` (personal only). Machine-specific values go in local files.
+- Shell config layers: `dotfiles/shell/zshrc` (universal, synced) → `~/.zshrc.work` (work, from work-dotfiles repo) → `~/.zshrc.personal` (personal only). Machine-specific values go in local files.
+- Two-repo model: personal dotfiles (`~/dotfiles`, public) + work dotfiles (internal). On laptop: work repo at `~/dotfiles-work`. On workspace: work repo at `~/dotfiles`, personal at `~/dotfiles-personal`.
 - To detect context: check which local zshrc files exist on the machine.
 - Personal tools: `~/tools` (symlinked from `~/dotfiles/tools/`, on PATH).
 - `~/code` – project root for all repos.
