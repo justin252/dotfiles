@@ -4,7 +4,7 @@ description: Sort and execute INBOX.md items. Promotes stable patterns to AGENTS
 
 ---
 
-Fully autonomous. Auto-accept all INBOX.md reads/writes. Auto-checkpoint dotfiles changes and auto-merge PR.
+Fully autonomous. Auto-accept all INBOX.md reads/writes. Create PR for dotfiles changes – never merge without user confirmation.
 
 **Batch limit:** Process max 10 items per invocation (across both phases) to prevent context bloat. If more remain, stop and note "run /triage again for remaining items."
 

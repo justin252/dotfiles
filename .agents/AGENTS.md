@@ -14,6 +14,7 @@
 - If a README exists and changes affect it, update it automatically.
 - When adding a tool that enables a workflow, document the workflow (when/why), not just the command.
 - After renames/refactors, grep for old name to catch stale references. Before broad find-replace, verify all match sites – short tokens hit unintended locations.
+- After merging/deduplicating lists, verify each exact item – don't summarize as families or wildcards.
 - Before proposing new tools/aliases, grep existing config to avoid duplicating what's already there.
 - Verify platform capabilities before designing around them – don't assume features exist at system boundaries.
 - Shell scripts (dotfiles): verify BSD (macOS) vs GNU flag compatibility.
@@ -42,7 +43,7 @@
 - `eli5 [topic]` → Simplest first, I'll ask deeper.
 - `teach` (during execute) → Narrate changes. How each diff fits plan, gotchas, idioms. Link code inline. Approve each logical unit.
 - `poc <idea>` → Prove it works. Feasibility research → minimal build → draft PR with gaps documented. Single branch, no stacking. Requires `ccy`.
-- Plan mode is for code exploration + writing a plan. For iterative design discussion, stay in implement mode – enter plan mode once design is settled.
+- Plan mode is for code exploration + writing a plan. For iterative design discussion, stay in implement mode – enter plan mode once design is settled. Exception: plan mode suits exploratory design in a new domain where read-only codebase scanning drives the discussion.
 - Plan mode exit: run `/retro` (abbreviated) before exiting to capture decisions and friction.
 
 ## Workflow
@@ -91,6 +92,7 @@ Use as reference frame – draw analogies to these when explaining new tech or m
 - Failing test: fix code, not test. Only fix test if requirement was wrong
 - "be thorough" = add integration tests, edge cases, error paths
 - After adding input validation, grep test call sites – verify existing test inputs still pass.
+- At review-to-implement transitions, re-read Testing section – analysis mindset skips TDD.
 
 ## Safety
 
@@ -118,6 +120,7 @@ In all modes:
 - Don't auto-squash branch commits at checkpoint – distinct logical commits (move, fix, feature) tell a story. Ask first.
 - Git hygiene aliases (`dotfiles/shell/zshrc`): `gm` (main + pull + full cleanup), `gsync` (rebase onto main), `gclean` (cleanup only). Self-healing fetch auto-recovers stale refs. For Graphite stacks, use `gtr` not `gsync`.
 - Hygiene aliases are safe anytime. Push operations (`gpush`, `gpushup`) only through /checkpoint.
+- Don't stash across branches when files differ. Make changes directly on target branch, or cherry-pick.
 
 ## Pull Requests
 
