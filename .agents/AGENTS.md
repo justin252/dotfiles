@@ -21,6 +21,7 @@
 - Flag performance when it matters – hot paths, large datasets, repeated calls. Don't optimize prematurely.
 - Shell startup (.zshrc, etc.): never source commands that hit the network. Auth/token refreshes → on-demand or lazy.
 - Go: default to unexported (lowercase). Only export when cross-package usage is confirmed.
+- CLI tools: when building or improving a CLI, consult `.agents/references/cli-guidelines.md` (distilled from https://clig.dev/). Key defaults: flags over positional args, `--json`/`--quiet`/`--no-color`, stderr for messages, TTY detection, confirm before destructive ops, exit 0/non-zero.
 
 ## Agent
 
