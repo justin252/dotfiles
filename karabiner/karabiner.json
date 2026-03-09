@@ -40,14 +40,28 @@
               {
                 "type": "basic",
                 "from": { "pointing_button": "button15" },
-                "to": [{ "key_code": "f5" }],
+                "to": [{ "set_variable": { "name": "joycon_l_held", "value": 1 } }],
+                "to_after_key_up": [{ "set_variable": { "name": "joycon_l_held", "value": 0 } }],
+                "to_if_alone": [{ "key_code": "f5" }],
                 "conditions": [{ "type": "device_if", "identifiers": [{ "vendor_id": 1406, "product_id": 8198 }] }]
               },
               {
                 "type": "basic",
                 "from": { "pointing_button": "button9" },
                 "to": [{ "key_code": "c", "modifiers": ["left_control"] }],
-                "conditions": [{ "type": "device_if", "identifiers": [{ "vendor_id": 1406, "product_id": 8198 }] }]
+                "conditions": [
+                  { "type": "device_if", "identifiers": [{ "vendor_id": 1406, "product_id": 8198 }] },
+                  { "type": "variable_if", "name": "joycon_l_held", "value": 1 }
+                ]
+              },
+              {
+                "type": "basic",
+                "from": { "pointing_button": "button9" },
+                "to": [{ "key_code": "escape" }],
+                "conditions": [
+                  { "type": "device_if", "identifiers": [{ "vendor_id": 1406, "product_id": 8198 }] },
+                  { "type": "variable_if", "name": "joycon_l_held", "value": 0 }
+                ]
               },
               {
                 "type": "basic",
@@ -97,7 +111,7 @@
               {
                 "type": "basic",
                 "from": { "pointing_button": "button14" },
-                "to": [{ "key_code": "delete_or_backspace", "modifiers": ["left_option"] }],
+                "to": [{ "key_code": "w", "modifiers": ["left_command"] }],
                 "conditions": [{ "type": "device_if", "identifiers": [{ "vendor_id": 1406, "product_id": 8198 }] }]
               },
               {
@@ -115,7 +129,7 @@
               {
                 "type": "basic",
                 "from": { "pointing_button": "button11" },
-                "to": [{ "key_code": "w", "modifiers": ["left_command"] }],
+                "to": [{ "key_code": "delete_or_backspace", "modifiers": ["left_option"] }],
                 "conditions": [{ "type": "device_if", "identifiers": [{ "vendor_id": 1406, "product_id": 8198 }] }]
               }
             ]
