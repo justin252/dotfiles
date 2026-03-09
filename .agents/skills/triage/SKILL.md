@@ -16,6 +16,7 @@ Single pass, all items in `## Inbox`:
 - Before promoting: check if existing rules already cover the insight. Prefer strengthening existing rules over adding new lines. Draft exact wording and verify fit against surrounding rules. Promote general principles, not one-off session friction. Deduplicate against other items being promoted in the same batch.
 - Destination options:
   - `~/.agents/AGENTS.md` – shared preferences (both Claude Code and Cursor benefit)
+  - `~/.agents/AGENTS-work.md` – work-specific agent persona (no-op if missing)
   - `~/.cursor/rules/*.mdc` – Cursor-only scoped rules
 - Quick items: execute inline (add a line, done) → move to `## Resolved`
 - No longer relevant? Move to `## Resolved` with `discarded` + reason
