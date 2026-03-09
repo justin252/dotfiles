@@ -33,6 +33,7 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 
 ```
 .agents/AGENTS.md            # Shared agent instructions (cross-tool source of truth)
+.agents/references/          # Reference docs auto-consulted by agents (e.g. CLI guidelines)
 .agents/skills/              # Agent skills (symlinked to ~/.agents/, ~/.claude/, ~/.cursor/)
 .claude/CLAUDE.md            # Claude Code config (@imports AGENTS.md + Claude-specific)
 .claude/settings.json        # Claude Code permissions (dontAsk allow list)

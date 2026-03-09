@@ -22,6 +22,7 @@ mkdir -p ~/.claude ~/.cursor ~/.agents
 
 # Shared source of truth
 ln -sfn "$DOTFILES/.agents/skills" ~/.agents/skills
+ln -sfn "$DOTFILES/.agents/references" ~/.agents/references
 ln -sf "$DOTFILES/.agents/AGENTS.md" ~/.agents/AGENTS.md
 
 # Claude Code discovery
@@ -44,6 +45,7 @@ echo "Done. Symlinked:"
 echo "  ~/tools → $DOTFILES/tools"
 echo "  ~/.agents/AGENTS.md → $DOTFILES/.agents/AGENTS.md"
 echo "  ~/.agents/skills/ → $DOTFILES/.agents/skills/"
+echo "  ~/.agents/references/ → $DOTFILES/.agents/references/"
 echo "  ~/.claude/CLAUDE.md → $DOTFILES/.claude/CLAUDE.md"
 echo "  ~/.claude/settings.json → $DOTFILES/.claude/settings.json"
 echo "  ~/.claude/skills/ → $DOTFILES/.agents/skills/"
