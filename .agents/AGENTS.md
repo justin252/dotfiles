@@ -17,7 +17,7 @@
 - After merging/deduplicating lists, verify each exact item – don't summarize as families or wildcards.
 - Before proposing new tools/aliases, grep existing config to avoid duplicating what's already there.
 - Verify platform capabilities before designing around them – don't assume features exist at system boundaries.
-- Shell scripts (dotfiles): verify BSD (macOS) vs GNU flag compatibility.
+- Shell scripts (dotfiles): verify BSD (macOS) vs GNU flag compatibility. Dotfiles run on both macOS (laptop) and Linux (workspace); prefer cross-platform implementations, only guard with `$OSTYPE` when genuinely platform-specific (desktop apps, macOS-only tools). Use existence checks (`command -v`, `[[ -d ]]`) over OS checks when possible.
 - Flag performance when it matters – hot paths, large datasets, repeated calls. Don't optimize prematurely.
 - Shell startup (.zshrc, etc.): never source commands that hit the network. Auth/token refreshes → on-demand or lazy.
 - Go: default to unexported (lowercase). Only export when cross-package usage is confirmed.
