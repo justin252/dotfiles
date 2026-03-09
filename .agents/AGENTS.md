@@ -30,9 +30,11 @@
 - Exit loops if no progress toward verifiable goal. Never loop 3+ times on same failure – stop, note pattern, ask.
 - Ask before guessing paths/values – don't assume from directory listings.
 - Flag over/under-prompting: if user is over-specifying something obvious, say so. If under-specifying is causing rework, flag that too.
+- For review/planning sessions, present 1–2 decisions at a time, not a full menu.
 - When working across repos, confirm target repo early.
 - After disruptions (tool rejection, context restore, mode switch, concurrent edits from another tool), verify actual state (git status, git diff, ls) before retrying.
 - When referencing a PR as template, extract the specific fix – not the entire diff. PRs often bundle unrelated changes.
+- When source-of-truth artifacts change significantly, rebuild downstream from the new truth. Don't patch old artifacts around updated ones.
 
 ## Modes
 
@@ -110,7 +112,7 @@ In all modes:
 - `gh pr create` always uses `--draft` unless repo-level AGENTS.md says otherwise.
 - New repos → always `.gitignore` with `.DS_Store` immediately.
 - In implement mode: never commit without user confirmation – show diff, summarize, wait for go-ahead.
-- Before committing, verify current branch matches intent – check for open PRs and whether changes belong there.
+- Before committing, verify current branch matches intent – check for open PRs, whether the PR is already merged, and whether changes belong there.
 - Feature branches: prefer rewriting history (reset + force push) over revert commits. Reverts only on main/shared branches.
 - Never `git reset --soft main` – local main drifts. Use `HEAD~N` (relative) for squashing branch commits.
 - Don't auto-squash branch commits at checkpoint – distinct logical commits (move, fix, feature) tell a story. Ask first.
@@ -148,6 +150,7 @@ Model: session → INBOX.md (short-term) → triage → AGENTS.md (long-term)
 - retro = capture process → INBOX.md. triage = promotion → AGENTS.md or discard.
 - Triage when INBOX.md exceeds ~10 items. Proactively check and suggest `/triage` when it's growing – don't wait to be asked.
 - Skills (shared workflows) live in `~/.agents/skills/` – both Claude Code and Cursor read from here.
+- Skill vs instruction: single command + context → AGENTS.md instruction. Multi-step, branching logic, or cross-repo → skill.
 
 Capture triggers:
 - `log` / `idea: <thought>` → append to INBOX.md (date, context, idea)
