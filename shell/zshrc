@@ -104,8 +104,28 @@ _gclean_branches() {
     [[ "$state" == "MERGED" ]] && echo "deleted $branch (PR merged)" && git branch -D "$branch" 2>/dev/null
   done
 }
+_gclean_worktrees() {
+  git worktree prune 2>/dev/null
+  local main_wt
+  main_wt=$(git worktree list --porcelain | head -1 | sed 's/worktree //')
+  git worktree list --porcelain | sed -n 's/^worktree //p' | while read -r wt_path; do
+    [[ "$wt_path" == "$main_wt" ]] && continue
+    local branch
+    branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null) || continue
+    local state
+    state=$(gh pr list --head "$branch" --state merged --json state --jq '.[0].state' 2>/dev/null)
+    if [[ "$state" == "MERGED" ]]; then
+      echo "removing worktree $wt_path ($branch – PR merged)"
+      if ! git worktree remove "$wt_path" 2>/dev/null; then
+        echo "  ⚠ worktree has uncommitted changes; skipping (use --force to override)"
+      else
+        git branch -D "$branch" 2>/dev/null
+      fi
+    fi
+  done
+}
 unalias gclean 2>/dev/null
-gclean() { _git_fetch_clean && _gclean_branches; }
+gclean() { _git_fetch_clean && _gclean_branches; _gclean_worktrees; }
 gsync() {
   local default=$(_git_default_branch)
   _git_fetch_clean && git rebase "origin/$default" --autostash
@@ -114,6 +134,7 @@ gm() {
   _git_fetch_clean
   git checkout "$(_git_default_branch)" && git pull --rebase --autostash
   _gclean_branches
+  _gclean_worktrees
 }
 alias gprc="gh pr checkout"
 gfresh() {
