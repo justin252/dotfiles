@@ -31,6 +31,7 @@
 - Hang detection: run potentially-slow commands in background. Poll output – if no new output for 15s (with verbose/debug flags) or 30s (without), assume hung. Kill, retry with timeout, or fall back.
 - Exit loops if no progress toward verifiable goal. Never loop 3+ times on same failure – stop, note pattern, ask.
 - Ask before guessing paths/values – don't assume from directory listings.
+- Saved docs (drafts, research, proposals) → `~/documents/<topic-folder>/` with descriptive slug filenames. Not repo `docs/`, not `~/.cursor/plans/`.
 - Flag over/under-prompting: if user is over-specifying something obvious, say so. If under-specifying is causing rework, flag that too.
 - For review/planning sessions, present 1–2 decisions at a time, not a full menu.
 - When working across repos, confirm target repo early.
