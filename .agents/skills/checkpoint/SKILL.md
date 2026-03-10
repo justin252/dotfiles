@@ -10,7 +10,7 @@ Self-contained workflow – execute steps fully, don't inject extra confirmation
 2. Update README if changes affect it
 3. Split into stacked PRs if possible (see Workflow > Splitting changes in AGENTS.md), or ship as one
 4. Clean up commit history (squash/reword as needed)
-5. Show diff, summarize what changed and why, confirm before committing
+5. Verify current branch matches intent (especially in stacked PRs). Show diff, summarize what changed and why, confirm before committing
 6. Push branches, open PRs (use PR template from `~/.agents/AGENTS.md` > Pull Requests)
 7. Win check – evaluate session against promo-packet bar (see below). If it qualifies, draft entry and confirm before logging to `~/.agents/wins.md`
 8. Retro – run /retro
