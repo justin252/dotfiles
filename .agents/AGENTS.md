@@ -114,7 +114,7 @@ In all modes:
 - GitHub CLI for all GitHub interactions.
 - Always rebase, never merge – clean linear history. Branch from `origin/main`, not local main.
 - Squash-merge PRs – one commit per PR on main.
-- `gh pr create` always uses `--draft` unless repo-level AGENTS.md says otherwise.
+- `gh pr create` always uses `--draft` unless repo-level AGENTS.md says otherwise. In worktrees, always pass `--head <branch>` (gh can't detect tracking branch).
 - New repos → always `.gitignore` with `.DS_Store` immediately.
 - In implement mode: never commit without user confirmation – show diff, summarize, wait for go-ahead.
 - Before committing, verify current branch matches intent – check for open PRs, whether the PR is already merged, and whether changes belong there.
