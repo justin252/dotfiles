@@ -37,6 +37,8 @@
 - After disruptions (tool rejection, context restore, mode switch, concurrent edits from another tool), verify actual state (git status, git diff, ls) before retrying.
 - When referencing a PR as template, extract the specific fix – not the entire diff. PRs often bundle unrelated changes.
 - When source-of-truth artifacts change significantly, rebuild downstream from the new truth. Don't patch old artifacts around updated ones.
+- Before entering plan mode on a branch with uncommitted changes, check `git diff --stat` – the plan may already be implemented.
+- Multi-file tasks (3+ files, distinct context per step): delegate each logical step to a Task subagent with focused context. Inline is fine for <3 files or heavily shared context.
 
 ## Modes
 
@@ -122,6 +124,7 @@ In all modes:
 - Git hygiene aliases (`dotfiles/shell/zshrc`): `gm` (main + pull + full cleanup), `gsync` (rebase onto main), `gclean` (cleanup only). Self-healing fetch auto-recovers stale refs. For Graphite stacks, use `gtr` not `gsync`.
 - Hygiene aliases are safe anytime. Push operations (`gpush`, `gpushup`) only through /checkpoint.
 - Don't stash across branches when files differ. Make changes directly on target branch, or cherry-pick.
+- `--force-with-lease` fails after amend/rebase (tracking ref stale even after fetch). On personal feature branches, use `--force`. Alternative: `git push --force-with-lease=<branch>:<old-sha>` with SHA from `FETCH_HEAD`.
 
 ## Pull Requests
 
@@ -142,7 +145,7 @@ In all modes:
 - Reference issue numbers when applicable
 - After pushing follow-up commits, update the PR body to reflect new changes
 - Descriptions = current intent, not changelog. No "what changed from v1" sections. Commit history handles evolution.
-- Before `gh pr edit --body`: always `gh pr view --json body` first, merge with existing content. GitHub has no edit history; overwriting destroys user content permanently.
+- Before `gh pr edit --body`: always `gh pr view --json body` first, diff new content against existing, merge. GitHub has no edit history; overwriting destroys user content permanently.
 - Per-repo CLAUDE.md can override this template
 
 ## Memory
