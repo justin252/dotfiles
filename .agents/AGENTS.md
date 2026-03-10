@@ -158,6 +158,7 @@ Model: session → INBOX.md (short-term) → triage → AGENTS.md (long-term)
 - Triage when INBOX.md exceeds ~10 items. Proactively check and suggest `/triage` when it's growing – don't wait to be asked.
 - Skills (shared workflows) live in `~/.agents/skills/` – both Claude Code and Cursor read from here.
 - Skill vs instruction: single command + context → AGENTS.md instruction. Multi-step, branching logic, or cross-repo → skill.
+- When updating a skill or its reference example, diff conventions against the artifact to catch drift.
 
 Capture triggers:
 - `log` / `idea: <thought>` → append to INBOX.md (date, context, idea)
