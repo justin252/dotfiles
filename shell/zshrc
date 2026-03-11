@@ -36,6 +36,19 @@ fi
 # direnv
 command -v direnv &>/dev/null && eval "$(direnv hook zsh)"
 
+# ─── Line editing ────────────────────────────────────────────
+# Requires iTerm2 Natural Text Editing preset (see docs/terminal-editing.md)
+# Navigation
+bindkey '^[b' backward-word           # Option+Left
+bindkey '^[f' forward-word            # Option+Right
+bindkey '^A' beginning-of-line        # Cmd+Left
+bindkey '^E' end-of-line              # Cmd+Right
+# Deletion
+bindkey '^[d' kill-word               # Option+Fn+Backspace (fwd)
+bindkey '^[^?' backward-kill-word     # Option+Backspace
+bindkey '^K' kill-line                # Cmd+Fn+Backspace (fwd)
+bindkey '^U' kill-whole-line          # Cmd+Backspace
+
 # ─── Navigation ───────────────────────────────────────────────
 alias ..="cd .."
 alias ...="cd ../.."

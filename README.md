@@ -38,10 +38,11 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 .claude/CLAUDE.md            # Claude Code config (@imports AGENTS.md + Claude-specific)
 .claude/settings.json        # Claude Code permissions (dontAsk allow list)
 docs/claude-modes.md         # Quick reference: Plan / Execute / Yolo modes
+docs/joycon-karabiner.md     # Joy-Con mapping spec
+docs/terminal-editing.md     # macOS text-editing shortcuts in terminal
 shell/zshrc                  # Universal shell config (aliases, functions, env)
 tools/                       # CLI scripts on PATH (symlinked to ~/tools)
 karabiner/karabiner.json     # Karabiner-Elements config (Joy-Con L → Claude Code controls)
-karabiner/joycon-karabiner.md # Joy-Con mapping spec
 templates/DESIGN.md          # Design doc template (used by /design command)
 install.sh                   # Sets up symlinks + installs fzf
 AGENTS.md                    # Repo-level agent instructions (this repo)
