@@ -42,6 +42,7 @@
 - Before entering plan mode on a branch with uncommitted changes, check `git diff --stat` – the plan may already be implemented.
 - Before adding files/config to a codebase path, verify the path is stable – check for pending migrations or renames that would move the target.
 - Multi-file tasks (3+ files, distinct context per step): delegate each logical step to a Task subagent with focused context. Inline is fine for <3 files or heavily shared context.
+- Test-only subagent runs: explicitly say "Do NOT modify any source files." Build-fix agents will otherwise revert your changes to satisfy the compiler.
 
 ## Modes
 
