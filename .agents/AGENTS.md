@@ -43,6 +43,8 @@
 - Before adding files/config to a codebase path, verify the path is stable – check for pending migrations or renames that would move the target.
 - Multi-file tasks (3+ files, distinct context per step): delegate each logical step to a Task subagent with focused context. Inline is fine for <3 files or heavily shared context.
 - Test-only subagent runs: explicitly say "Do NOT modify any source files." Build-fix agents will otherwise revert your changes to satisfy the compiler.
+- Permission denial in autonomous mode: don't retry the same operation. Identify what was blocked, explain what permission it needs, and offer the manual command or suggest user run it interactively. Continue with remaining work that doesn't require the blocked permission.
+- Autonomous session end (yolo/poc): summarize completed work + remaining items. Send terminal notification so user knows the run finished.
 
 ## Modes
 

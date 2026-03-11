@@ -9,6 +9,8 @@
 - Plan files: auto-generated plans stay in `~/.claude/plans/` (Claude Code manages). Saved plans promoted to `~/.claude/plans/saved/<slug>.md` via `save plan`.
 - Skills override CLAUDE.md constraints for their active scope (e.g. /yolo overrides "never commit without confirmation").
 - If a build/run subagent is rejected, offer manual commands – don't retry the subagent.
+- Permission denied in `ccy` mode: can't switch permission modes mid-session. Tell user the exact operation that was blocked, provide the manual command, and suggest running it in a new interactive `claude` session if multiple operations need approval.
+- Autonomous session completion: print clear summary of what was done/remaining, then `tput bel` (terminal bell) to notify user the run finished.
 - In Cursor sessions, read ~/.claude/CLAUDE.md early – Cursor doesn't auto-load it like Claude Code does.
 
 ## Working Posture
