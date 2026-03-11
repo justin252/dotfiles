@@ -1,10 +1,21 @@
 #!/usr/bin/env python3
-"""Convert JSON array of objects to CSV."""
+"""Convert JSON to CSV. Accepts array of objects or dict-of-dicts."""
 
 import csv
 import json
 import sys
 from pathlib import Path
+
+
+def flatten_value(v):
+    """Flatten a value for CSV: lists → semicolon-separated, null → empty."""
+    if v is None:
+        return ""
+    if isinstance(v, list):
+        return ";".join(str(i) for i in v)
+    if isinstance(v, dict):
+        return json.dumps(v, ensure_ascii=False)
+    return v
 
 
 def main():
@@ -26,35 +37,46 @@ def main():
             sys.exit(1)
         data = json.loads(input_path.read_text(encoding="utf-8"))
 
-    # Validate input
-    if not isinstance(data, list):
-        print("Error: JSON must be an array of objects", file=sys.stderr)
-        sys.exit(1)
+    # Normalize: dict-of-dicts → array with "name" key
+    if isinstance(data, dict):
+        if not data:
+            print("Error: JSON object is empty", file=sys.stderr)
+            sys.exit(1)
+        data = [{"name": k, **v} if isinstance(v, dict) else {"name": k, "value": v}
+                for k, v in data.items()]
 
-    if not data:
-        print("Error: JSON array is empty", file=sys.stderr)
+    if not isinstance(data, list) or not data:
+        print("Error: expected JSON array or object", file=sys.stderr)
         sys.exit(1)
 
     if not isinstance(data[0], dict):
         print("Error: JSON array must contain objects", file=sys.stderr)
         sys.exit(1)
 
-    # Extract headers from first object
-    headers = list(data[0].keys())
+    # Collect headers from all rows (preserves order, catches sparse keys)
+    seen = set()
+    headers = []
+    for row in data:
+        for k in row:
+            if k not in seen:
+                seen.add(k)
+                headers.append(k)
+
+    # Flatten nested values
+    flat = [{k: flatten_value(v) for k, v in row.items()} for row in data]
 
     # Write CSV
-    # Default output: stdout if reading from stdin, else replace extension
     if output_arg == "-" or (output_arg is None and input_path is None):
-        writer = csv.DictWriter(sys.stdout, fieldnames=headers)
+        writer = csv.DictWriter(sys.stdout, fieldnames=headers, restval="", extrasaction="ignore")
         writer.writeheader()
-        writer.writerows(data)
+        writer.writerows(flat)
     else:
         output_path = Path(output_arg) if output_arg else input_path.with_suffix(".csv")
         with output_path.open("w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=headers)
+            writer = csv.DictWriter(f, fieldnames=headers, restval="", extrasaction="ignore")
             writer.writeheader()
-            writer.writerows(data)
-        print(f"{len(data)} rows → {output_path}", file=sys.stderr)
+            writer.writerows(flat)
+        print(f"{len(flat)} rows → {output_path}", file=sys.stderr)
 
 
 if __name__ == "__main__":
