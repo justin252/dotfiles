@@ -9,22 +9,26 @@ from pathlib import Path
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: csv2json <input.csv> [output.json]", file=sys.stderr)
+        print("Usage: csv2json <input.csv|->" " [output.json]", file=sys.stderr)
         sys.exit(1)
 
-    input_path = Path(sys.argv[1])
-    if not input_path.exists():
-        print(f"File not found: {input_path}", file=sys.stderr)
-        sys.exit(1)
-
+    input_arg = sys.argv[1]
     output_arg = sys.argv[2] if len(sys.argv) > 2 else None
 
-    with input_path.open(newline="", encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
+    if input_arg == "-":
+        rows = list(csv.DictReader(sys.stdin))
+        input_path = None
+    else:
+        input_path = Path(input_arg)
+        if not input_path.exists():
+            print(f"File not found: {input_path}", file=sys.stderr)
+            sys.exit(1)
+        with input_path.open(newline="", encoding="utf-8") as f:
+            rows = list(csv.DictReader(f))
 
     result = json.dumps(rows, indent=2, ensure_ascii=False)
 
-    if output_arg == "-":
+    if output_arg == "-" or (output_arg is None and input_path is None):
         print(result)
     else:
         output_path = Path(output_arg) if output_arg else input_path.with_suffix(".json")
