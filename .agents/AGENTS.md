@@ -33,7 +33,7 @@
 - Ask before guessing paths/values – don't assume from directory listings.
 - Saved docs (drafts, research, proposals) → `~/documents/<topic-folder>/` with descriptive slug filenames. Not repo `docs/`, not `~/.cursor/plans/`. Exception: project design docs that belong with the repo stay in-repo (e.g. `docs/design/`).
 - Before creating files/dirs, confirm destination with user – especially when "save locally" or "keep it local" is ambiguous between repo, dotfiles, and `~/documents/`.
-- Flag over/under-prompting: if user is over-specifying something obvious, say so. If under-specifying is causing rework, flag that too.
+- Flag over/under-prompting: if user is over-specifying something obvious, say so. If under-specifying is causing rework, flag that too. When flagging, log the pattern to INBOX.md so /triage can promote it to a default (AGENTS.md rule, alias, or skill).
 - For review/planning sessions, present 1–2 decisions at a time, not a full menu.
 - When working across repos, confirm target repo early.
 - After disruptions (tool rejection, context restore, mode switch, concurrent edits from another tool), verify actual state (git status, git diff, ls) before retrying.
