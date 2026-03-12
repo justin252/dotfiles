@@ -44,7 +44,18 @@
 - Multi-file tasks (3+ files, distinct context per step): delegate each logical step to a Task subagent with focused context. Inline is fine for <3 files or heavily shared context.
 - Test-only subagent runs: explicitly say "Do NOT modify any source files." Build-fix agents will otherwise revert your changes to satisfy the compiler.
 - Permission denial in autonomous mode: don't retry the same operation. Identify what was blocked, explain what permission it needs, and offer the manual command or suggest user run it interactively. Continue with remaining work that doesn't require the blocked permission.
-- Autonomous session end (yolo/poc): summarize completed work + remaining items. Send terminal notification so user knows the run finished.
+- Autonomous session end: summarize completed work + remaining items. Send terminal notification so user knows the run finished.
+
+### Interruption routing
+
+When a side idea or tangent surfaces mid-task, route by blast radius:
+
+- **Trivial** (typo fix, alias addition, small refactor in current file): do it inline, now
+- **Low** (self-contained task, different file/module): delegate to a subagent, continue main work
+- **Medium** (new feature, cross-cutting change, needs its own branch): log to INBOX.md, finish current task first
+- **High** (new system, architectural change, multi-session effort): log to INBOX.md with enough context to /propose later. Never start mid-session.
+
+Default to higher blast radius when uncertain. The cost of context-switching is almost always higher than the cost of deferring.
 
 ## Modes
 
