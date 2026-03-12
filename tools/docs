@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DOCS_ROOT="${DOCS_ROOT:-$HOME/documents}"
+
+if [[ ! -d "$DOCS_ROOT" ]]; then
+  echo "No documents directory at $DOCS_ROOT" >&2
+  exit 1
+fi
+
+if ! command -v fzf &>/dev/null; then
+  echo "fzf required but not found" >&2
+  exit 1
+fi
+
+preview_cmd="cat {}"
+command -v bat &>/dev/null && preview_cmd="bat --style=plain --color=always {}"
+
+file=$(find "$DOCS_ROOT" -type f -name '*.md' | sort | \
+  fzf --prompt="docs> " \
+      --preview="$preview_cmd" \
+      --preview-window=right:60%:wrap) || exit 0
+
+[[ -z "$file" ]] && exit 0
+
+topic_dir=$(dirname "$file")
+topic=$(basename "$topic_dir")
+fname=$(basename "$file")
+
+# Build actions list
+actions=("edit" "view")
+[[ -f "$topic_dir/impl.md" ]] && actions+=("implement")
+[[ ! -f "$topic_dir/rfc.md" ]] && actions+=("propose")
+
+# Smart default: impl.md -> implement, else -> edit
+default="edit"
+[[ "$fname" == "impl.md" && " ${actions[*]} " == *" implement "* ]] && default="implement"
+
+action=$(printf '%s\n' "${actions[@]}" | \
+  fzf --prompt="action> " --query="$default" --select-1) || exit 0
+
+case "$action" in
+  edit)
+    ${EDITOR:-cursor} "$file" ;;
+  view)
+    if command -v bat &>/dev/null; then
+      bat --style=plain "$file"
+    else
+      cat "$file"
+    fi ;;
+  implement)
+    echo "Launching Claude Code: /implement $topic"
+    cd "$topic_dir" && claude "/implement $topic" ;;
+  propose)
+    echo "Opening topic dir in Cursor for /propose"
+    cursor "$topic_dir" ;;
+esac
