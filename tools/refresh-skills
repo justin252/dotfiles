@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# refresh-skills - re-copy ~/.agents/skills/ to ~/.cursor/skills/
+# Cursor doesn't follow symlinks, so skills must be real files.
+# Called by pull-dot automatically; run manually after editing skills.
+set -euo pipefail
+
+[[ -d ~/.agents/skills ]] || { echo "no skills dir (~/.agents/skills)" >&2; exit 1; }
+
+rm -rf ~/.cursor/skills
+mkdir -p ~/.cursor/skills
+count=0
+for skill in ~/.agents/skills/*/; do
+  [[ -d "$skill" ]] || continue
+  cp -rL "$skill" ~/.cursor/skills/"$(basename "$skill")"
+  ((count++)) || true
+done
+echo "refreshed $count skills → ~/.cursor/skills/"

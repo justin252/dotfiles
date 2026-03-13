@@ -35,6 +35,18 @@ if ! command -v fzf &> /dev/null; then
   fi
 fi
 
+# Install tmux if missing
+if ! command -v tmux &> /dev/null; then
+  echo "Installing tmux..."
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    brew install tmux
+  elif command -v apt-get &>/dev/null; then
+    sudo apt-get install -y tmux 2>/dev/null || echo "Warning: could not install tmux – install manually"
+  else
+    echo "Warning: tmux not found – install manually"
+  fi
+fi
+
 # Install rtk if missing
 if ! command -v rtk &> /dev/null; then
   echo "Installing rtk..."
@@ -69,11 +81,7 @@ ln -sf "$DOTFILES/.claude/settings.json" ~/.claude/settings.json
 
 # Cursor discovery (cp, not symlink; Cursor doesn't follow symlinks – known bug)
 [[ -L ~/.cursor/skills ]] && rm ~/.cursor/skills
-rm -rf ~/.cursor/skills
-mkdir -p ~/.cursor/skills
-for skill in ~/.agents/skills/*/; do
-  [[ -d "$skill" ]] && cp -rL "$skill" ~/.cursor/skills/"$(basename "$skill")"
-done
+"$DOTFILES/tools/refresh-skills"
 ln -sfn "$DOTFILES/.cursor/rules" ~/.cursor/rules
 
 # RTK Claude Code hook (generates local hook script + RTK.md)
@@ -83,6 +91,7 @@ if command -v rtk &> /dev/null && [[ ! -f ~/.claude/hooks/rtk-rewrite.sh ]]; the
 fi
 
 ln -sf "$DOTFILES/shell/zshrc" ~/.zshrc
+ln -sf "$DOTFILES/shell/tmux.conf" ~/.tmux.conf
 
 # Karabiner (macOS only)
 if [[ "$OSTYPE" == darwin* ]]; then
@@ -118,5 +127,6 @@ echo "  ~/.claude/skills/ → ~/.agents/skills/ (merged)"
 echo "  ~/.cursor/skills/*/ ← ~/.agents/skills/*/ (copied; Cursor doesn't follow symlinks)"
 echo "  ~/.cursor/rules/ → $DOTFILES/.cursor/rules/"
 echo "  ~/.zshrc → $DOTFILES/shell/zshrc"
+echo "  ~/.tmux.conf → $DOTFILES/shell/tmux.conf"
 [[ "$OSTYPE" == darwin* ]] && echo "  ~/.config/karabiner/karabiner.json ← $DOTFILES/karabiner/karabiner.json (copied, Karabiner breaks symlinks)"
 true
