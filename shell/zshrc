@@ -176,7 +176,10 @@ ccadd() { local a=(); for d; do a+=(--add-dir "$d"); done; claude -c "${a[@]}"; 
 ccplanadd() { local a=(); for d; do a+=(--add-dir "$d"); done; claude --permission-mode plan "${a[@]}"; }
 
 # Plans
-openplan() { cursor "$(ls -t ~/.claude/plans/*.md 2>/dev/null | head -1)"; }
+openplan() {
+  command -v cursor &>/dev/null || { echo "cursor not installed" >&2; return 1; }
+  cursor "$(ls -t ~/.claude/plans/*.md 2>/dev/null | head -1)"
+}
 
 # ─── Shell ────────────────────────────────────────────────────
 alias dot="cd ~/dotfiles"

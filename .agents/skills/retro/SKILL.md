@@ -34,8 +34,10 @@ Auto-trigger: don't wait to be asked. Run at checkpoint, session end, and before
 
 Write each finding as a separate entry under `## Inbox` in `~/.agents/INBOX.md`:
 
-```
-- YYYY-MM-DD | <context> | <finding>. **Triage:** <where it should go>. **Source:** cursor|claude-code|both
+```markdown
+### YYYY-MM-DD – <title>
+<finding in 1-2 sentences>
+**Triage:** <destination>. **Source:** claude-code|cursor|both
 ```
 
 After writing, check INBOX.md size. If >10 items, nudge toward /triage.

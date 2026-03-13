@@ -72,13 +72,13 @@ These duplicate AGENTS.md essentials so CC subagents work without inheriting par
 - **Commits**: conventional (`feat:`, `fix:`, `chore:`, `refactor:`). Single-line subject, no body.
 - **Branches**: `<type>/<slug>` (e.g. `feat/add-grep-tool`)
 - **PRs**: always `--draft`. Body: Motivation, Summary, Test plan.
-- **Stacking**: prefer Graphite (`gt create`, `gt submit --draft`, `gt restack`). Fall back to `git push -u` + `gh pr create --draft`.
+- **Stacking**: check repo-level AGENTS.md for stacking preference. Default: `git push -u` + `gh pr create --draft`. Use Graphite (`gt create`, `gt submit --draft`, `gt restack`) only when repo config explicitly enables it.
 - **Safety**: never force-push main, never rm -rf outside build dirs, never delete unmerged branches.
 - **Checkpoint**: route through /checkpoint skill for push/PR. Never bare push.
 
 ## Stacking
 
-If a phase maps cleanly to a PR, create the branch and commit at phase end. Prefer stacked PRs for multi-phase work. Each PR must be independently correct.
+If a phase maps cleanly to a PR, create the branch and commit at phase end. Prefer stacked PRs for multi-phase work. Each PR must be independently correct. Use Graphite only when repo-level config enables it; default to git+gh.
 
 ## Completion
 
