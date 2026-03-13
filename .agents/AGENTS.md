@@ -33,7 +33,7 @@
 - Ask before guessing paths/values – don't assume from directory listings.
 - Saved docs (drafts, research, proposals) → `~/documents/<topic-folder>/` with descriptive slug filenames. Not repo `docs/`, not `~/.cursor/plans/`. Exception: project design docs that belong with the repo stay in-repo (e.g. `docs/design/`).
 - Before creating files/dirs, confirm destination with user – especially when "save locally" or "keep it local" is ambiguous between repo, dotfiles, and `~/documents/`.
-- Flag over/under-prompting: if user is over-specifying something obvious, say so. If under-specifying is causing rework, flag that too.
+- Flag over/under-prompting: if user is over-specifying something obvious, say so. If under-specifying is causing rework, flag that too. When flagging, log the pattern to INBOX.md so /triage can promote it to a default (AGENTS.md rule, alias, or skill).
 - For review/planning sessions, present 1–2 decisions at a time, not a full menu.
 - When working across repos, confirm target repo early.
 - After disruptions (tool rejection, context restore, mode switch, concurrent edits from another tool), verify actual state (git status, git diff, ls) before retrying.
@@ -44,7 +44,18 @@
 - Multi-file tasks (3+ files, distinct context per step): delegate each logical step to a Task subagent with focused context. Inline is fine for <3 files or heavily shared context.
 - Test-only subagent runs: explicitly say "Do NOT modify any source files." Build-fix agents will otherwise revert your changes to satisfy the compiler.
 - Permission denial in autonomous mode: don't retry the same operation. Identify what was blocked, explain what permission it needs, and offer the manual command or suggest user run it interactively. Continue with remaining work that doesn't require the blocked permission.
-- Autonomous session end (yolo/poc): summarize completed work + remaining items. Send terminal notification so user knows the run finished.
+- Autonomous session end: summarize completed work + remaining items. Send terminal notification so user knows the run finished.
+
+### Interruption routing
+
+When a side idea or tangent surfaces mid-task, route by blast radius:
+
+- **Trivial** (typo fix, alias addition, small refactor in current file): do it inline, now
+- **Low** (self-contained task, different file/module): delegate to a subagent, continue main work
+- **Medium** (new feature, cross-cutting change, needs its own branch): log to INBOX.md, finish current task first
+- **High** (new system, architectural change, multi-session effort): log to INBOX.md with enough context to /propose later. Never start mid-session.
+
+Default to higher blast radius when uncertain. The cost of context-switching is almost always higher than the cost of deferring.
 
 ## Modes
 

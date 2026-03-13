@@ -11,6 +11,14 @@ git clone git@github.com:justin252/dotfiles.git ~/dotfiles
 bash ~/dotfiles/install.sh
 ```
 
+## Update (existing machine)
+
+```bash
+pull-dot
+```
+
+One command: pulls latest dotfiles and re-sources zshrc.
+
 **Interactive learning path** – explore the repo with [Claude Code](https://docs.anthropic.com/en/docs/claude-code):
 
 ```bash
@@ -23,6 +31,8 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 ## What install.sh does
 
 - Symlinks shell config (`~/.zshrc` → `shell/zshrc`), tools (`~/tools`), agent config (`~/.agents/`, `~/.claude/`, `~/.cursor/`)
+- Symlinks `.claude/agents/` (CC subagent definitions)
+- Seeds `~/.agents/INBOX.md`, `~/.agents/wins.md`, `~/documents/` (local-only, never synced)
 - Copies Karabiner config (can't symlink – Karabiner overwrites symlinks)
 - Sets `git pull.rebase true`
 - Installs fzf if missing
@@ -36,14 +46,15 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 .agents/references/          # Reference docs auto-consulted by agents (e.g. CLI guidelines)
 .agents/skills/              # Agent skills (symlinked to ~/.agents/, ~/.claude/, ~/.cursor/)
 .claude/CLAUDE.md            # Claude Code config (@imports AGENTS.md + Claude-specific)
+.claude/agents/              # CC subagent definitions (implementer, researcher)
 .claude/settings.json        # Claude Code permissions (dontAsk allow list)
-docs/claude-modes.md         # Quick reference: Plan / Execute / Yolo modes
 shell/zshrc                  # Universal shell config (aliases, functions, env)
 tools/                       # CLI scripts on PATH (symlinked to ~/tools)
+tools/docs                   # fzf browser for ~/documents/ (edit, view, implement, propose)
 karabiner/karabiner.json     # Karabiner-Elements config (Joy-Con L → Claude Code controls)
 karabiner/joycon-karabiner.md # Joy-Con mapping spec
-templates/DESIGN.md          # Design doc template (used by /design command)
-install.sh                   # Sets up symlinks + installs fzf
+templates/DESIGN.md          # Design doc template (deprecated, use /propose)
+install.sh                   # Sets up symlinks, seeds local files, installs fzf
 AGENTS.md                    # Repo-level agent instructions (this repo)
 ```
 
@@ -60,6 +71,8 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `~/.config/karabiner/karabiner.json` is copied from this repo (Karabiner breaks symlinks)
 - `pull-dot` pulls and re-sources zshrc
 - `sz` re-sources zshrc after edits
+- `wt` – git worktree manager (create/list/switch/delete with fzf)
+- `docs` – fzf browser for `~/documents/` (edit, view, launch /implement or /propose)
 
 ## Preference distribution
 

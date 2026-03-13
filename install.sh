@@ -40,17 +40,25 @@ ln -sfn "$DOTFILES/tools" ~/tools
 mkdir -p ~/.claude ~/.cursor ~/.agents
 
 # Shared source of truth
-ln -sfn "$DOTFILES/.agents/skills" ~/.agents/skills
+# Skills use per-skill symlinks (real dir) so work dotfiles can add work-only skills
+[[ -L ~/.agents/skills ]] && rm ~/.agents/skills
+mkdir -p ~/.agents/skills
+for skill in "$DOTFILES/.agents/skills"/*/; do
+  ln -sfn "$skill" ~/.agents/skills/"$(basename "$skill")"
+done
 ln -sfn "$DOTFILES/.agents/references" ~/.agents/references
 ln -sf "$DOTFILES/.agents/AGENTS.md" ~/.agents/AGENTS.md
 
-# Claude Code discovery
-ln -sfn "$DOTFILES/.agents/skills" ~/.claude/skills
+# Claude Code discovery (skills -> merged dir, not personal dir)
+[[ -L ~/.claude/skills ]] && rm ~/.claude/skills
+ln -sfn ~/.agents/skills ~/.claude/skills
+ln -sfn "$DOTFILES/.claude/agents" ~/.claude/agents
 ln -sf "$DOTFILES/.claude/CLAUDE.md" ~/.claude/CLAUDE.md
 ln -sf "$DOTFILES/.claude/settings.json" ~/.claude/settings.json
 
 # Cursor discovery
-ln -sfn "$DOTFILES/.agents/skills" ~/.cursor/skills
+[[ -L ~/.cursor/skills ]] && rm ~/.cursor/skills
+ln -sfn ~/.agents/skills ~/.cursor/skills
 
 ln -sf "$DOTFILES/shell/zshrc" ~/.zshrc
 
@@ -60,16 +68,31 @@ if [[ "$OSTYPE" == darwin* ]]; then
   cp "$DOTFILES/karabiner/karabiner.json" ~/.config/karabiner/karabiner.json
 fi
 
+# Seed local-only files (never synced via git)
+mkdir -p ~/documents
+if [[ ! -f ~/.agents/INBOX.md ]]; then
+  cat > ~/.agents/INBOX.md <<'EOF'
+## Refined
+
+## Inbox
+
+## Resolved
+EOF
+  echo "Created ~/.agents/INBOX.md"
+fi
+[[ ! -f ~/.agents/wins.md ]] && touch ~/.agents/wins.md && echo "Created ~/.agents/wins.md"
+
 git config --global pull.rebase true
 
 echo "Done. Symlinked:"
 echo "  ~/tools → $DOTFILES/tools"
 echo "  ~/.agents/AGENTS.md → $DOTFILES/.agents/AGENTS.md"
-echo "  ~/.agents/skills/ → $DOTFILES/.agents/skills/"
+echo "  ~/.agents/skills/*/ → $DOTFILES/.agents/skills/*/ (per-skill, mergeable)"
 echo "  ~/.agents/references/ → $DOTFILES/.agents/references/"
 echo "  ~/.claude/CLAUDE.md → $DOTFILES/.claude/CLAUDE.md"
 echo "  ~/.claude/settings.json → $DOTFILES/.claude/settings.json"
-echo "  ~/.claude/skills/ → $DOTFILES/.agents/skills/"
-echo "  ~/.cursor/skills/ → $DOTFILES/.agents/skills/"
+echo "  ~/.claude/agents/ → $DOTFILES/.claude/agents/"
+echo "  ~/.claude/skills/ → ~/.agents/skills/ (merged)"
+echo "  ~/.cursor/skills/ → ~/.agents/skills/ (merged)"
 echo "  ~/.zshrc → $DOTFILES/shell/zshrc"
 [[ "$OSTYPE" == darwin* ]] && echo "  ~/.config/karabiner/karabiner.json ← $DOTFILES/karabiner/karabiner.json (copied, Karabiner breaks symlinks)"
