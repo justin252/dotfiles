@@ -53,7 +53,6 @@ tools/                       # CLI scripts on PATH (symlinked to ~/tools)
 tools/docs                   # fzf browser for ~/documents/ (edit, view, implement, propose)
 karabiner/karabiner.json     # Karabiner-Elements config (Joy-Con L → Claude Code controls)
 karabiner/joycon-karabiner.md # Joy-Con mapping spec
-templates/DESIGN.md          # Design doc template (deprecated, use /propose)
 install.sh                   # Sets up symlinks, seeds local files, installs fzf
 AGENTS.md                    # Repo-level agent instructions (this repo)
 ```
