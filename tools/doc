@@ -83,8 +83,15 @@ case "$action" in
       cat "$full"
     fi ;;
   implement)
-    echo "Launching Claude Code: /implement $topic"
-    cd "$topic_dir" && claude "/implement $topic" ;;
+    slug=$(basename "$topic_dir")
+    # if in a git repo, launch via ag (auto-creates worktree + autonomous claude)
+    if git rev-parse --show-toplevel &>/dev/null; then
+      echo "Launching agent: ag $slug -m \"/implement from $full\""
+      ag "$slug" -m "/implement from $full"
+    else
+      echo "Launching Claude Code: /implement $topic"
+      cd "$topic_dir" && claude "/implement $topic"
+    fi ;;
   claude)
     if [[ -d "$topic_dir" && "$topic_dir" != "$DOCS_ROOT" && "$topic_dir" != "$PLANS_ROOT" ]]; then
       echo "Launching Claude Code: $topic"

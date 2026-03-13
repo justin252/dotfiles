@@ -198,9 +198,9 @@ alias dotw="cd ~/dotfiles-work"
 wt() {
   case "${1:-}" in
     -h|--help)
-      echo "wt - git worktree manager"
+      echo "wt - git worktree plumbing (prefer 'ag <name>' for parallel agent work)"
       echo "  wt              list worktrees (fzf to switch)"
-      echo "  wt <name>       create worktree from default branch"
+      echo "  wt <name>       create worktree only (no agent – use 'ag <name>' instead)"
       echo "  wt -d <name>    delete worktree (kills ag session if running)"
       echo "  wt status       show worktrees + agent sessions + PR state"
       echo "  wt clean        remove worktrees with merged PRs"
@@ -223,45 +223,10 @@ wt() {
       fi
       return ;;
     status)
-      local root repo
-      root=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not in a git repo" >&2; return 1; }
-      repo=$(basename "$root")
-      git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}' | while read -r wt_path; do
-        branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
-        name=$(basename "$wt_path")
-        if tmux has-session -t "ag-${repo}-${name}" 2>/dev/null; then
-          ag_state="running"
-        else
-          ag_state="-"
-        fi
-        pr_state=$(gh pr list --head "$branch" --json state --jq '.[0].state // "-"' 2>/dev/null || echo "-")
-        printf "%-30s %-25s ag:%-8s pr:%s\n" "$name" "$branch" "$ag_state" "$pr_state"
-      done
+      ag status
       return ;;
     clean)
-      local root repo
-      root=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not in a git repo" >&2; return 1; }
-      repo=$(basename "$root")
-      local to_remove=()
-      while read -r wt_path; do
-        [[ "$wt_path" == "$root" ]] && continue
-        local branch name merged
-        branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
-        name=$(basename "$wt_path")
-        merged=$(gh pr list --head "$branch" --state merged --json number --jq '.[0].number // empty' 2>/dev/null)
-        if [[ -n "$merged" ]]; then
-          echo "  $name ($branch) - PR #$merged merged"
-          to_remove+=("$name")
-        fi
-      done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
-      [[ ${#to_remove[@]} -eq 0 ]] && { echo "nothing to clean"; return; }
-      echo ""
-      read -r "reply?Remove these worktrees? [y/N] "
-      [[ "$reply" =~ ^[Yy] ]] || return
-      for name in "${to_remove[@]}"; do
-        tmux kill-session -t "ag-${repo}-${name}" 2>/dev/null
-        git worktree remove "$name" 2>/dev/null && echo "removed $name"
-      done
+      ag clean
       return ;;
     *)
       local root base dest default_branch
@@ -273,8 +238,8 @@ wt() {
       git fetch origin "$default_branch" --quiet
       git worktree add "$dest" -b "wt/$1" "origin/$default_branch" && cd "$dest"
       echo "worktree '$1' at $dest (from origin/$default_branch)"
-      echo "  ag $1        # launch agent session"
-      echo "  ag $1 ccy    # launch autonomous agent" ;;
+      echo "  ag $1              # launch autonomous agent (preferred)"
+      echo "  ag $1 -i           # launch interactive agent" ;;
   esac
 }
 

@@ -74,10 +74,10 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `~/.config/karabiner/karabiner.json` is copied from this repo (Karabiner breaks symlinks)
 - `pull-dot` pulls and re-sources zshrc
 - `sz` re-sources zshrc after edits
-- `wt` – git worktree manager (create/list/switch/delete/status/clean with fzf)
-- `ag` – tmux-backed agent session manager. `ag <name>` launch, `ag` list/attach, `ag -k` kill, `ag <name> -m MSG` launch with prompt, `ag clean` sweep dead
+- `ag` – agent session manager: one command for parallel agent work. `ag <name>` auto-creates worktree + launches claude. `ag -m MSG` with initial task. `ag` fzf dashboard across all repos. `ag status` cross-repo unified view. `ag --cursor` for cursor + claude. `ag clean` sweeps dead sessions + merged worktrees.
+- `wt` – git worktree plumbing (create/list/switch/delete). Mostly used through `ag`; direct use for worktree-only ops.
 - `refresh-skills` – re-copy `~/.agents/skills/` to `~/.cursor/skills/` (run after editing skills, or via `pull-dot`)
-- `doc` – unified doc browser: `~/documents/` [doc] + `~/.claude/plans/saved/` [plan] with colored tags, preview, actions (edit, view, implement, claude, cursor). `doc <query>` pre-filters.
+- `doc` – unified doc browser: `~/documents/` [doc] + `~/.claude/plans/saved/` [plan] with colored tags, preview, actions (edit, view, implement, claude, cursor). `implement` action launches `ag` sessions from plans. `doc <query>` pre-filters.
 - `convo` – session notes browser: `~/.claude/sessions/` [sesh] + `sessions/starred/` [★]. Star notable sessions, resume in Claude Code, or search old context. `convo <query>` pre-filters.
 
 ## Preference distribution

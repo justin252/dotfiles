@@ -7,8 +7,8 @@ Comprehensive reference for the full development setup. Not auto-loaded; access 
 ```
 Layer 4: Skills       /implement, /checkpoint, /propose, /review, /retro
                       (skills call cleanup commands; /checkpoint offers wt clean after merge)
-Layer 3: Agent        ag (tmux session manager – launch, list, attach, kill, -m prompt)
-Layer 2: Code         wt (worktree dirs + status + clean), cc/ccy/ccplan (claude modes)
+Layer 3: Agent        ag (orchestrator – auto-worktree, autonomous claude, dashboard, status)
+Layer 2: Code         wt (worktree plumbing), cc/ccy/ccplan (claude modes)
 Layer 1: Transport    wss (SSH+tmux), ws (workspaces CLI alias)
 Layer 0: Infra        tmux.conf, install.sh, dotfiles sync
 ```
@@ -36,24 +36,26 @@ Each layer is independent. Skip any and the rest works:
 
 ### Layer 2: Code
 
-- **wt** – git worktree manager
-  - `wt <name>` – create worktree from origin/default-branch
+- **wt** – git worktree plumbing (mostly used through `ag`)
+  - `wt <name>` – create worktree only (prefer `ag <name>`)
   - `wt` – list worktrees (fzf to switch)
   - `wt -d <name>` – delete worktree (auto-kills ag session)
-  - `wt status` – unified view: worktree, branch, ag session, PR state
-  - `wt clean` – remove worktrees with merged PRs + kill sessions
-- **cc/ccy/ccplan** – claude mode aliases (see zshrc)
+  - `wt status` – unified view (also available as `ag status`)
+  - `wt clean` – remove worktrees with merged PRs (also in `ag clean`)
+- **cc/ccy/ccplan** – claude mode aliases for interactive work (see zshrc)
 
 ### Layer 3: Agent
 
-- **ag** – tmux-backed agent session manager
-  - `ag <name> [cmd]` – launch in worktree (default: claude)
-  - `ag . [cmd]` – launch in current dir
-  - `ag <name> [cmd] -m MSG` – launch + send initial prompt
-  - `ag` – list sessions (fzf to attach)
+- **ag** – agent session manager (stage 6-7 orchestrator)
+  - `ag <name>` – auto-create worktree + launch claude
+  - `ag <name> -m MSG` – launch with initial task
+  - `ag <name> --cursor` – cursor + claude in worktree
+  - `ag` – fzf dashboard (all sessions, all repos)
+  - `ag status` – cross-repo unified view (sessions, branches, PR state)
   - `ag -k <name>` – kill session
-  - `ag clean` – kill sessions with no running process
+  - `ag clean` – dead sessions + merged worktrees
   - Session naming: `ag-<repo>-<name>` (dashes, shell-friendly)
+  - Mental model: `cc` = you drive (current dir). `ag` = parallel work (worktree, tmux-managed)
 
 ### Layer 4: Skills
 
@@ -122,26 +124,35 @@ Capture triggers:
 
 ## Common Workflows
 
-### Plan + parallel execute + ship
+### Implement from a plan
 
 ```bash
-ccplan                          # plan (read-only research)
-wss test-drive                  # SSH + tmux (skip if local)
-wt SDA-1234                     # create worktree
-ag SDA-1234 ccy -m "/implement from ~/documents/topic/impl.md phase 1"
-wt SDA-5678                     # parallel worktree
-ag SDA-5678 ccy -m "/implement from ~/documents/topic/impl.md phase 2"
-wt status                       # monitor: worktrees + agents + PRs
-ag                              # fzf to attach to agent
-wt clean                        # after merge: remove worktrees + sessions
+doc                                     # pick a plan → implement action → ag launches
+# or manually:
+ag auth-fix -m "/implement from ~/documents/auth/impl.md"
+```
+
+### Parallel tasks
+
+```bash
+ag task-a -m "fix the auth bug"         # auto-creates worktree, autonomous
+ag task-b -m "add logging middleware"    # second agent, parallel
+ag status                               # monitor all
+ag                                      # fzf to attach to any agent
+ag clean                                # after merge: cleanup
+```
+
+### Cursor + claude
+
+```bash
+ag feature-x --cursor                   # opens cursor + autonomous claude in worktree
 ```
 
 ### Quick local fix
 
 ```bash
-wt fix-typo                     # worktree locally
-ag fix-typo ccy                 # agent in tmux
-ag -k fix-typo && wt -d fix-typo  # cleanup
+ag fix-typo -m "fix typo in README"     # one command: worktree + agent + task
+ag clean                                # cleanup after merge
 ```
 
 ### Reconnect after disconnect
@@ -157,8 +168,7 @@ ag                              # agents still there
 Manual commands           Triggered by skills/higher layers
 ─────────────────         ─────────────────────────────────
 ag -k <name>              wt -d (auto-kills ag session)
-ag clean                  wt clean (auto-kills ag sessions for merged PRs)
-wt -d <name>              /checkpoint (offers wt clean after PR merge)
-wt clean                  gm (already prunes merged branches)
+ag clean                  /checkpoint (offers ag clean after PR merge)
+wt -d <name>              gm (already prunes merged branches)
 gclean                    tmux auto-destroys sessions when shell exits
 ```
