@@ -7,6 +7,12 @@ description: Execute phased implementation plans. Creates or reads ~/documents/<
 
 Execute a phased implementation plan. Each phase is independently valuable and testable.
 
+## Launch
+
+Preferred: `ag <name> -m "/implement from ~/documents/<topic>/impl.md"` (auto-creates worktree, autonomous).
+Or via `doc` → pick plan → implement action.
+Can also run inline in an existing claude session.
+
 ## Bootstrap
 
 1. Read `~/.agents/AGENTS.md` for conventions (commit style, PR template, safety rules)
