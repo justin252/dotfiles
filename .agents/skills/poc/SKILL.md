@@ -1,60 +1,45 @@
 ---
 name: poc
-description: Prove an idea works – fast, minimal, with gaps documented. Requires `ccy` (dangerously-skip-permissions).
-
+description: Prove an idea works – fast, minimal, with gaps documented. Compound skill: /propose (light) -> /implement (phase 1 only) -> /checkpoint. Requires `ccy`.
 ---
 
-Prove an idea works with minimal effort. Research feasibility, build the shortest path, ship a draft PR with documented gaps.
+# /poc
 
-**Requires:** `ccy` (dangerously-skip-permissions). Running from `cc` will hit permission prompts.
+Prove an idea works with minimal effort. Compounds three skills into one flow.
 
-## Phase 1: Feasibility
+**Requires:** `ccy` (dangerously-skip-permissions).
 
-1. Read the idea: $ARGUMENTS (description, issue number, or file path)
-2. Explore: existing code, APIs, libraries, constraints
-3. Identify the shortest path to "it works"
-4. If infeasible, stop early – explain why and suggest alternatives
+## Flow
 
-## Phase 2: Build
+1. **Propose (light)**: create `~/documents/<topic>/rfc.md` with just Problem & Context + Proposal. Skip Implementation section -- the poc IS the implementation test. 2-3 minutes max.
 
-1. Create branch: `poc/<slug>` from latest main
-2. Implement the shortest path. Explicitly allowed:
+2. **Implement (phase 1 only)**: scaffold `impl.md` with a single phase -- the shortest path to "it works." Autonomous mode. Explicitly allowed:
    - Hardcoded values, magic strings
    - No tests, no error handling
-   - Skipping edge cases
-   - Console output instead of proper UI
    - TODO comments for production concerns
-3. Get it running / demonstrable
+   - Console output instead of proper UI
 
-**Scope guard:** if implementation is ballooning past POC, stop and ship what works with a note.
-
-## Phase 3: Ship
-
-1. Commit, push, create draft PR:
+3. **Checkpoint**: commit, push, draft PR:
    ```
    ## Idea
-   <what this proves>
+   <what this proves – link to rfc.md>
 
    ## Demo
    <how to run/see it working>
 
    ## Gaps
-   - [ ] <what's hardcoded>
-   - [ ] <what's missing for production>
-   - [ ] <what needs tests>
-   - [ ] <perf concerns>
-   - [ ] <security concerns>
-
-   ## Decision log
-   - Chose X over Y because <reason>
+   - [ ] <hardcoded values>
+   - [ ] <missing for production>
+   - [ ] <needs tests>
 
    ## Next steps
-   <what production-izing looks like – estimated scope>
+   <what production-izing looks like>
    ```
 
 ## Guardrails
 
 - Never merge PRs. Draft only.
-- Override behavioral confirmation gates (same as /yolo).
-- Hard safety rules still apply (AGENTS.md § Safety).
-- Single branch, single PR – no stacking
+- Single branch (`poc/<slug>`), single PR -- no stacking.
+- Override confirmation gates. Hard safety rules still apply (AGENTS.md).
+- Scope guard: if implementation balloons past poc, stop and ship what works.
+- On completion: summarize + terminal notification.

@@ -4,6 +4,8 @@ Repo-level instructions for all agents working in this dotfiles repo.
 
 "Set up my dotfiles" → `bash ~/dotfiles/install.sh` then `source ~/.zshrc`. Done.
 
+"Update dotfiles" → `pull-dot` (pulls + re-sources). Done.
+
 Tell user after: create `~/.zshrc.work` / `~/.zshrc.personal` for machine-specific config (auto-sourced if present).
 
 ## Repo rules

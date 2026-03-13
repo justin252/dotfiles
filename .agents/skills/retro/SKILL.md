@@ -1,33 +1,41 @@
 ---
 name: retro
-description: Capture friction and learnings to ~/.agents/INBOX.md. Context-aware – abbreviated before context loss, full at checkpoint/session end.
-
+description: Capture friction and learnings to ~/.agents/INBOX.md. Run at checkpoint, session end, and before context-loss events.
 ---
 
 Review this session and capture learnings to `~/.agents/INBOX.md`.
 
-**Context-aware scope:**
-- **Full** (checkpoint, session end): scan all categories below. Skip categories with nothing notable.
-- **Abbreviated** (before context loss – plan mode exit, clear, repo switch, pause): friction + key decisions only. 30 seconds.
+## Scope (context-aware)
+
+- **Full** (checkpoint, session end): scan all categories. Skip empty ones.
+- **Abbreviated** (before context loss -- plan mode exit, repo switch, pause): friction + key decisions only. 30 seconds max.
+
+Auto-trigger: don't wait to be asked. Run at checkpoint, session end, and before any context-loss event (mode switch, repo switch, long break).
+
+## Categories
 
 **Extractable patterns:**
-- Ad-hoc scripts, bash pipelines, or multi-step sequences generated this session
-- Repeated manual steps that could become aliases, functions, or tools
-- For each: what it does, recurrence likelihood, destination (zshrc, bin/, tools repo)
+- Ad-hoc scripts, pipelines, multi-step sequences worth keeping
+- Repeated manual steps -> alias, function, or tool candidate
+- Note: what it does, recurrence likelihood, destination (zshrc, tools/, skill)
 
-**Friction & hiccups:**
+**Friction:**
 - Loops, wrong assumptions, blocked paths, wasted turns
-- Permission prompts that interrupted expected-autonomous flow
+- Permission prompts that interrupted autonomous flow
 - Misunderstandings of intent or scope
+- Tool limitations or missing capabilities
 
-**Process insights:**
+**Process:**
 - What worked well, what didn't
 - AGENTS.md rules that helped or were missing
+- Over/under-prompting patterns
 
-**Style/context shifts:**
-- Points where conversation depth, tone, or approach shifted
-- Whether the shift was appropriate or signals a calibration gap
+## Output
 
-Write each finding as a separate INBOX.md entry under `## Inbox` with `**Triage:**` and `**Source:**` metadata. Group related items naturally.
+Write each finding as a separate entry under `## Inbox` in `~/.agents/INBOX.md`:
 
-`**Source:**` tracks which tool generated the learning. Values: `cursor`, `claude-code`, or `both` (if the insight spans tools).
+```
+- YYYY-MM-DD | <context> | <finding>. **Triage:** <where it should go>. **Source:** cursor|claude-code|both
+```
+
+After writing, check INBOX.md size. If >10 items, nudge toward /triage.

@@ -1,20 +1,35 @@
 ---
 name: checkpoint
 description: Build, test, split/ship PRs, commit, push, win check, retro. The only release path.
-
 ---
 
-Self-contained workflow – execute steps fully, don't inject extra confirmation gates beyond what's built in.
+Self-contained workflow -- execute steps fully, don't inject extra confirmation gates.
 
-1. Build + test (scope to affected targets)
-2. Update README if changes affect it
-3. Split into stacked PRs if possible (see Workflow > Splitting changes in AGENTS.md), or ship as one
-4. Clean up commit history (squash/reword as needed)
-5. Verify current branch matches intent (especially in stacked PRs). Show diff, summarize what changed and why, confirm before committing
-6. Push branches, open PRs (use PR template from `~/.agents/AGENTS.md` > Pull Requests)
-7. Win check – evaluate session against promo-packet bar (see below). If it qualifies, draft entry and confirm before logging to `~/.agents/wins.md`
-8. Retro – run /retro
+## Steps
 
-**`checkpoint amend`** = amend last commit + force push + update PR body + retro. Compound – execute all steps.
+1. **Assess scope**: `git diff --stat` to understand what changed
+2. **Build + test**: scope to affected targets. Skip if:
+   - Docs-only change (no source files modified)
+   - Tests already passed this session (TDD workflow -- don't re-run)
+   - Dotfiles/config-only change (no build system)
+3. **README**: update if changes affect it
+4. **Split or ship**: split into stacked PRs if logically independent changes exist, otherwise ship as one
+5. **Commit**: clean up history (squash/reword). Show diff, summarize, confirm before committing
+6. **Push + PR**: use PR template from AGENTS.md. Always `--draft`.
 
-**Win bar** (step 7): promo-packet worthy – impact beyond the code change. Categories: cross-team unblock, initiative enablement, DX improvement, arch decision, measurable perf win, reliability/incident response. When Jira/initiative context is shared, use it to frame impact. Auto-detect suggests entry, user confirms.
+   PR body:
+   ```
+   ## Motivation
+   <why, link issue if applicable>
+
+   ## Summary
+   - <what changed and why>
+
+   ## Test plan
+   - [ ] <verification steps>
+   ```
+
+7. **Win check**: does this session clear the promo-packet bar? Categories: cross-team unblock, DX improvement, arch decision, measurable perf win, reliability/incident. If yes, draft entry, confirm, log to `~/.agents/wins.md`
+8. **Retro**: run /retro
+
+**`checkpoint amend`** = amend last commit + force push + update PR body + retro.

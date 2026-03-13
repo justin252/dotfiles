@@ -126,9 +126,11 @@ gfresh() {
 cdg() { cd "$(git rev-parse --show-toplevel)"; }
 
 # ─── Graphite ────────────────────────────────────────────────
-alias gts="gt log short --stack"
-alias gtsub="gt submit"
-alias gtr="gt restack"
+if command -v gt &>/dev/null; then
+  alias gts="gt log short --stack"
+  alias gtsub="gt submit"
+  alias gtr="gt restack"
+fi
 
 # ─── Dev ──────────────────────────────────────────────────────
 alias py="python3"
@@ -180,8 +182,54 @@ openplan() { cursor "$(ls -t ~/.claude/plans/*.md 2>/dev/null | head -1)"; }
 alias dot="cd ~/dotfiles"
 tools() { cd "${TOOLS_PATH:-$HOME/tools}"; }
 alias sz="source ~/.zshrc"
-alias pull-dot='git -C ~/dotfiles pull --rebase --autostash && source ~/.zshrc'
+unalias pull-dot 2>/dev/null
+function pull-dot {
+  git -C ~/dotfiles pull --rebase --autostash
+  source ~/.zshrc
+}
+
+# ─── Git Worktrees ───────────────────────────────────────────
+wt() {
+  case "${1:-}" in
+    -h|--help)
+      echo "wt - git worktree manager"
+      echo "  wt              list worktrees (fzf to switch)"
+      echo "  wt <name>       create worktree from current branch"
+      echo "  wt -d <name>    delete worktree"
+      return ;;
+    -d)
+      [[ -z "${2:-}" ]] && { echo "usage: wt -d <name>" >&2; return 1; }
+      git worktree remove "$2" && echo "removed worktree '$2'"
+      return ;;
+    "")
+      local trees
+      trees=$(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
+      [[ -z "$trees" ]] && { echo "no worktrees" >&2; return 1; }
+      if command -v fzf &>/dev/null; then
+        local pick
+        pick=$(echo "$trees" | fzf --prompt="worktree> ") && cd "$pick"
+      else
+        echo "$trees"
+      fi
+      return ;;
+    *)
+      local root base dest
+      root=$(git rev-parse --show-toplevel) || return 1
+      base=$(basename "$root")
+      dest="${root}/../${base}-wt-${1}"
+      git worktree add "$dest" -b "wt/$1" && cd "$dest"
+      echo "worktree '$1' at $dest" ;;
+  esac
+}
+
+# ─── INBOX ───────────────────────────────────────────────────
+if [[ -f ~/.agents/INBOX.md ]] && [[ -o interactive ]]; then
+  _inbox_count=$(awk '/^## Inbox$/,/^## /{if(/^- /)c++}END{print c+0}' ~/.agents/INBOX.md 2>/dev/null)
+  (( _inbox_count > 0 )) && echo "inbox: $_inbox_count items pending (/triage to process)"
+  unset _inbox_count
+fi
 
 # ─── Work ────────────────────────────────────────────────────
-[ -f ~/.zshrc.work ] && source ~/.zshrc.work
-[ -f ~/.zshrc.personal ] && source ~/.zshrc.personal
+[[ -f ~/.zshrc.work ]] && source ~/.zshrc.work
+[[ -f ~/.zshrc.personal ]] && source ~/.zshrc.personal
+true
