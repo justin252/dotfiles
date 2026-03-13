@@ -41,3 +41,5 @@ Claude Code specifics:
 - `~/.claude/docs/` – long-lived documents, never synced
 - Karabiner: `install.sh` copies (not symlinks) because Karabiner overwrites symlinks. After editing the dotfiles copy, run `cp ~/dotfiles/karabiner/karabiner.json ~/.config/karabiner/karabiner.json`.
 - To detect context: check which local zshrc files exist on the machine (`~/.zshrc.work` = work context).
+
+@RTK.md

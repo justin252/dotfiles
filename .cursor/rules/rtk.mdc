@@ -1,0 +1,29 @@
+---
+description: Use RTK to compress CLI output for token savings
+globs:
+alwaysApply: true
+---
+
+# RTK (Rust Token Killer)
+
+When running CLI commands that produce verbose output, prefix them with `rtk` for 60-90% token savings. The output is compressed but preserves all actionable information.
+
+## Auto-prefix these commands with `rtk`
+
+- `rtk git status`, `rtk git diff`, `rtk git log`
+- `rtk ls .`, `rtk read <file>`
+- `rtk test <test-command>` (e.g. `rtk test cargo test`, `rtk test go test ./...`)
+- `rtk lint <lint-command>`
+- `rtk gh pr view`, `rtk gh issue list`
+
+## Meta commands (use directly)
+
+- `rtk gain` – token savings analytics
+- `rtk discover` – find missed compression opportunities
+- `rtk proxy <cmd>` – run without filtering (debugging)
+
+## Do NOT prefix with rtk
+
+- Interactive commands (editors, REPLs)
+- Commands where exact output format matters (JSON APIs, jq pipelines)
+- `curl`, `wget`, network requests
