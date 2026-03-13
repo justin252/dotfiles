@@ -249,8 +249,8 @@ All on PATH via `~/tools` symlink:
 - `wt` – git worktree manager. `wt <name>` create from default branch, `wt` fzf switch, `wt -d` delete, `wt status` unified view (worktrees + agents + PRs), `wt clean` remove merged.
 - `ag` – agent session manager (tmux). `ag <name> [cmd]` launch, `ag` list/attach, `ag -k` kill, `ag clean` sweep dead sessions.
 - `wss` – workspace SSH+tmux. `wss <name>` connect, `wss` fzf picker. Work-only (macOS guard).
-- `docs` – unified doc browser (fzf). Sources: `~/documents/` `[doc]`, `~/.claude/plans/saved/` `[plan]`. Colored tags, preview, actions (edit, view, implement, claude, cursor). `docs <query>` pre-filters.
-- `convos` – session notes browser (fzf). Sources: `~/.claude/sessions/` `[sesh]`, `~/.claude/sessions/starred/` `[★]`. Actions: view, star/unstar, claude, edit. `convos <query>` pre-filters.
+- `doc` – unified doc browser (fzf). Sources: `~/documents/` `[doc]`, `~/.claude/plans/saved/` `[plan]`. Colored tags, preview, actions (edit, view, implement, claude, cursor). `doc <query>` pre-filters.
+- `convo` – session notes browser (fzf). Sources: `~/.claude/sessions/` `[sesh]`, `~/.claude/sessions/starred/` `[★]`. Actions: view, star/unstar, claude, edit. `convo <query>` pre-filters.
 
 ### Testing dotfiles changes
 
