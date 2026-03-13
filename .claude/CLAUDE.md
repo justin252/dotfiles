@@ -11,7 +11,6 @@
 - If a build/run subagent is rejected, offer manual commands – don't retry the subagent.
 - Permission denied in `ccy` mode: can't switch permission modes mid-session. Tell user the exact operation that was blocked, provide the manual command, and suggest running it in a new interactive `claude` session if multiple operations need approval.
 - Autonomous session completion: print clear summary of what was done/remaining, then `tput bel` (terminal bell) to notify user the run finished.
-- In Cursor sessions, read ~/.claude/CLAUDE.md early – Cursor doesn't auto-load it like Claude Code does.
 
 ## Working Posture
 
@@ -33,20 +32,12 @@ Claude Code additions:
 
 ## Setup
 
-Two-repo model: personal (public, `justin252/dotfiles`) + work (`DataDog/workspaces-dotfiles/users/justin.hsu/`). Full setup docs in the work dotfiles README.
+See AGENTS.md § Dotfiles for shell layering, install.sh, agent config distribution. See AGENTS-work.md § Dotfiles for the two-repo model and workspace lifecycle (loaded via @import above).
 
-- On workspace: work dotfiles auto-copied to `~/dotfiles/`, personal cloned to `~/dotfiles-personal/`
-- On laptop: personal at `~/dotfiles/`, work at `~/dotfiles-work/` (symlink to `~/workspaces-dotfiles/users/justin.hsu/`)
-- `install.sh` in each repo creates symlinks; work install.sh orchestrates both
+Claude Code specifics:
 - `~/.claude/CLAUDE.md` → `~/dotfiles/.claude/CLAUDE.md` – only edit the dotfiles copy
 - `~/.claude/settings.json` → `~/dotfiles/.claude/settings.json` – universal permissions. Work-specific MCP entries go in `~/.claude/settings.local.json` (not synced; arrays merge).
-- `~/.agents/AGENTS.md` → `~/dotfiles/.agents/AGENTS.md` – shared cross-tool instructions
-- `~/.agents/AGENTS-work.md` → work dotfiles `.agents/AGENTS-work.md`
-- Karabiner: `install.sh` copies (not symlinks) `karabiner/karabiner.json` → `~/.config/karabiner/` because Karabiner overwrites symlinks. After editing the dotfiles copy, run `cp ~/dotfiles/karabiner/karabiner.json ~/.config/karabiner/karabiner.json` to sync live.
-- `~/.agents/INBOX.md` – local capture scratchpad, never synced
 - `~/.claude/plans/saved/` – saved plans (promoted from auto-generated `plans/`), never synced
 - `~/.claude/docs/` – long-lived documents, never synced
-- Shell config layers: `dotfiles/shell/zshrc` (universal, synced) → `~/.zshrc.work` (work, from work-dotfiles repo) → `~/.zshrc.personal` (personal only). Machine-specific values go in local files.
-- To detect context: check which local zshrc files exist on the machine.
-- Personal tools: `~/tools` (symlinked from `~/dotfiles/tools/`, on PATH).
-- `~/code` – project root for all repos.
+- Karabiner: `install.sh` copies (not symlinks) because Karabiner overwrites symlinks. After editing the dotfiles copy, run `cp ~/dotfiles/karabiner/karabiner.json ~/.config/karabiner/karabiner.json`.
+- To detect context: check which local zshrc files exist on the machine (`~/.zshrc.work` = work context).

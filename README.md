@@ -1,6 +1,6 @@
 # dotfiles
 
-Universal config that works on any machine. Machine-specific overlays (`~/.zshrc.work`, `~/.zshrc.personal`) stay local, never committed here.
+Universal config that works on any machine. Designed as a base layer; a separate work dotfiles repo can overlay on top via its own `install.sh` (which runs this one first, then adds work-specific symlinks). The overlay is optional – this repo works standalone.
 
 ## Quick start
 
@@ -37,14 +37,14 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 - Sets `git pull.rebase true`
 - Installs fzf if missing
 
-`~/.zshrc` layering: `shell/zshrc` (universal, synced) sources `~/.zshrc.work` (work-only) and `~/.zshrc.personal` (personal-only) if they exist. Machine-specific values go in local files.
+`~/.zshrc` layering: `shell/zshrc` (universal, synced) sources `~/.zshrc.work` and `~/.zshrc.personal` if they exist. Work overlay is typically provided by a work dotfiles repo; personal overlay is local-only.
 
 ## Structure
 
 ```
 .agents/AGENTS.md            # Shared agent instructions (cross-tool source of truth)
 .agents/references/          # Reference docs auto-consulted by agents (e.g. CLI guidelines)
-.agents/skills/              # Agent skills (symlinked to ~/.agents/, ~/.claude/, ~/.cursor/)
+.agents/skills/              # Agent skills (symlinked to ~/.agents/, ~/.claude/; copied to ~/.cursor/)
 .claude/CLAUDE.md            # Claude Code config (@imports AGENTS.md + Claude-specific)
 .claude/agents/              # CC subagent definitions (implementer, researcher)
 .claude/settings.json        # Claude Code permissions (dontAsk allow list)
@@ -62,10 +62,10 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 
 - `shell/zshrc` – universal config (this repo), works anywhere
 - `tools/` – CLI scripts, symlinked to `~/tools` (on PATH)
-- `~/.zshrc.work` – work-specific (company tools, aliases, env vars) – local only
-- `~/.zshrc.personal` – machine-specific personal overrides – local only
+- `~/.zshrc.work` – work-specific overlay (sourced if present; typically managed by a work dotfiles repo)
+- `~/.zshrc.personal` – machine-specific personal overrides (local only)
 - `~/.agents/AGENTS.md` – shared agent instructions, symlinked to this repo
-- `~/.agents/skills/` – agent skills, symlinked to this repo (both Claude Code and Cursor discover here)
+- `~/.agents/skills/` – agent skills, symlinked to this repo; Claude Code discovers via symlink, Cursor via copied files (`refresh-skills` to sync)
 - `~/.claude/CLAUDE.md` – Claude Code config, symlinked to this repo (@imports shared AGENTS.md)
 - **Cursor global prefs** – paste AGENTS.md content into Cursor Settings > Rules > User Rules (no file-based auto-load for global prefs; per-project prefs use `AGENTS.md` at project root, auto-discovered natively)
 - `~/.config/karabiner/karabiner.json` is copied from this repo (Karabiner breaks symlinks)
@@ -77,11 +77,18 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 ## Preference distribution
 
 ```
-Personal global prefs (synced via dotfiles):
+Personal global prefs (synced via this repo):
   ~/.agents/AGENTS.md        ← source of truth
   ├── Claude Code            @import via CLAUDE.md (native)
   ├── Cursor                 paste into User Rules (Settings UI, manual)
   └── Other tools            AGENTS.md at project root (native auto-discover)
+
+Work overlay (synced via work dotfiles repo, if present):
+  ~/.agents/AGENTS-work.md   ← work-specific rules
+  ├── Claude Code            @import via CLAUDE.md (native)
+  └── Cursor                 paste into User Rules (manual)
+  ~/.agents/skills/          ← merged: personal + work skills
+  └── Both tools discover via ~/.cursor/skills/ and ~/.claude/skills/
 
 Project-specific patterns (committed to each repo):
   <repo>/AGENTS.md           ← team-shared, per-project
