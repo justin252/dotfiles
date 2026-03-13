@@ -245,6 +245,7 @@ All on PATH via `~/tools` symlink:
 - `sz` – re-source zshrc after edits
 - `wt` – git worktree manager (create/list/switch/delete with fzf)
 - `docs` – unified doc browser (fzf). Sources: `~/documents/` `[doc]`, `~/.claude/plans/saved/` `[plan]`. Colored tags, preview, actions (edit, view, implement, claude, cursor). `docs <query>` pre-filters.
+- `convos` – session notes browser (fzf). Sources: `~/.claude/sessions/` `[sesh]`, `~/.claude/sessions/starred/` `[★]`. Actions: view, star/unstar, claude, edit. `convos <query>` pre-filters.
 
 ### Testing dotfiles changes
 

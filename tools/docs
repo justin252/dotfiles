@@ -69,18 +69,9 @@ actions=("edit" "view")
 [[ -f "$topic_dir/impl.md" ]] && actions+=("implement")
 actions+=("claude" "cursor")
 
-# Smart defaults based on file type and source
-default="edit"
-if [[ "$tag" == "plan" ]]; then
-  default="claude"
-elif [[ "$fname" == "impl.md" && " ${actions[*]} " == *" implement "* ]]; then
-  default="implement"
-elif [[ "$fname" == "rfc.md" ]]; then
-  default="edit"
-fi
 
 action=$(printf '%s\n' "${actions[@]}" | \
-  fzf --prompt="action> " --header="$(basename "$full")" --query="$default") || exit 0
+  fzf --prompt="action> " --header="$(basename "$full")") || exit 0
 
 case "$action" in
   edit)

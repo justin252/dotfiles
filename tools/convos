@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Browse saved Claude Code session notes
+# Sources: ~/.claude/sessions/ [sesh], ~/.claude/sessions/starred/ [★]
+
+SESSIONS_ROOT="$HOME/.claude/sessions"
+STARRED_ROOT="$SESSIONS_ROOT/starred"
+
+if ! command -v fzf &>/dev/null; then
+  echo "fzf required but not found" >&2
+  exit 1
+fi
+
+# Ensure dirs exist
+mkdir -p "$SESSIONS_ROOT" "$STARRED_ROOT"
+
+# ANSI color codes
+YELLOW=$'\033[33m'
+MAGENTA=$'\033[35m'
+RESET=$'\033[0m'
+
+# Format: "colored_tag  relative_path \t full_path \t tag"
+entries=""
+
+while IFS= read -r file; do
+  rel="${file#"$STARRED_ROOT"/}"
+  entries+="${MAGENTA}[★]${RESET}    $rel"$'\t'"$file"$'\t'"starred"$'\n'
+done < <(find "$STARRED_ROOT" -maxdepth 1 -type f -name '*.md' | sort)
+
+while IFS= read -r file; do
+  rel="${file#"$SESSIONS_ROOT"/}"
+  entries+="${YELLOW}[sesh]${RESET} $rel"$'\t'"$file"$'\t'"sesh"$'\n'
+done < <(find "$SESSIONS_ROOT" -maxdepth 1 -type f -name '*.md' | sort)
+
+if [[ -z "$entries" ]]; then
+  echo "No sessions found in $SESSIONS_ROOT" >&2
+  exit 1
+fi
+
+preview_cmd="bat --style=plain --color=always {2} 2>/dev/null || cat {2}"
+
+fzf_args=(
+  --prompt="convos> "
+  --ansi
+  --delimiter=$'\t'
+  --with-nth=1
+  --preview="$preview_cmd"
+  --preview-window=right:60%:wrap
+)
+[[ $# -gt 0 ]] && fzf_args+=(--query="$1")
+
+selection=$(printf '%s' "$entries" | fzf "${fzf_args[@]}") || exit 0
+[[ -z "$selection" ]] && exit 0
+
+full=$(echo "$selection" | cut -f2)
+tag=$(echo "$selection" | cut -f3)
+fname=$(basename "$full")
+
+# Build actions with star/unstar based on current location
+actions=("view")
+if [[ "$tag" == "starred" ]]; then
+  actions+=("unstar")
+else
+  actions+=("star")
+fi
+actions+=("claude" "edit")
+
+action=$(printf '%s\n' "${actions[@]}" | \
+  fzf --prompt="action> " --header="$fname") || exit 0
+
+case "$action" in
+  view)
+    if command -v bat &>/dev/null; then
+      bat --style=plain "$full"
+    else
+      cat "$full"
+    fi ;;
+  star)
+    mv "$full" "$STARRED_ROOT/$fname"
+    echo "★ Starred: $fname" ;;
+  unstar)
+    mv "$full" "$SESSIONS_ROOT/$fname"
+    echo "Unstarred: $fname" ;;
+  claude)
+    echo "Launching Claude Code: load $fname"
+    claude "load ${fname%.md}" ;;
+  edit)
+    ${EDITOR:-vim} "$full" ;;
+esac
