@@ -19,7 +19,7 @@ Two-layer approach for stick inputs (complex actions need key combos):
 
 Buttons (`pointing_button`) go directly into complex modifications, device-scoped to Joy-Con.
 
-L shoulder acts as a combo modifier via `set_variable` (`joycon_l_held`). Tap L alone = dictation (F5). Hold L + another button = combo action (e.g., L+Minus = Ctrl+C). Variable-conditioned rules must appear before the solo-button fallback.
+L shoulder acts as a combo modifier via `set_variable` (`joycon_l_held`). Hold L alone = F18 (Claude Code voice push-to-talk). Hold L + another button = combo action (e.g., L+Minus = Ctrl+C). Variable-conditioned rules must appear before the solo-button fallback.
 
 ## Mappings
 
@@ -37,12 +37,12 @@ L shoulder acts as a combo modifier via `set_variable` (`joycon_l_held`). Tap L 
 | Karabiner input | Physical | Action |
 |---|---|---|
 | `pointing_button:button16` | ZL (trigger) | Enter |
-| `pointing_button:button15` | L (shoulder) | Modifier (tap = Dictation F5, hold = F5 + combo prefix). Hold triggers Claude Code voice push-to-talk |
+| `pointing_button:button15` | L (shoulder) | Modifier (hold = F18 + combo prefix). Hold triggers Claude Code voice push-to-talk. No tap action (macOS dictation removed) |
 | `pointing_button:button9` | Minus | Escape (with L held: Ctrl+C) |
 | `pointing_button:button3` | Dir Up | Up arrow |
 | `pointing_button:button2` | Dir Down | Down arrow |
 | `pointing_button:button5` | SL | Shift+Tab |
-| `pointing_button:button6` | SR | New tab + `default-repo && cc` (⌘T + type) |
+| `pointing_button:button6` | SR | New tab + `default-repo && ccv` (⌘T + type). Starts Claude Code with voice mode auto-enabled |
 | `pointing_button:button14` | Capture | Close tab (⌘W) |
 | `pointing_button:button1` | Dir Left | Option+← (word jump left) |
 | `pointing_button:button4` | Dir Right | Option+→ (word jump right) |
@@ -50,7 +50,8 @@ L shoulder acts as a combo modifier via `set_variable` (`joycon_l_held`). Tap L 
 
 ## macOS setup
 
-- System Settings → Keyboard → Dictation → Shortcut → "Press F5"
+- Claude Code keybinding: `voice:pushToTalk` mapped to F18 in `~/.claude/keybindings.json`
+- `ccv` shell function: starts Claude Code and auto-sends `/voice` after 3s (via tmux or iTerm2 AppleScript)
 
 ## Goal
 

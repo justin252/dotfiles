@@ -161,6 +161,14 @@ alias ccc="claude -c"
 alias ccr="claude -r"
 alias ccp="claude -p"
 alias ccw="claude -w"
+ccv() {
+  if [[ -n "$TMUX" ]]; then
+    (sleep 3 && tmux send-keys '/voice' Enter) &
+  else
+    (sleep 3 && osascript -e 'tell application "iTerm2" to tell current session of current window to write text "/voice"') &
+  fi
+  claude "$@"
+}
 
 # Yolo (bypass all permission checks)
 alias ccy="claude --dangerously-skip-permissions"

@@ -3,7 +3,7 @@
     {
       "context": "Global",
       "bindings": {
-        "voice:pushToTalk": "f5"
+        "voice:pushToTalk": "f18"
       }
     }
   ]
