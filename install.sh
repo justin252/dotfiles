@@ -72,9 +72,11 @@ done
 ln -sfn "$DOTFILES/.agents/references" ~/.agents/references
 ln -sf "$DOTFILES/.agents/AGENTS.md" ~/.agents/AGENTS.md
 
-# Claude Code discovery (skills -> merged dir, not personal dir)
-[[ -L ~/.claude/skills ]] && rm ~/.claude/skills
-ln -sfn ~/.agents/skills ~/.claude/skills
+# Claude Code discovery (per-skill symlinks into Claude's own dir; don't replace it)
+mkdir -p ~/.claude/skills
+for skill in ~/.agents/skills/*/; do
+  ln -sfn "$skill" ~/.claude/skills/"$(basename "$skill")"
+done
 ln -sfn "$DOTFILES/.claude/agents" ~/.claude/agents
 ln -sf "$DOTFILES/.claude/CLAUDE.md" ~/.claude/CLAUDE.md
 ln -sf "$DOTFILES/.claude/settings.json" ~/.claude/settings.json
@@ -123,7 +125,7 @@ echo "  ~/.agents/references/ → $DOTFILES/.agents/references/"
 echo "  ~/.claude/CLAUDE.md → $DOTFILES/.claude/CLAUDE.md"
 echo "  ~/.claude/settings.json → $DOTFILES/.claude/settings.json"
 echo "  ~/.claude/agents/ → $DOTFILES/.claude/agents/"
-echo "  ~/.claude/skills/ → ~/.agents/skills/ (merged)"
+echo "  ~/.claude/skills/*/ → ~/.agents/skills/*/ (per-skill, merged)"
 echo "  ~/.cursor/skills/*/ ← ~/.agents/skills/*/ (copied; Cursor doesn't follow symlinks)"
 echo "  ~/.cursor/rules/ → $DOTFILES/.cursor/rules/"
 echo "  ~/.zshrc → $DOTFILES/shell/zshrc"

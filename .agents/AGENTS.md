@@ -246,10 +246,10 @@ All on PATH via `~/tools` symlink:
 - `pull-dot` – pull dotfiles + re-source zshrc (work version pulls both repos + refreshes Cursor skills)
 - `refresh-skills` – re-copy `~/.agents/skills/` to `~/.cursor/skills/` (run after editing skills)
 - `sz` – re-source zshrc after edits
-- `wt` – git worktree manager. `wt <name>` create from default branch, `wt` fzf switch, `wt -d` delete, `wt status` unified view (worktrees + agents + PRs), `wt clean` remove merged.
-- `ag` – agent session manager (tmux). `ag <name> [cmd]` launch, `ag` list/attach, `ag -k` kill, `ag clean` sweep dead sessions.
+- `ag` – agent session manager (stage 6-7 orchestrator). One command for parallel work: `ag <name>` auto-creates worktree + launches claude. `ag <name> -m MSG` with initial task. `ag` fzf dashboard (all repos). `ag status` cross-repo view. `ag --cursor` cursor + claude. `ag clean` dead sessions + merged worktrees.
+- `wt` – git worktree plumbing. `wt <name>` create, `wt` fzf switch, `wt -d` delete, `wt status`, `wt clean`. Mostly used through `ag`; direct use for worktree-only ops.
 - `wss` – workspace SSH+tmux. `wss <name>` connect, `wss` fzf picker. Work-only (macOS guard).
-- `doc` – unified doc browser (fzf). Sources: `~/documents/` `[doc]`, `~/.claude/plans/saved/` `[plan]`. Colored tags, preview, actions (edit, view, implement, claude, cursor). `doc <query>` pre-filters.
+- `doc` – unified doc browser (fzf). Sources: `~/documents/` `[doc]`, `~/.claude/plans/saved/` `[plan]`. Colored tags, preview, actions (edit, view, implement, claude, cursor). `implement` action launches `ag` sessions from plans. `doc <query>` pre-filters.
 - `convo` – session notes browser (fzf). Sources: `~/.claude/sessions/` `[sesh]`, `~/.claude/sessions/starred/` `[★]`. Actions: view, star/unstar, claude, edit. `convo <query>` pre-filters.
 
 ### Testing dotfiles changes
