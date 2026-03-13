@@ -41,7 +41,7 @@ fi
 preview_cmd="bat --style=plain --color=always {2} 2>/dev/null || cat {2}"
 
 fzf_args=(
-  --prompt="convos> "
+  --prompt="convo> "
   --ansi
   --delimiter=$'\t'
   --with-nth=1
@@ -83,8 +83,8 @@ case "$action" in
     mv "$full" "$SESSIONS_ROOT/$fname"
     echo "Unstarred: $fname" ;;
   claude)
-    echo "Launching Claude Code: load $fname"
-    claude "load ${fname%.md}" ;;
+    echo "Launching Claude Code: ${fname%.md}"
+    claude "load ${fname%.md} ($full)" ;;
   edit)
     ${EDITOR:-vim} "$full" ;;
 esac

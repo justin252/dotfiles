@@ -52,8 +52,8 @@ shell/zshrc                  # Universal shell config (aliases, functions, env)
 shell/tmux.conf              # tmux config (C-a prefix, vim nav, cross-platform clipboard)
 tools/                       # CLI scripts on PATH (symlinked to ~/tools)
 tools/ag                     # Agent session manager (tmux-backed: launch, list, attach, kill)
-tools/docs                   # Unified doc browser: ~/documents/ + ~/.claude/plans/saved/ (colored tags, actions)
-tools/convos                 # Session notes browser: ~/.claude/sessions/ (star, resume, search)
+tools/doc                    # Unified doc browser: ~/documents/ + ~/.claude/plans/saved/ (colored tags, actions)
+tools/convo                  # Session notes browser: ~/.claude/sessions/ (star, resume, search)
 tools/refresh-skills         # Re-copy skills to ~/.cursor/skills/ (Cursor can't follow symlinks)
 karabiner/karabiner.json     # Karabiner-Elements config (Joy-Con L → Claude Code controls)
 karabiner/joycon-karabiner.md # Joy-Con mapping spec
@@ -77,8 +77,8 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `wt` – git worktree manager (create/list/switch/delete/status/clean with fzf)
 - `ag` – tmux-backed agent session manager. `ag <name>` launch, `ag` list/attach, `ag -k` kill, `ag <name> -m MSG` launch with prompt, `ag clean` sweep dead
 - `refresh-skills` – re-copy `~/.agents/skills/` to `~/.cursor/skills/` (run after editing skills, or via `pull-dot`)
-- `docs` – unified doc browser: `~/documents/` [doc] + `~/.claude/plans/saved/` [plan] with colored tags, preview, actions (edit, view, implement, claude, cursor). `docs <query>` pre-filters.
-- `convos` – session notes browser: `~/.claude/sessions/` [sesh] + `sessions/starred/` [★]. Star notable sessions, resume in Claude Code, or search old context. `convos <query>` pre-filters.
+- `doc` – unified doc browser: `~/documents/` [doc] + `~/.claude/plans/saved/` [plan] with colored tags, preview, actions (edit, view, implement, claude, cursor). `doc <query>` pre-filters.
+- `convo` – session notes browser: `~/.claude/sessions/` [sesh] + `sessions/starred/` [★]. Star notable sessions, resume in Claude Code, or search old context. `convo <query>` pre-filters.
 
 ## Preference distribution
 
