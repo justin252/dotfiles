@@ -4,6 +4,7 @@ export LC_ALL=C
 
 ZSHRC_FILES=("$HOME/dotfiles/shell/zshrc")
 [[ -f "$HOME/.zshrc.work" ]] && ZSHRC_FILES+=("$HOME/.zshrc.work")
+[[ -f "$HOME/.zshrc.personal" ]] && ZSHRC_FILES+=("$HOME/.zshrc.personal")
 ZHIST="$HOME/.zsh_history"
 
 _clip_copy() {
