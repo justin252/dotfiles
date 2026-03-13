@@ -35,7 +35,7 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 - Seeds `~/.agents/INBOX.md`, `~/.agents/wins.md`, `~/documents/` (local-only, never synced)
 - Copies Karabiner config (can't symlink – Karabiner overwrites symlinks)
 - Sets `git pull.rebase true`
-- Installs fzf if missing
+- Installs fzf, tmux if missing
 
 `~/.zshrc` layering: `shell/zshrc` (universal, synced) sources `~/.zshrc.work` and `~/.zshrc.personal` if they exist. Work overlay is typically provided by a work dotfiles repo; personal overlay is local-only.
 
@@ -49,12 +49,15 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 .claude/agents/              # CC subagent definitions (implementer, researcher)
 .claude/settings.json        # Claude Code permissions (dontAsk allow list)
 shell/zshrc                  # Universal shell config (aliases, functions, env)
+shell/tmux.conf              # tmux config (C-a prefix, vim nav, cross-platform clipboard)
 tools/                       # CLI scripts on PATH (symlinked to ~/tools)
+tools/ag                     # Agent session manager (tmux-backed: launch, list, attach, kill)
 tools/docs                   # Unified doc browser: ~/documents/ + ~/.claude/plans/saved/ (colored tags, actions)
 tools/convos                 # Session notes browser: ~/.claude/sessions/ (star, resume, search)
+tools/refresh-skills         # Re-copy skills to ~/.cursor/skills/ (Cursor can't follow symlinks)
 karabiner/karabiner.json     # Karabiner-Elements config (Joy-Con L → Claude Code controls)
 karabiner/joycon-karabiner.md # Joy-Con mapping spec
-install.sh                   # Sets up symlinks, seeds local files, installs fzf
+install.sh                   # Sets up symlinks, seeds local files, installs fzf + tmux
 AGENTS.md                    # Repo-level agent instructions (this repo)
 ```
 
@@ -71,7 +74,9 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `~/.config/karabiner/karabiner.json` is copied from this repo (Karabiner breaks symlinks)
 - `pull-dot` pulls and re-sources zshrc
 - `sz` re-sources zshrc after edits
-- `wt` – git worktree manager (create/list/switch/delete with fzf)
+- `wt` – git worktree manager (create/list/switch/delete/status/clean with fzf)
+- `ag` – tmux-backed agent session manager. `ag <name>` launch, `ag` list/attach, `ag -k` kill, `ag <name> -m MSG` launch with prompt, `ag clean` sweep dead
+- `refresh-skills` – re-copy `~/.agents/skills/` to `~/.cursor/skills/` (run after editing skills, or via `pull-dot`)
 - `docs` – unified doc browser: `~/documents/` [doc] + `~/.claude/plans/saved/` [plan] with colored tags, preview, actions (edit, view, implement, claude, cursor). `docs <query>` pre-filters.
 - `convos` – session notes browser: `~/.claude/sessions/` [sesh] + `sessions/starred/` [★]. Star notable sessions, resume in Claude Code, or search old context. `convos <query>` pre-filters.
 

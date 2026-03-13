@@ -181,6 +181,9 @@ Model: session → INBOX.md (short-term) → triage → AGENTS.md (long-term)
 Docs location:
 - `~/documents/<topic>/` = canonical location for all long-lived docs (RFCs, impl plans, research). Arbitrary nesting OK.
 - `~/.claude/docs/` deprecated – use `~/documents/` instead.
+- `~/.agents/references/workflow.md` – comprehensive workflow reference (stack, tools, skills, memory model).
+  Any agent reads on demand: `@~/.agents/references/workflow.md`.
+  Update when: adding/changing tools, skills, aliases, or workflow patterns in dotfiles.
 
 Capture triggers:
 - `log` / `idea: <thought>` → append to INBOX.md (date, context, idea)
@@ -243,7 +246,9 @@ All on PATH via `~/tools` symlink:
 - `pull-dot` – pull dotfiles + re-source zshrc (work version pulls both repos + refreshes Cursor skills)
 - `refresh-skills` – re-copy `~/.agents/skills/` to `~/.cursor/skills/` (run after editing skills)
 - `sz` – re-source zshrc after edits
-- `wt` – git worktree manager (create/list/switch/delete with fzf)
+- `wt` – git worktree manager. `wt <name>` create from default branch, `wt` fzf switch, `wt -d` delete, `wt status` unified view (worktrees + agents + PRs), `wt clean` remove merged.
+- `ag` – agent session manager (tmux). `ag <name> [cmd]` launch, `ag` list/attach, `ag -k` kill, `ag clean` sweep dead sessions.
+- `wss` – workspace SSH+tmux. `wss <name>` connect, `wss` fzf picker. Work-only (macOS guard).
 - `docs` – unified doc browser (fzf). Sources: `~/documents/` `[doc]`, `~/.claude/plans/saved/` `[plan]`. Colored tags, preview, actions (edit, view, implement, claude, cursor). `docs <query>` pre-filters.
 - `convos` – session notes browser (fzf). Sources: `~/.claude/sessions/` `[sesh]`, `~/.claude/sessions/starred/` `[★]`. Actions: view, star/unstar, claude, edit. `convos <query>` pre-filters.
 
