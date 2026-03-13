@@ -35,6 +35,16 @@ if ! command -v fzf &> /dev/null; then
   fi
 fi
 
+# Install rtk if missing
+if ! command -v rtk &> /dev/null; then
+  echo "Installing rtk..."
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    brew install rtk-ai/tap/rtk
+  else
+    curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh
+  fi
+fi
+
 # Symlink tools
 ln -sfn "$DOTFILES/tools" ~/tools
 
@@ -64,6 +74,13 @@ mkdir -p ~/.cursor/skills
 for skill in ~/.agents/skills/*/; do
   [[ -d "$skill" ]] && cp -rL "$skill" ~/.cursor/skills/"$(basename "$skill")"
 done
+ln -sfn "$DOTFILES/.cursor/rules" ~/.cursor/rules
+
+# RTK Claude Code hook (generates local hook script + RTK.md)
+if command -v rtk &> /dev/null && [[ ! -f ~/.claude/hooks/rtk-rewrite.sh ]]; then
+  rtk init --global --auto-patch --hook-only
+  echo "RTK hook initialized for Claude Code"
+fi
 
 ln -sf "$DOTFILES/shell/zshrc" ~/.zshrc
 
@@ -99,6 +116,7 @@ echo "  ~/.claude/settings.json → $DOTFILES/.claude/settings.json"
 echo "  ~/.claude/agents/ → $DOTFILES/.claude/agents/"
 echo "  ~/.claude/skills/ → ~/.agents/skills/ (merged)"
 echo "  ~/.cursor/skills/*/ ← ~/.agents/skills/*/ (copied; Cursor doesn't follow symlinks)"
+echo "  ~/.cursor/rules/ → $DOTFILES/.cursor/rules/"
 echo "  ~/.zshrc → $DOTFILES/shell/zshrc"
 [[ "$OSTYPE" == darwin* ]] && echo "  ~/.config/karabiner/karabiner.json ← $DOTFILES/karabiner/karabiner.json (copied, Karabiner breaks symlinks)"
 true

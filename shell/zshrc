@@ -187,6 +187,12 @@ function pull-dot {
   git -C ~/dotfiles pull --rebase --autostash
   source ~/.zshrc
 }
+alias dotw="cd ~/dotfiles-work"
+unalias pull-dotw 2>/dev/null
+function pull-dotw {
+  git -C ~/dotfiles-work pull --rebase --autostash
+  source ~/.zshrc
+}
 
 # ─── Git Worktrees ───────────────────────────────────────────
 wt() {
