@@ -44,7 +44,7 @@ preview_cmd="bat --style=plain --color=always {2} 2>/dev/null || cat {2}"
 
 # fzf with optional query arg
 fzf_args=(
-  --prompt="docs> "
+  --prompt="doc> "
   --ansi
   --delimiter=$'\t'
   --with-nth=1
@@ -86,8 +86,13 @@ case "$action" in
     echo "Launching Claude Code: /implement $topic"
     cd "$topic_dir" && claude "/implement $topic" ;;
   claude)
-    echo "Launching Claude Code: load $topic"
-    claude "load $topic" ;;
+    if [[ -d "$topic_dir" && "$topic_dir" != "$DOCS_ROOT" && "$topic_dir" != "$PLANS_ROOT" ]]; then
+      echo "Launching Claude Code: $topic"
+      cd "$topic_dir" && claude "load $topic ($topic_dir/)"
+    else
+      echo "Launching Claude Code: $(basename "$full")"
+      claude "load $full"
+    fi ;;
   cursor)
     if [[ -d "$topic_dir" && "$topic_dir" != "$DOCS_ROOT" && "$topic_dir" != "$PLANS_ROOT" ]]; then
       cursor "$topic_dir"
