@@ -185,3 +185,68 @@ Capture triggers:
 When capturing friction:
 - Self-resolve once. If reusable insight, suggest INBOX.md entry.
 - At capture time, note if INBOX.md is growing and nudge toward triage.
+
+## Dotfiles
+
+Personal dotfiles repo (`justin252/dotfiles`): universal base layer. A separate work dotfiles repo can overlay on top (shell, agent rules, skills) via its own `install.sh`. Overlays are optional; this repo works standalone.
+
+### Shell config layering
+
+```
+~/.zshrc              -> ~/dotfiles/shell/zshrc         (universal, synced)
+  sources ~/.zshrc.work       (work overlay, if present)
+  sources ~/.zshrc.personal   (personal overlay, if present)
+```
+
+Overlays are symlinked by their respective install scripts. Personal zshrc ends with `true` to avoid exit-code leaks from conditional last lines.
+
+### install.sh
+
+Idempotent. Safe to re-run anytime. What it does:
+- Symlinks: `~/.zshrc`, `~/tools`, `~/.agents/AGENTS.md`, `~/.agents/skills/*/`, `~/.agents/references/`, `~/.claude/CLAUDE.md`, `~/.claude/settings.json`, `~/.claude/agents/`
+- Copies skills to `~/.cursor/skills/` (Cursor doesn't follow symlinks)
+- Seeds local-only files: `~/.agents/INBOX.md`, `~/.agents/wins.md`, `~/documents/`
+- Installs fzf if missing (brew on macOS, binary download on Linux)
+- Sets `git pull.rebase true`
+- Karabiner: copies (not symlinks) on macOS
+
+### Agent config distribution
+
+```
+~/.agents/AGENTS.md          <- source of truth (this file)
+  Claude Code                @import via CLAUDE.md (native)
+  Cursor                     paste into User Rules (Settings > Rules)
+
+~/.agents/AGENTS-work.md     <- work overlay (if present)
+  Claude Code                @import via CLAUDE.md (native)
+  Cursor                     paste into User Rules alongside AGENTS.md
+
+~/.agents/skills/            <- merged personal + work skills (symlinks)
+  ~/.claude/skills/          symlink to ~/.agents/skills/ (Claude Code discovers)
+  ~/.cursor/skills/          copied from ~/.agents/skills/ (Cursor needs real files)
+
+Repo-root AGENTS.md          <- per-project, auto-discovered by both tools
+```
+
+Cursor does NOT follow @import or read `~/.agents/` directly. User Rules (plain text in Settings UI) is the only global mechanism; no file-based auto-load. Paste both AGENTS.md and AGENTS-work.md into User Rules for full context.
+
+Cursor skills: copied (not symlinked) because Cursor doesn't follow symlinks for skill discovery (known bug). Run `refresh-skills` after editing skills, or `pull-dot` (which calls it automatically).
+
+### Key tools
+
+All on PATH via `~/tools` symlink:
+- `h` – fzf alias browser. `h suggest` surfaces forgotten aliases from history.
+- `pull-dot` – pull dotfiles + re-source zshrc (work version pulls both repos + refreshes Cursor skills)
+- `refresh-skills` – re-copy `~/.agents/skills/` to `~/.cursor/skills/` (run after editing skills)
+- `sz` – re-source zshrc after edits
+- `wt` – git worktree manager (create/list/switch/delete with fzf)
+- `docs` – fzf browser for `~/documents/`
+
+### Testing dotfiles changes
+
+```bash
+zsh -n <file>                                    # syntax check
+zsh -c 'source ~/.zshrc && echo OK'              # clean source
+bash ~/dotfiles/install.sh                       # idempotent re-run
+zsh -c 'source ~/.zshrc; source ~/.zshrc'        # double-source (catches alias conflicts)
+```
