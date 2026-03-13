@@ -7,16 +7,27 @@
   "includeCoAuthoredBy": false,
   "permissions": {
     "allow": [
-      "Read", "Glob", "Grep", "Edit", "Write",
-      "WebFetch", "WebSearch", "ToolSearch",
-      "Task(Explore)", "Task(Plan)", "Task(Bash)",
-      "Task(general-purpose)", "Task(running-bzl)", "Task(claude-code-guide)",
-      "ListMcpResourcesTool", "ReadMcpResourceTool",
+      "Read",
+      "Glob",
+      "Grep",
+      "Edit",
+      "Write",
+      "WebFetch",
+      "WebSearch",
+      "ToolSearch",
+      "Task(Explore)",
+      "Task(Plan)",
+      "Task(Bash)",
+      "Task(general-purpose)",
+      "Task(running-bzl)",
+      "Task(claude-code-guide)",
+      "ListMcpResourcesTool",
+      "ReadMcpResourceTool",
       "Bash"
     ],
     "defaultMode": "dontAsk"
   },
-  "model": "opus",
+  "model": "opus[1m]",
   "hooks": {
     "PreToolUse": [
       {
@@ -29,5 +40,6 @@
         ]
       }
     ]
-  }
+  },
+  "voiceEnabled": true
 }
