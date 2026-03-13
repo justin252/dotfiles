@@ -1,57 +1,97 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DOCS_ROOT="${DOCS_ROOT:-$HOME/documents}"
+# Unified docs browser – searches ~/documents/ and ~/.claude/plans/saved/
 
-if [[ ! -d "$DOCS_ROOT" ]]; then
-  echo "No documents directory at $DOCS_ROOT" >&2
-  exit 1
-fi
+DOCS_ROOT="${DOCS_ROOT:-$HOME/documents}"
+PLANS_ROOT="$HOME/.claude/plans/saved"
 
 if ! command -v fzf &>/dev/null; then
   echo "fzf required but not found" >&2
   exit 1
 fi
 
-preview_cmd="cat {}"
-command -v bat &>/dev/null && preview_cmd="bat --style=plain --color=always {}"
+# ANSI color codes
+GREEN=$'\033[32m'
+BLUE=$'\033[34m'
+RESET=$'\033[0m'
 
-file=$(find "$DOCS_ROOT" -type f -name '*.md' | sort | \
-  fzf --prompt="docs> " \
-      --preview="$preview_cmd" \
-      --preview-window=right:60%:wrap) || exit 0
+# Format: "colored_tag  relative_path \t full_path \t tag"
+# fzf shows only first field (--with-nth=1), preview/actions use hidden fields
+entries=""
 
-[[ -z "$file" ]] && exit 0
+if [[ -d "$DOCS_ROOT" ]]; then
+  while IFS= read -r file; do
+    rel="${file#"$DOCS_ROOT"/}"
+    entries+="${GREEN}[doc]${RESET}  $rel"$'\t'"$file"$'\t'"doc"$'\n'
+  done < <(find "$DOCS_ROOT" -type f -name '*.md' | sort)
+fi
 
-topic_dir=$(dirname "$file")
+if [[ -d "$PLANS_ROOT" ]]; then
+  while IFS= read -r file; do
+    rel="${file#"$PLANS_ROOT"/}"
+    entries+="${BLUE}[plan]${RESET} $rel"$'\t'"$file"$'\t'"plan"$'\n'
+  done < <(find "$PLANS_ROOT" -type f -name '*.md' | sort)
+fi
+
+if [[ -z "$entries" ]]; then
+  echo "No documents found in $DOCS_ROOT or $PLANS_ROOT" >&2
+  exit 1
+fi
+
+# Preview uses hidden field {2} = full path
+preview_cmd="bat --style=plain --color=always {2} 2>/dev/null || cat {2}"
+
+# fzf with optional query arg
+fzf_args=(
+  --prompt="docs> "
+  --ansi
+  --delimiter=$'\t'
+  --with-nth=1
+  --preview="$preview_cmd"
+  --preview-window=right:60%:wrap
+)
+[[ $# -gt 0 ]] && fzf_args+=(--query="$1")
+
+selection=$(printf '%s' "$entries" | fzf "${fzf_args[@]}") || exit 0
+[[ -z "$selection" ]] && exit 0
+
+# Parse hidden fields from selection
+full=$(echo "$selection" | cut -f2)
+tag=$(echo "$selection" | cut -f3)
+
+topic_dir=$(dirname "$full")
 topic=$(basename "$topic_dir")
-fname=$(basename "$file")
+fname=$(basename "$full")
 
 # Build actions list
 actions=("edit" "view")
 [[ -f "$topic_dir/impl.md" ]] && actions+=("implement")
-[[ ! -f "$topic_dir/rfc.md" ]] && actions+=("propose")
+actions+=("claude" "cursor")
 
-# Smart default: impl.md -> implement, else -> edit
-default="edit"
-[[ "$fname" == "impl.md" && " ${actions[*]} " == *" implement "* ]] && default="implement"
 
 action=$(printf '%s\n' "${actions[@]}" | \
-  fzf --prompt="action> " --query="$default" --select-1) || exit 0
+  fzf --prompt="action> " --header="$(basename "$full")") || exit 0
 
 case "$action" in
   edit)
-    ${EDITOR:-cursor} "$file" ;;
+    ${EDITOR:-cursor} "$full" ;;
   view)
     if command -v bat &>/dev/null; then
-      bat --style=plain "$file"
+      bat --style=plain "$full"
     else
-      cat "$file"
+      cat "$full"
     fi ;;
   implement)
     echo "Launching Claude Code: /implement $topic"
     cd "$topic_dir" && claude "/implement $topic" ;;
-  propose)
-    echo "Opening topic dir in Cursor for /propose"
-    cursor "$topic_dir" ;;
+  claude)
+    echo "Launching Claude Code: load $topic"
+    claude "load $topic" ;;
+  cursor)
+    if [[ -d "$topic_dir" && "$topic_dir" != "$DOCS_ROOT" && "$topic_dir" != "$PLANS_ROOT" ]]; then
+      cursor "$topic_dir"
+    else
+      cursor "$full"
+    fi ;;
 esac
