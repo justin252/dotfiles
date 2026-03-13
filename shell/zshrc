@@ -189,6 +189,7 @@ unalias pull-dot 2>/dev/null
 function pull-dot {
   git -C ~/dotfiles fetch origin main && git -C ~/dotfiles rebase --autostash origin/main
   [[ -d ~/dotfiles-work/.git ]] && git -C ~/dotfiles-work pull --rebase --autostash
+  command -v refresh-skills &>/dev/null && refresh-skills
   source ~/.zshrc
 }
 alias dotw="cd ~/dotfiles-work"
@@ -199,11 +200,15 @@ wt() {
     -h|--help)
       echo "wt - git worktree manager"
       echo "  wt              list worktrees (fzf to switch)"
-      echo "  wt <name>       create worktree from current branch"
-      echo "  wt -d <name>    delete worktree"
+      echo "  wt <name>       create worktree from default branch"
+      echo "  wt -d <name>    delete worktree (kills ag session if running)"
+      echo "  wt status       show worktrees + agent sessions + PR state"
+      echo "  wt clean        remove worktrees with merged PRs"
       return ;;
     -d)
       [[ -z "${2:-}" ]] && { echo "usage: wt -d <name>" >&2; return 1; }
+      local repo; repo=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)")
+      tmux kill-session -t "ag-${repo}-${2}" 2>/dev/null
       git worktree remove "$2" && echo "removed worktree '$2'"
       return ;;
     "")
@@ -217,13 +222,59 @@ wt() {
         echo "$trees"
       fi
       return ;;
+    status)
+      local root repo
+      root=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not in a git repo" >&2; return 1; }
+      repo=$(basename "$root")
+      git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}' | while read -r wt_path; do
+        branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
+        name=$(basename "$wt_path")
+        if tmux has-session -t "ag-${repo}-${name}" 2>/dev/null; then
+          ag_state="running"
+        else
+          ag_state="-"
+        fi
+        pr_state=$(gh pr list --head "$branch" --json state --jq '.[0].state // "-"' 2>/dev/null || echo "-")
+        printf "%-30s %-25s ag:%-8s pr:%s\n" "$name" "$branch" "$ag_state" "$pr_state"
+      done
+      return ;;
+    clean)
+      local root repo
+      root=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not in a git repo" >&2; return 1; }
+      repo=$(basename "$root")
+      local to_remove=()
+      while read -r wt_path; do
+        [[ "$wt_path" == "$root" ]] && continue
+        local branch name merged
+        branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
+        name=$(basename "$wt_path")
+        merged=$(gh pr list --head "$branch" --state merged --json number --jq '.[0].number // empty' 2>/dev/null)
+        if [[ -n "$merged" ]]; then
+          echo "  $name ($branch) - PR #$merged merged"
+          to_remove+=("$name")
+        fi
+      done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
+      [[ ${#to_remove[@]} -eq 0 ]] && { echo "nothing to clean"; return; }
+      echo ""
+      read -r "reply?Remove these worktrees? [y/N] "
+      [[ "$reply" =~ ^[Yy] ]] || return
+      for name in "${to_remove[@]}"; do
+        tmux kill-session -t "ag-${repo}-${name}" 2>/dev/null
+        git worktree remove "$name" 2>/dev/null && echo "removed $name"
+      done
+      return ;;
     *)
-      local root base dest
+      local root base dest default_branch
       root=$(git rev-parse --show-toplevel) || return 1
       base=$(basename "$root")
       dest="${root}/../${base}-wt-${1}"
-      git worktree add "$dest" -b "wt/$1" && cd "$dest"
-      echo "worktree '$1' at $dest" ;;
+      default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||')
+      [[ -z "$default_branch" ]] && default_branch="main"
+      git fetch origin "$default_branch" --quiet
+      git worktree add "$dest" -b "wt/$1" "origin/$default_branch" && cd "$dest"
+      echo "worktree '$1' at $dest (from origin/$default_branch)"
+      echo "  ag $1        # launch agent session"
+      echo "  ag $1 ccy    # launch autonomous agent" ;;
   esac
 }
 

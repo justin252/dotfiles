@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# ag - agent session manager (tmux-backed)
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+ag - agent session manager
+  ag                        list sessions (fzf to attach)
+  ag <name> [cmd]           launch in worktree <name> (default: claude)
+  ag . [cmd]                launch in current dir
+  ag <name> [cmd] -m MSG    launch + send initial prompt to claude
+  ag -k <name>              kill session
+  ag clean                  kill sessions with no running process
+EOF
+}
+
+# Resolve worktree path for a name
+resolve_worktree() {
+  local name="$1"
+  if [[ "$name" == "." ]]; then
+    pwd; return
+  fi
+  local root repo dest
+  root=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not in a git repo" >&2; return 1; }
+  repo=$(basename "$root")
+  dest="${root}/../${repo}-wt-${name}"
+  if [[ -d "$dest" ]]; then
+    echo "$dest"; return
+  fi
+  # fallback: search git worktree list
+  local found
+  found=$(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}' | while read -r wt; do
+    [[ "$(basename "$wt")" == *"$name"* ]] && echo "$wt" && break
+  done)
+  if [[ -n "$found" ]]; then
+    echo "$found"; return
+  fi
+  echo "worktree '$name' not found" >&2; return 1
+}
+
+repo_name() {
+  basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "local"
+}
+
+attach_or_switch() {
+  local session="$1"
+  if [[ -n "${TMUX:-}" ]]; then
+    tmux switch-client -t "$session"
+  else
+    tmux attach-session -t "$session"
+  fi
+}
+
+case "${1:-}" in
+  -h|--help) usage ;;
+  -k)
+    # kill session
+    [[ -z "${2:-}" ]] && { echo "usage: ag -k <name>" >&2; exit 1; }
+    local_repo=$(repo_name)
+    tmux kill-session -t "ag-${local_repo}-${2}" 2>/dev/null && echo "killed ag-${local_repo}-${2}" || echo "no session ag-${local_repo}-${2}"
+    ;;
+  clean)
+    # kill sessions where main process has exited
+    tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^ag-' | while read -r sess; do
+      pane_cmd=$(tmux display-message -t "$sess" -p '#{pane_current_command}' 2>/dev/null)
+      if [[ "$pane_cmd" == "zsh" || "$pane_cmd" == "bash" ]]; then
+        echo "killing dead session: $sess"
+        tmux kill-session -t "$sess"
+      fi
+    done
+    ;;
+  "")
+    # list + fzf to attach
+    sessions=$(tmux list-sessions -F '#{session_name}  (#{session_windows} windows, #{?session_attached,attached,detached})' 2>/dev/null | grep '^ag-' || true)
+    [[ -z "${sessions:-}" ]] && { echo "no agent sessions"; exit 0; }
+    if command -v fzf &>/dev/null; then
+      pick=$(echo "$sessions" | fzf --prompt="agent> " | awk '{print $1}') || exit 0
+      attach_or_switch "$pick"
+    else
+      echo "$sessions"
+    fi
+    ;;
+  *)
+    # launch: ag <name> [cmd] [-m MSG]
+    name="$1"; shift
+    cmd="${1:-claude}"
+    [[ "${cmd}" == -* ]] || shift 2>/dev/null || true
+    prompt=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        -m) [[ -z "${2:-}" ]] && { echo "usage: ag <name> [cmd] -m MSG" >&2; exit 1; }; prompt="$2"; shift 2 ;;
+        *) shift ;;
+      esac
+    done
+
+    worktree=$(resolve_worktree "$name") || exit 1
+    local_repo=$(repo_name)
+    session="ag-${local_repo}-${name}"
+
+    # if session exists, just attach
+    if tmux has-session -t "$session" 2>/dev/null; then
+      echo "attaching to existing session: $session"
+      attach_or_switch "$session"
+      exit 0
+    fi
+
+    # create session
+    tmux new-session -d -s "$session" -c "$worktree"
+    if [[ -n "$prompt" ]]; then
+      # launch claude with initial prompt – escape for send-keys safety
+      tmux send-keys -t "$session" "$cmd -p $(printf '%q' "$prompt")" Enter
+    else
+      tmux send-keys -t "$session" "$cmd" Enter
+    fi
+
+    # attach
+    attach_or_switch "$session"
+    ;;
+esac
