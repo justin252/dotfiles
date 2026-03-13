@@ -7,7 +7,7 @@
 - Avoid unnecessary bash: `echo`/`printf` for output (use direct text), interactive flags (`-i`), commands waiting on stdin – these hang on approval prompts.
 - Hang detection applies to bash too: never sit idle waiting on a silent command.
 - Plan files: auto-generated plans stay in `~/.claude/plans/` (Claude Code manages). Saved plans promoted to `~/.claude/plans/saved/<slug>.md` via `save plan`.
-- Skills override CLAUDE.md constraints for their active scope (e.g. /yolo overrides "never commit without confirmation").
+- Skills override CLAUDE.md constraints for their active scope (e.g. /implement in autonomous mode overrides confirmation gates).
 - If a build/run subagent is rejected, offer manual commands – don't retry the subagent.
 - Permission denied in `ccy` mode: can't switch permission modes mid-session. Tell user the exact operation that was blocked, provide the manual command, and suggest running it in a new interactive `claude` session if multiple operations need approval.
 - Autonomous session completion: print clear summary of what was done/remaining, then `tput bel` (terminal bell) to notify user the run finished.
@@ -16,9 +16,8 @@
 
 - **Plan** → Claude Code's built-in plan mode. Read-only, deliberate.
 - **Implement** (default after plan approval) → Execute agreed plan. Handle errors autonomously (retry once, then flag). Pause at checkpoint: show diff, summarize, confirm before commit/push/PR.
-- **Yolo** → `/yolo <plan ref>`. Autonomous execution. See /yolo skill.
 - **POC** → `/poc <idea>`. Prove an idea works fast. See /poc skill.
-- Yolo/POC override behavioral confirmation gates. Hard safety rules still apply.
+- Autonomous mode (`/implement` with `ccy`) overrides behavioral confirmation gates. Hard safety rules still apply.
 
 ## Memory
 
