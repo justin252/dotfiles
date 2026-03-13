@@ -1,57 +1,126 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DOCS_ROOT="${DOCS_ROOT:-$HOME/documents}"
+# Unified docs browser – searches ~/documents/ and ~/.claude/plans/saved/
 
-if [[ ! -d "$DOCS_ROOT" ]]; then
-  echo "No documents directory at $DOCS_ROOT" >&2
-  exit 1
-fi
+DOCS_ROOT="${DOCS_ROOT:-$HOME/documents}"
+PLANS_ROOT="$HOME/.claude/plans/saved"
 
 if ! command -v fzf &>/dev/null; then
   echo "fzf required but not found" >&2
   exit 1
 fi
 
-preview_cmd="cat {}"
-command -v bat &>/dev/null && preview_cmd="bat --style=plain --color=always {}"
+# ANSI color codes
+GREEN=$'\033[32m'
+BLUE=$'\033[34m'
+RESET=$'\033[0m'
 
-file=$(find "$DOCS_ROOT" -type f -name '*.md' | sort | \
-  fzf --prompt="docs> " \
-      --preview="$preview_cmd" \
-      --preview-window=right:60%:wrap) || exit 0
+# Build file list with colored source tags and relative paths
+entries=""
 
-[[ -z "$file" ]] && exit 0
+if [[ -d "$DOCS_ROOT" ]]; then
+  while IFS= read -r file; do
+    rel="${file#"$DOCS_ROOT"/}"
+    entries+="${GREEN}[doc]${RESET}  $rel"$'\n'
+  done < <(find "$DOCS_ROOT" -type f -name '*.md' | sort)
+fi
 
-topic_dir=$(dirname "$file")
+if [[ -d "$PLANS_ROOT" ]]; then
+  while IFS= read -r file; do
+    rel="${file#"$PLANS_ROOT"/}"
+    entries+="${BLUE}[plan]${RESET} $rel"$'\n'
+  done < <(find "$PLANS_ROOT" -type f -name '*.md' | sort)
+fi
+
+if [[ -z "$entries" ]]; then
+  echo "No documents found in $DOCS_ROOT or $PLANS_ROOT" >&2
+  exit 1
+fi
+
+# Preview: resolve source tag back to full path
+preview_cmd='
+  line={}
+  # Strip ANSI codes
+  clean=$(echo "$line" | sed "s/\x1b\[[0-9;]*m//g")
+  tag=$(echo "$clean" | awk "{print \$1}")
+  path=$(echo "$clean" | awk "{print \$2}")
+  if [[ "$tag" == "[doc]" ]]; then
+    full="'"$DOCS_ROOT"'/$path"
+  else
+    full="'"$PLANS_ROOT"'/$path"
+  fi
+  if command -v bat &>/dev/null; then
+    bat --style=plain --color=always "$full"
+  else
+    cat "$full"
+  fi
+'
+
+# fzf with optional query arg
+fzf_args=(
+  --prompt="docs> "
+  --ansi
+  --preview="$preview_cmd"
+  --preview-window=right:60%:wrap
+)
+[[ $# -gt 0 ]] && fzf_args+=(--query="$1")
+
+selection=$(printf '%s' "$entries" | fzf "${fzf_args[@]}") || exit 0
+[[ -z "$selection" ]] && exit 0
+
+# Parse selection
+clean=$(echo "$selection" | sed "s/$(printf '\033')\[[0-9;]*m//g")
+tag=$(echo "$clean" | awk '{print $1}')
+rel=$(echo "$clean" | awk '{print $2}')
+
+if [[ "$tag" == "[doc]" ]]; then
+  full="$DOCS_ROOT/$rel"
+else
+  full="$PLANS_ROOT/$rel"
+fi
+
+topic_dir=$(dirname "$full")
 topic=$(basename "$topic_dir")
-fname=$(basename "$file")
+fname=$(basename "$full")
 
 # Build actions list
 actions=("edit" "view")
 [[ -f "$topic_dir/impl.md" ]] && actions+=("implement")
-[[ ! -f "$topic_dir/rfc.md" ]] && actions+=("propose")
+actions+=("claude" "cursor")
 
-# Smart default: impl.md -> implement, else -> edit
+# Smart defaults based on file type and source
 default="edit"
-[[ "$fname" == "impl.md" && " ${actions[*]} " == *" implement "* ]] && default="implement"
+if [[ "$tag" == "[plan]" ]]; then
+  default="claude"
+elif [[ "$fname" == "impl.md" && " ${actions[*]} " == *" implement "* ]]; then
+  default="implement"
+elif [[ "$fname" == "rfc.md" ]]; then
+  default="edit"
+fi
 
 action=$(printf '%s\n' "${actions[@]}" | \
   fzf --prompt="action> " --query="$default" --select-1) || exit 0
 
 case "$action" in
   edit)
-    ${EDITOR:-cursor} "$file" ;;
+    ${EDITOR:-cursor} "$full" ;;
   view)
     if command -v bat &>/dev/null; then
-      bat --style=plain "$file"
+      bat --style=plain "$full"
     else
-      cat "$file"
+      cat "$full"
     fi ;;
   implement)
     echo "Launching Claude Code: /implement $topic"
     cd "$topic_dir" && claude "/implement $topic" ;;
-  propose)
-    echo "Opening topic dir in Cursor for /propose"
-    cursor "$topic_dir" ;;
+  claude)
+    echo "Launching Claude Code: load $topic"
+    claude "load $topic" ;;
+  cursor)
+    if [[ -d "$topic_dir" && "$topic_dir" != "$DOCS_ROOT" && "$topic_dir" != "$PLANS_ROOT" ]]; then
+      cursor "$topic_dir"
+    else
+      cursor "$full"
+    fi ;;
 esac

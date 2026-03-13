@@ -178,6 +178,10 @@ Model: session → INBOX.md (short-term) → triage → AGENTS.md (long-term)
 - Skill vs instruction: single command + context → AGENTS.md instruction. Multi-step, branching logic, or cross-repo → skill.
 - When updating a skill or its reference example, diff conventions against the artifact to catch drift.
 
+Docs location:
+- `~/documents/<topic>/` = canonical location for all long-lived docs (RFCs, impl plans, research). Arbitrary nesting OK.
+- `~/.claude/docs/` deprecated – use `~/documents/` instead.
+
 Capture triggers:
 - `log` / `idea: <thought>` → append to INBOX.md (date, context, idea)
 - `win: <description>` → `~/.agents/wins.md` (promo-packet worthy)
@@ -240,7 +244,7 @@ All on PATH via `~/tools` symlink:
 - `refresh-skills` – re-copy `~/.agents/skills/` to `~/.cursor/skills/` (run after editing skills)
 - `sz` – re-source zshrc after edits
 - `wt` – git worktree manager (create/list/switch/delete with fzf)
-- `docs` – fzf browser for `~/documents/`
+- `docs` – unified doc browser (fzf). Sources: `~/documents/` `[doc]`, `~/.claude/plans/saved/` `[plan]`. Colored tags, preview, actions (edit, view, implement, claude, cursor). `docs <query>` pre-filters.
 
 ### Testing dotfiles changes
 

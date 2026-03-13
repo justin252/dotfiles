@@ -26,8 +26,7 @@ See AGENTS.md § Memory for the model.
 Claude Code additions:
 - Auto-memory (`~/.claude/projects/*/memory/`): per-project, Claude manages. AGENTS.md wins on conflict.
 - `save plan [slug]` → `~/.claude/plans/saved/<slug>.md`. Header: `# Title` + `> Status: draft | active | done` + `> Repo: <repo> | Branch: <branch>`.
-- `load plan <query>` → search `plans/saved/`, `plans/`, `docs/`. Partial match; ambiguous → show options.
-- Docs: `~/.claude/docs/` for long-lived documents.
+- `load <query>` → search `~/documents/`, `~/.claude/plans/saved/`. Partial match; ambiguous → show options. Topic dir: read rfc.md + impl.md. Single file: read it. Summarize status + next steps.
 
 ## Setup
 
@@ -37,7 +36,6 @@ Claude Code specifics:
 - `~/.claude/CLAUDE.md` → `~/dotfiles/.claude/CLAUDE.md` – only edit the dotfiles copy
 - `~/.claude/settings.json` → `~/dotfiles/.claude/settings.json` – universal permissions. Work-specific MCP entries go in `~/.claude/settings.local.json` (not synced; arrays merge).
 - `~/.claude/plans/saved/` – saved plans (promoted from auto-generated `plans/`), never synced
-- `~/.claude/docs/` – long-lived documents, never synced
 - Karabiner: `install.sh` copies (not symlinks) because Karabiner overwrites symlinks. After editing the dotfiles copy, run `cp ~/dotfiles/karabiner/karabiner.json ~/.config/karabiner/karabiner.json`.
 - To detect context: check which local zshrc files exist on the machine (`~/.zshrc.work` = work context).
 

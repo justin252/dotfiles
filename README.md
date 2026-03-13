@@ -50,7 +50,7 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 .claude/settings.json        # Claude Code permissions (dontAsk allow list)
 shell/zshrc                  # Universal shell config (aliases, functions, env)
 tools/                       # CLI scripts on PATH (symlinked to ~/tools)
-tools/docs                   # fzf browser for ~/documents/ (edit, view, implement, propose)
+tools/docs                   # Unified doc browser: ~/documents/ + ~/.claude/plans/saved/ (colored tags, actions)
 karabiner/karabiner.json     # Karabiner-Elements config (Joy-Con L → Claude Code controls)
 karabiner/joycon-karabiner.md # Joy-Con mapping spec
 install.sh                   # Sets up symlinks, seeds local files, installs fzf
@@ -71,7 +71,7 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `pull-dot` pulls and re-sources zshrc
 - `sz` re-sources zshrc after edits
 - `wt` – git worktree manager (create/list/switch/delete with fzf)
-- `docs` – fzf browser for `~/documents/` (edit, view, launch /implement or /propose)
+- `docs` – unified doc browser: `~/documents/` [doc] + `~/.claude/plans/saved/` [plan] with colored tags, preview, actions (edit, view, implement, claude, cursor). `docs <query>` pre-filters.
 
 ## Preference distribution
 
