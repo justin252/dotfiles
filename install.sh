@@ -80,6 +80,7 @@ done
 ln -sfn "$DOTFILES/.claude/agents" ~/.claude/agents
 ln -sf "$DOTFILES/.claude/CLAUDE.md" ~/.claude/CLAUDE.md
 ln -sf "$DOTFILES/.claude/settings.json" ~/.claude/settings.json
+ln -sf "$DOTFILES/.claude/keybindings.json" ~/.claude/keybindings.json
 
 # Cursor discovery (cp, not symlink; Cursor doesn't follow symlinks – known bug)
 [[ -L ~/.cursor/skills ]] && rm ~/.cursor/skills

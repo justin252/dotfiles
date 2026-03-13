@@ -37,7 +37,7 @@ L shoulder acts as a combo modifier via `set_variable` (`joycon_l_held`). Tap L 
 | Karabiner input | Physical | Action |
 |---|---|---|
 | `pointing_button:button16` | ZL (trigger) | Enter |
-| `pointing_button:button15` | L (shoulder) | Modifier (tap = Dictation F5, hold = combo prefix) |
+| `pointing_button:button15` | L (shoulder) | Modifier (tap = Dictation F5, hold = F5 + combo prefix). Hold triggers Claude Code voice push-to-talk |
 | `pointing_button:button9` | Minus | Escape (with L held: Ctrl+C) |
 | `pointing_button:button3` | Dir Up | Up arrow |
 | `pointing_button:button2` | Dir Down | Down arrow |

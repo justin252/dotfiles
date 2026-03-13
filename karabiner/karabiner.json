@@ -40,7 +40,10 @@
               {
                 "type": "basic",
                 "from": { "pointing_button": "button15" },
-                "to": [{ "set_variable": { "name": "joycon_l_held", "value": 1 } }],
+                "to": [
+                  { "set_variable": { "name": "joycon_l_held", "value": 1 } },
+                  { "key_code": "f5" }
+                ],
                 "to_after_key_up": [{ "set_variable": { "name": "joycon_l_held", "value": 0 } }],
                 "to_if_alone": [{ "key_code": "f5" }],
                 "conditions": [{ "type": "device_if", "identifiers": [{ "vendor_id": 1406, "product_id": 8198 }] }]
