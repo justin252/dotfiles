@@ -18,7 +18,7 @@ Can also run inline in an existing claude session.
 1. Read `~/.agents/AGENTS.md` for conventions (commit style, PR template, safety rules)
 2. Determine the topic: $ARGUMENTS, or infer from conversation context
 3. Check `~/.agents/docs/<topic>/`:
-   - **plan.md exists**: read it, find the next unchecked phase, resume there
+   - **plan.md exists**: read it, find the next unchecked phase, inspect `output.md`/`review.md` if present, resume there
    - **No plan.md but design.md exists**: derive plan.md from design. Read ## Open sections from problem.md/design.md first – append unresolved items as phase 0 decisions.
    - **Nothing exists**: draft plan.md from task description.
 4. Confirm the plan with the user before executing (skip in autonomous mode)
@@ -37,6 +37,9 @@ chain: problem.md → design.md → **plan.md**
 ---
 # Plan: <title>
 
+## Outputs
+- [ ] current-output – current | planned | shipped. Branch/PR/review refs when known.
+
 ## Phase N: <Name>
 - [ ] Task 1
 - [ ] Task 2
@@ -52,9 +55,10 @@ For each phase:
 1. Read the phase tasks
 2. Work through them sequentially
 3. Check off tasks as completed (edit the plan.md)
-4. Add references inline (PR links, test output, file paths)
-5. At phase end: run validation criteria
-6. **Stop and report** – let the user validate before continuing to next phase
+4. Keep `output.md` current for the active deliverable; add branch/PR/review refs when known
+5. Add references inline (PR links, test output, file paths)
+6. At phase end: run validation criteria
+7. **Stop and report** – let the user validate before continuing to next phase
 
 When a phase is done, update its checkboxes and add a completion note:
 
@@ -81,7 +85,7 @@ These duplicate AGENTS.md essentials so subagents work without inheriting parent
 - **PRs**: always `--draft`. Body: Motivation, Summary, Test plan.
 - **Stacking**: check repo-level AGENTS.md for stacking preference. Default: `git push -u` + `gh pr create --draft`. Use Graphite (`gt create`, `gt submit --draft`, `gt restack`) only when repo config explicitly enables it.
 - **Safety**: never force-push main, never rm -rf outside build dirs, never delete unmerged branches.
-- **Checkpoint**: route through /checkpoint skill for push/PR. Never bare push.
+- **Checkpoint**: route through /checkpoint skill for push/PR + async review. Never bare push.
 
 ## Stacking
 

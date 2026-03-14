@@ -11,13 +11,26 @@ git clone git@github.com:justin252/dotfiles.git ~/dotfiles
 bash ~/dotfiles/install.sh
 ```
 
+## Machine shapes
+
+- Personal/universal machine: install `~/dotfiles`, then optionally create `~/.zshrc.personal` for machine-specific overrides.
+- Work machine: install `~/dotfiles` first, then run `~/dotfiles-work/install.sh` to layer work-specific shell config, skills, and agent rules on top.
+
 ## Update (existing machine)
 
 ```bash
 pull-dot
 ```
 
-One command: pulls latest dotfiles and re-sources zshrc.
+One command: pulls latest dotfiles, refreshes shared skills + Codex defaults, and re-sources zshrc.
+
+## Repair (drifted machine state)
+
+```bash
+reset-dot
+```
+
+Repairs the dotfiles-managed layer without touching local-only state like auth, `~/.agents/docs`, `INBOX.md`, `~/.zshrc.work`, or `~/.zshrc.personal`.
 
 **Interactive learning path** – explore the repo with [Claude Code](https://docs.anthropic.com/en/docs/claude-code):
 
@@ -32,6 +45,7 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 
 - Symlinks shell config (`~/.zshrc` → `shell/zshrc`), tools (`~/tools`), agent config (`~/.agents/`, `~/.claude/`, `~/.cursor/`)
 - Symlinks `.claude/agents/` (CC subagent definitions)
+- Syncs Codex defaults into `~/.codex/config.toml` without replacing auth/trust state
 - Seeds `~/.agents/INBOX.md`, `~/.agents/wins.md`, `~/.agents/docs/` (local-only, never synced)
 - Copies Karabiner config (can't symlink – Karabiner overwrites symlinks)
 - Sets `git pull.rebase true`
@@ -45,8 +59,10 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 .agents/AGENTS.md            # Shared agent instructions (cross-tool source of truth)
 .agents/.gitignore           # Boundary: docs/, INBOX.md, wins.md are local-only
 .agents/references/          # Reference docs auto-consulted by agents
-.agents/references/doc-templates.md  # 4 doc types: problem, design, plan, reference
+.agents/references/doc-templates.md  # Core docs + output/review artifact templates
 .agents/skills/              # Agent skills (symlinked to ~/.agents/, ~/.claude/; copied to ~/.cursor/)
+.codex/config.toml.example   # Codex CLI autonomy skeleton (merge, don't symlink blindly)
+.codex/review-instructions.md # Review artifact template/instructions for Codex runner
 .claude/CLAUDE.md            # Claude Code config (@imports AGENTS.md + Claude-specific)
 .claude/agents/              # CC subagent definitions (executor, researcher)
 .claude/settings.json        # Claude Code permissions (dontAsk allow list)
@@ -55,8 +71,12 @@ shell/tmux.conf              # tmux config (C-a prefix, vim nav, cross-platform 
 tools/                       # CLI scripts on PATH (symlinked to ~/tools)
 tools/ag                     # Agent session manager (tmux-backed: launch, list, attach, kill)
 tools/doc                    # Unified doc browser: ~/.agents/docs/ (frontmatter-aware, typed actions)
+tools/review-output          # Create/update output.md and run Codex review into review.md
+tools/sync-codex-config      # Set Codex CLI autonomy defaults (workspace-write + never ask)
+tools/reset-dot              # Rebuild dotfiles-managed symlinks/copies/config scaffolding
+tools/rebase-wip             # Stash current work, fetch/rebase, then restore work
 tools/sesh                   # Session notes browser: ~/.claude/sessions/ (condensed summaries, context handoff)
-tools/refresh-skills         # Re-copy skills to ~/.cursor/skills/ (Cursor can't follow symlinks)
+tools/refresh-skills         # Rebuild shared skills, sync Claude skills, copy Cursor skills
 karabiner/karabiner.json     # Karabiner-Elements config (Joy-Con L → Claude Code controls)
 karabiner/joycon-karabiner.md # Joy-Con mapping spec
 install.sh                   # Sets up symlinks, seeds local files, installs fzf + tmux
@@ -70,17 +90,30 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `~/.zshrc.work` – work-specific overlay (sourced if present; typically managed by a work dotfiles repo)
 - `~/.zshrc.personal` – machine-specific personal overrides (local only)
 - `~/.agents/AGENTS.md` – shared agent instructions, symlinked to this repo
-- `~/.agents/skills/` – agent skills, symlinked to this repo; Claude Code discovers via symlink, Cursor via copied files (`refresh-skills` to sync)
+- `~/.agents/skills/` – shared runtime skill layer rebuilt by `refresh-skills` from base + optional work-overlay skills; Codex reads it directly, Claude symlinks to it, Cursor copies from it
 - `~/.claude/CLAUDE.md` – Claude Code config, symlinked to this repo (@imports shared AGENTS.md)
+- `~/.codex/config.toml` – local Codex config. `install.sh` / `sync-codex-config` adds top-level autonomy defaults without replacing auth, trust, or profile-specific entries
 - **Cursor global prefs** – paste AGENTS.md content into Cursor Settings > Rules > User Rules (no file-based auto-load for global prefs; per-project prefs use `AGENTS.md` at project root, auto-discovered natively)
 - `~/.config/karabiner/karabiner.json` is copied from this repo (Karabiner breaks symlinks)
-- `pull-dot` pulls and re-sources zshrc
+- `pull-dot` pulls, refreshes shared skills + Codex defaults, and re-sources zshrc
+- `reset-dot` repairs dotfiles-managed state and re-sources zshrc
 - `sz` re-sources zshrc after edits
 - `ag` – agent session manager: one command for parallel agent work. `ag <name>` auto-creates worktree + launches claude. `ag -m MSG` with initial task. `ag` fzf dashboard across all repos. `ag status` cross-repo unified view. `ag --cursor` for cursor + claude. `ag clean` sweeps dead sessions + merged worktrees.
 - `wt` – git worktree plumbing (create/list/switch/delete). Mostly used through `ag`; direct use for worktree-only ops.
-- `refresh-skills` – re-copy `~/.agents/skills/` to `~/.cursor/skills/` (run after editing skills, or via `pull-dot`)
-- `doc` – unified doc browser: `~/.agents/docs/` with frontmatter-aware picker (type, topic, repo, status). Actions: edit, view, execute, propose, claude, cursor. `doc <query>` pre-filters.
+- `refresh-skills` – rebuild `~/.agents/skills` from dotfiles sources, then re-sync Claude skill symlinks and re-copy Cursor skills (run after editing skills, or via `pull-dot`)
+- `sync-codex-config` – sync top-level Codex autonomy defaults without replacing auth, trust, or profile-specific settings
+- `reset-dot` – rebuild the managed dotfiles layer after migrations or drift while preserving local-only state; leaves a real `~/tools` directory alone
+- `review-output` – create/update `output.md` and run Codex review into `review.md` for the current topic. Requires a Codex CLI with `codex exec review`. Use `--background` for checkpoint-style async review
+- `rebase-wip` – stash local edits, fetch/rebase onto the target branch, then reapply the stash. Useful when dotfiles change mid-task
+- `doc` – unified doc browser: `~/.agents/docs/` with frontmatter-aware picker (type, topic, repo, status). Actions: edit, view, execute, propose, review, claude, cursor. `doc <query>` pre-filters.
 - `sesh` – session notes browser: `~/.claude/sessions/`. Condensed .md summaries for humans; pass context to new sessions. `sesh <query>` pre-filters.
+
+## Contributing
+
+- `install.sh`: clean-machine-first; create dirs before scanning them; optional integrations should warn, not abort; only delete clearly managed paths
+- `tools/`: keep `-h`/`--help`, idempotent defaults, and macOS/Linux shell compatibility
+- `skills/`: keep YAML frontmatter valid and update workflow docs when behavior changes
+- Smoke-test install/repair changes with a temp `HOME`, not just your live machine
 
 ## Preference distribution
 
@@ -96,22 +129,27 @@ Work overlay (synced via work dotfiles repo, if present):
   ├── Claude Code            @import via CLAUDE.md (native)
   └── Cursor                 paste into User Rules (manual)
   ~/.agents/skills/          ← merged: personal + work skills
-  └── Both tools discover via ~/.cursor/skills/ and ~/.claude/skills/
+  ├── Claude Code            symlinks from ~/.claude/skills/
+  ├── Cursor                 copied to ~/.cursor/skills/
+  └── Codex                  reads ~/.agents/skills/ directly in this setup
 
 Project-specific patterns (committed to each repo):
   <repo>/AGENTS.md           ← team-shared, per-project
   └── All tools auto-discover natively
 ```
 
+Gemini future note:
+- Do not treat Gemini as a `SKILL.md` directory consumer by default. If added later, sync shared instructions to `~/.gemini/GEMINI.md` and native Gemini commands separately.
+
 ## Agent memory
 
-Self-learning feedback loop across Claude Code and Cursor sessions.
+Self-learning feedback loop across Claude Code, Codex, and Cursor sessions.
 
 ```
 session → friction/insights
     → /retro captures to INBOX.md (short-term, local)
     → /triage promotes to AGENTS.md (long-term, synced)
-    → both tools read AGENTS.md at startup
+    → tools read AGENTS.md / shared skills / review artifacts
     → better instructions → repeat
 ```
 
@@ -121,6 +159,7 @@ session → friction/insights
 | Short-term | `~/.agents/INBOX.md` | Local, never synced | /retro, log, idea |
 | Per-project | `<repo>/AGENTS.md` | Team-shared, committed | Manual or /triage |
 | Per-project | `~/.claude/projects/*/memory/` | Claude Code auto-memory | Claude Code |
+| Per-topic | `~/.agents/docs/<topic>/review.md` | Output review + candidate learnings | Codex + executor loop |
 
 Capture: `log`, `idea: <thought>`, `win: <description>`.
 Triage (`/triage`) promotes INBOX items to AGENTS.md rules, problem.md docs, zshrc aliases, scripts, or discards them.

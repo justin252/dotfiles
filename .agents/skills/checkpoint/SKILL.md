@@ -1,6 +1,6 @@
 ---
 name: checkpoint
-description: Build, test, split/ship PRs, commit, push, win check, retro. The only release path.
+description: Build, test, split/ship PRs, commit, push, async review handoff, win check, retro. The only release path.
 ---
 
 Self-contained workflow -- execute steps fully, don't inject extra confirmation gates.
@@ -31,6 +31,7 @@ Self-contained workflow -- execute steps fully, don't inject extra confirmation 
    ```
 
 8. **Win check**: does this session clear the promo-packet bar? Categories: cross-team unblock, DX improvement, arch decision, measurable perf win, reliability/incident. If yes, draft entry, confirm, log to `~/.agents/wins.md`
-9. **Retro**: run /retro (mandatory epilogue, not a confirmation gate – always execute)
+9. **Async review**: if the topic has `output.md` or a current output entry in `plan.md`, launch `review-output <topic>` in the background after push/PR. Surface the log path and review artifact path; do not block on completion in v1.
+10. **Retro**: run /retro (mandatory epilogue, not a confirmation gate – always execute)
 
-**`checkpoint amend`** = amend last commit + force push + update PR body + retro.
+**`checkpoint amend`** = amend last commit + force push + update PR body + async review handoff + retro.

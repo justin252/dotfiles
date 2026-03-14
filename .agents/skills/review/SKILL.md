@@ -5,7 +5,7 @@ description: Review a PR or diff for correctness, style, and domain-specific iss
 
 # /review
 
-Structured code review. Domain-aware via `~/.agents/references/`.
+Structured code review. Domain-aware via `~/.agents/references/`. For output-linked review loops, prefer `review-output`, which writes a durable `review.md` artifact.
 
 ## Bootstrap
 
@@ -46,3 +46,4 @@ Severities: `blocker`, `issue`, `nit`, `question`.
 - Don't flag style issues covered by linters/formatters
 - Acknowledge good patterns -- not everything needs a comment
 - If the diff is large, focus on the riskiest changes
+- If writing an output review artifact, route process/tooling lessons into `## Future learnings` rather than mixing them with code findings

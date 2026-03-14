@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# doc - browse agent docs (problem → design → plan → reference)
+# doc - browse agent docs (problem → design → plan → output → review → reference)
 # Sources: ~/.agents/docs/<topic>/ with YAML frontmatter
 
 DOCS_ROOT="${DOCS_ROOT:-$HOME/.agents/docs}"
@@ -15,6 +15,8 @@ fi
 RED=$'\033[31m'
 BLUE=$'\033[34m'
 YELLOW=$'\033[33m'
+GREEN=$'\033[32m'
+MAGENTA=$'\033[35m'
 DIM=$'\033[2m'
 RESET=$'\033[0m'
 
@@ -24,6 +26,8 @@ color_for_type() {
     problem)   printf '%s' "$RED" ;;
     design)    printf '%s' "$BLUE" ;;
     plan)      printf '%s' "$YELLOW" ;;
+    output)    printf '%s' "$GREEN" ;;
+    review)    printf '%s' "$MAGENTA" ;;
     reference) printf '%s' "$DIM" ;;
     *)         printf '%s' "$RESET" ;;
   esac
@@ -44,7 +48,7 @@ parse_frontmatter() {
 }
 
 # Build entries list
-# Format: "colored_display \t full_path \t type \t topic \t repo \t component \t status"
+# Format: "colored_display \t full_path \t type \t topic_root \t topic \t repo \t component \t status"
 entries=""
 
 if [[ -d "$DOCS_ROOT" ]]; then
@@ -56,8 +60,15 @@ if [[ -d "$DOCS_ROOT" ]]; then
     # Skip non-doc files at root level
     [[ "$topic_dir" == "$DOCS_ROOT" ]] && continue
 
-    # Determine type from filename
-    doc_type="$fname"
+    # Determine type from filename or subdir
+    parent_name=$(basename "$topic_dir")
+    if [[ "$parent_name" == "outputs" || "$parent_name" == "reviews" ]]; then
+      topic_dir=$(dirname "$topic_dir")
+      topic_name=$(basename "$topic_dir")
+      doc_type="${parent_name%?}"
+    else
+      doc_type="$fname"
+    fi
     color=$(color_for_type "$doc_type")
 
     # Parse frontmatter
@@ -75,7 +86,7 @@ if [[ -d "$DOCS_ROOT" ]]; then
     [[ -n "$repo" ]] && display+="${RESET}"
     [[ -n "$status" ]] && display+="  ${DIM}${status}${RESET}"
 
-    entries+="${display}"$'\t'"${file}"$'\t'"${doc_type}"$'\t'"${topic_name}"$'\t'"${repo}"$'\t'"${component}"$'\t'"${status}"$'\n'
+    entries+="${display}"$'\t'"${file}"$'\t'"${doc_type}"$'\t'"${topic_dir}"$'\t'"${topic_name}"$'\t'"${repo}"$'\t'"${component}"$'\t'"${status}"$'\n'
   done < <(find "$DOCS_ROOT" -type f -name '*.md' | sort)
 fi
 
@@ -104,9 +115,8 @@ selection=$(printf '%s' "$entries" | fzf "${fzf_args[@]}") || exit 0
 # Parse hidden fields from selection
 full=$(echo "$selection" | cut -f2)
 doc_type=$(echo "$selection" | cut -f3)
-
-topic_dir=$(dirname "$full")
-topic=$(basename "$topic_dir")
+topic_dir=$(echo "$selection" | cut -f4)
+topic=$(echo "$selection" | cut -f5)
 
 # Build actions list based on what exists in topic dir
 actions=("edit" "view")
@@ -115,6 +125,10 @@ if [[ -f "$topic_dir/plan.md" ]]; then
   actions+=("execute")
 elif [[ -f "$topic_dir/problem.md" || -f "$topic_dir/design.md" ]]; then
   actions+=("propose")
+fi
+
+if [[ "$doc_type" == "output" || "$doc_type" == "review" || -f "$topic_dir/output.md" ]]; then
+  actions+=("review")
 fi
 
 actions+=("claude" "cursor")
@@ -148,6 +162,21 @@ case "$action" in
     else
       echo "Launching Claude Code: /propose $topic"
       cd "$topic_dir" && claude "/propose $topic"
+    fi ;;
+  review)
+    repo_arg=()
+    if git rev-parse --show-toplevel >/dev/null 2>&1; then
+      repo_arg=(--repo "$(git rev-parse --show-toplevel)")
+    fi
+    if [[ "$doc_type" == "output" || "$doc_type" == "review" ]]; then
+      slug="$(basename "$full" .md)"
+      if [[ "$slug" == "output" || "$slug" == "review" ]]; then
+        review-output "$topic_dir" "${repo_arg[@]}"
+      else
+        review-output "$topic_dir" "${repo_arg[@]}" --output "$slug"
+      fi
+    else
+      review-output "$topic_dir" "${repo_arg[@]}"
     fi ;;
   claude)
     if [[ -d "$topic_dir" && "$topic_dir" != "$DOCS_ROOT" ]]; then

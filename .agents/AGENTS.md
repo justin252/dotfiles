@@ -18,6 +18,7 @@
 - Before proposing new tools/aliases, grep existing config to avoid duplicating what's already there.
 - Verify platform capabilities before designing around them – don't assume features exist at system boundaries.
 - Shell scripts (dotfiles): verify BSD (macOS) vs GNU flag compatibility. Dotfiles run on both macOS (laptop) and Linux (workspace); prefer cross-platform implementations, only guard with `$OSTYPE` when genuinely platform-specific (desktop apps, macOS-only tools). Use existence checks (`command -v`, `[[ -d ]]`) over OS checks when possible.
+- Dotfiles install/repair flows: design for a clean machine first. Create dirs before scanning them; keep optional integrations non-fatal; only remove clearly managed paths; smoke-test with a temp `HOME`.
 - Flag performance when it matters – hot paths, large datasets, repeated calls. Don't optimize prematurely.
 - Shell startup (.zshrc, etc.): never source commands that hit the network. Auth/token refreshes → on-demand or lazy.
 - Go: default to unexported (lowercase). Only export when cross-package usage is confirmed.
@@ -180,14 +181,15 @@ Model: session → INBOX.md (short-term) → triage → AGENTS.md (long-term)
 
 Docs:
 - `~/.agents/docs/<topic>/` = all long-lived docs. Flat by topic, frontmatter for metadata. Local-only (`.gitignore`).
-- 4 doc types: problem.md (why), design.md (how), plan.md (what/when), reference.md (learnings).
-- Pipeline: problem → design → plan → execute. Each has ## Open for feedback loop.
+- Core docs: problem.md (why), design.md (how), plan.md (what/when), reference.md (learnings).
+- Delivery artifacts: output.md (what shipped), review.md (review loop for an output). Multi-output topics can use `outputs/<slug>.md` and `reviews/<slug>.md`.
+- Pipeline: problem → design → plan → output → review → checkpoint. Each doc type except reference can use ## Open for feedback loop.
 - Templates: `~/.agents/references/doc-templates.md`. Agents consult when creating docs.
 - `load <topic>` → search `~/.agents/docs/`. Partial match; ambiguous → show options. Read all doc types, summarize status + next steps.
 - `~/.agents/references/workflow.md` – comprehensive workflow reference. Read on demand: `@~/.agents/references/workflow.md`.
 
 Composability:
-- Pipeline: /propose persists to docs/, /execute tracks progress in plan.md, /checkpoint ships.
+- Pipeline: /propose persists to docs/, /execute tracks progress in plan.md, outputs carry concrete delivery state, /checkpoint ships and can trigger review.
 - Transitions + skill→doc mapping: see `~/.agents/references/workflow.md` § Composability.
 
 Capture:
@@ -220,6 +222,12 @@ Idempotent. Safe to re-run anytime. What it does:
 - Sets `git pull.rebase true`
 - Karabiner: copies (not symlinks) on macOS
 
+Contribution defaults:
+- Clean-machine-first: `mkdir -p` before `find`/loops over managed dirs
+- Optional integrations warn instead of aborting the full install
+- Only delete clearly managed paths; if a path might contain user content, prefer symlink-only removal or warn
+- Validate on both macOS/BSD and Linux/GNU shell behavior
+
 ### Agent config distribution
 
 ```
@@ -231,28 +239,33 @@ Idempotent. Safe to re-run anytime. What it does:
   Claude Code                @import via CLAUDE.md (native)
   Cursor                     paste into User Rules alongside AGENTS.md
 
-~/.agents/skills/            <- merged personal + work skills (symlinks)
-  ~/.claude/skills/          symlink to ~/.agents/skills/ (Claude Code discovers)
-  ~/.cursor/skills/          copied from ~/.agents/skills/ (Cursor needs real files)
+~/.agents/skills/            <- merged personal + work skills
+  Claude Code                symlinks from ~/.claude/skills/
+  Cursor                     copied to ~/.cursor/skills/
+  Codex CLI                  reads ~/.agents/skills/ directly in this setup
 
 Repo-root AGENTS.md          <- per-project, auto-discovered by both tools
 ```
 
 Cursor does NOT follow @import or read `~/.agents/` directly. User Rules (plain text in Settings UI) is the only global mechanism; no file-based auto-load. Paste both AGENTS.md and AGENTS-work.md into User Rules for full context.
 
-Cursor skills: copied (not symlinked) because Cursor doesn't follow symlinks for skill discovery (known bug). Run `refresh-skills` after editing skills, or `pull-dot` (which calls it automatically).
+Cursor skills: copied (not symlinked) because Cursor doesn't follow symlinks for skill discovery (known bug). Run `refresh-skills` after editing skills, or `pull-dot` (which calls it automatically). `refresh-skills` rebuilds `~/.agents/skills` from dotfiles sources first, then re-syncs Claude/Cursor from that shared layer.
 
 ### Key tools
 
 All on PATH via `~/tools` symlink:
 - `h` – fzf alias browser. `h suggest` surfaces forgotten aliases from history.
-- `pull-dot` – pull dotfiles + re-source zshrc (work version pulls both repos + refreshes Cursor skills)
-- `refresh-skills` – re-copy `~/.agents/skills/` to `~/.cursor/skills/` (run after editing skills)
+- `pull-dot` – pull dotfiles + re-source zshrc (work version pulls both repos + refreshes shared skills + Codex defaults)
+- `reset-dot` – rebuild dotfiles-managed symlinks/copies/config scaffolding, then re-source zshrc. Preserve local-only state
+- `refresh-skills` – rebuild `~/.agents/skills` from dotfiles sources, then re-sync Claude skill symlinks and re-copy Cursor skills (run after editing skills)
+- `sync-codex-config` – sync top-level Codex autonomy defaults without replacing auth/trust state or profile-specific settings
 - `sz` – re-source zshrc after edits
+- `rebase-wip` – stash local edits, fetch/rebase onto a target branch, then reapply the stash. Useful when dotfiles change mid-task
 - `ag` – agent session manager (stage 6-7 orchestrator). One command for parallel work: `ag <name>` auto-creates worktree + launches claude. `ag <name> -m MSG` with initial task. `ag` fzf dashboard (all repos). `ag status` cross-repo view. `ag --cursor` cursor + claude. `ag clean` dead sessions + merged worktrees.
 - `wt` – git worktree plumbing. `wt <name>` create, `wt` fzf switch, `wt -d` delete, `wt status`, `wt clean`. Mostly used through `ag`; direct use for worktree-only ops.
 - `wss` – workspace SSH+tmux. `wss <name>` connect, `wss` fzf picker. Work-only (macOS guard).
-- `doc` – unified doc browser (fzf). Sources: `~/.agents/docs/`. Frontmatter-aware picker: [type] topic repo/component status. Actions: edit, view, execute, propose, claude, cursor. `doc <query>` pre-filters.
+- `doc` – unified doc browser (fzf). Sources: `~/.agents/docs/`. Frontmatter-aware picker: [type] topic repo/component status. Actions: edit, view, execute, propose, review, claude, cursor. `doc <query>` pre-filters.
+- `review-output` – create/update the current topic output artifact and run Codex review into the linked review artifact
 - `sesh` – session notes browser (fzf). Sources: `~/.claude/sessions/`. Condensed .md summaries for humans; pass context to new sessions. `sesh <query>` pre-filters.
 
 ### Testing dotfiles changes
@@ -262,4 +275,5 @@ zsh -n <file>                                    # syntax check
 zsh -c 'source ~/.zshrc && echo OK'              # clean source
 bash ~/dotfiles/install.sh                       # idempotent re-run
 zsh -c 'source ~/.zshrc; source ~/.zshrc'        # double-source (catches alias conflicts)
+bash -c 'HOME="$(mktemp -d)" bash ~/dotfiles/install.sh'   # clean-machine smoke test
 ```
