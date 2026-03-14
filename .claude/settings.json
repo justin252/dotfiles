@@ -1,8 +1,4 @@
 {
-  "fileSuggestion": {
-    "type": "command",
-    "command": "~/.claude/file-suggestion.sh"
-  },
   "respectGitignore": true,
   "includeCoAuthoredBy": false,
   "permissions": {
