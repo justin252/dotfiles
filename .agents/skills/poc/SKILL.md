@@ -1,6 +1,6 @@
 ---
 name: poc
-description: Prove an idea works – fast, minimal, with gaps documented. Compound skill: /propose (light) -> /implement (phase 1 only) -> /checkpoint. Requires `ccy`.
+description: Prove an idea works – fast, minimal, with gaps documented. Compound skill: /propose (light) -> /execute (phase 1 only) -> /checkpoint. Requires `ccy`.
 ---
 
 # /poc
@@ -11,9 +11,9 @@ Prove an idea works with minimal effort. Compounds three skills into one flow.
 
 ## Flow
 
-1. **Propose (light)**: create `~/.agents/docs/<topic>/rfc.md` with just Problem & Context + Proposal. Skip Implementation section -- the poc IS the implementation test. 2-3 minutes max.
+1. **Propose (light)**: create `~/.agents/docs/<topic>/problem.md` (lightweight – just Impact + Requirements). Skip design.md – the poc IS the design test. 2-3 minutes max.
 
-2. **Implement (phase 1 only)**: scaffold `impl.md` with a single phase -- the shortest path to "it works." Autonomous mode. Explicitly allowed:
+2. **Execute (phase 1 only)**: scaffold `plan.md` with a single phase – the shortest path to "it works." Autonomous mode. Explicitly allowed:
    - Hardcoded values, magic strings
    - No tests, no error handling
    - TODO comments for production concerns
@@ -22,7 +22,7 @@ Prove an idea works with minimal effort. Compounds three skills into one flow.
 3. **Checkpoint**: commit, push, draft PR:
    ```
    ## Idea
-   <what this proves – link to rfc.md>
+   <what this proves – link to problem.md>
 
    ## Demo
    <how to run/see it working>
