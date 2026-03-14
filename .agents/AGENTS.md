@@ -239,9 +239,9 @@ Contribution defaults:
   Claude Code                @import via CLAUDE.md (native)
   Cursor                     paste into User Rules alongside AGENTS.md
 
-~/.agents/skills/            <- merged personal + work skills (symlinks)
-  ~/.claude/skills/          symlink to ~/.agents/skills/ (Claude Code discovers)
-  ~/.cursor/skills/          copied from ~/.agents/skills/ (Cursor needs real files)
+~/.agents/skills/            <- merged personal + work skills
+  Claude Code                symlinks from ~/.claude/skills/
+  Cursor                     copied to ~/.cursor/skills/
   Codex CLI                  reads ~/.agents/skills/ directly in this setup
 
 Repo-root AGENTS.md          <- per-project, auto-discovered by both tools
@@ -249,7 +249,7 @@ Repo-root AGENTS.md          <- per-project, auto-discovered by both tools
 
 Cursor does NOT follow @import or read `~/.agents/` directly. User Rules (plain text in Settings UI) is the only global mechanism; no file-based auto-load. Paste both AGENTS.md and AGENTS-work.md into User Rules for full context.
 
-Cursor skills: copied (not symlinked) because Cursor doesn't follow symlinks for skill discovery (known bug). Run `refresh-skills` after editing skills, or `pull-dot` (which calls it automatically). `refresh-skills` also re-syncs Claude skill symlinks and prunes broken shared skill links.
+Cursor skills: copied (not symlinked) because Cursor doesn't follow symlinks for skill discovery (known bug). Run `refresh-skills` after editing skills, or `pull-dot` (which calls it automatically). `refresh-skills` rebuilds `~/.agents/skills` from dotfiles sources first, then re-syncs Claude/Cursor from that shared layer.
 
 ### Key tools
 
@@ -257,7 +257,7 @@ All on PATH via `~/tools` symlink:
 - `h` – fzf alias browser. `h suggest` surfaces forgotten aliases from history.
 - `pull-dot` – pull dotfiles + re-source zshrc (work version pulls both repos + refreshes shared skills + Codex defaults)
 - `reset-dot` – rebuild dotfiles-managed symlinks/copies/config scaffolding, then re-source zshrc. Preserve local-only state
-- `refresh-skills` – prune broken shared skill links, re-sync Claude skill symlinks, and re-copy Cursor skills (run after editing skills)
+- `refresh-skills` – rebuild `~/.agents/skills` from dotfiles sources, then re-sync Claude skill symlinks and re-copy Cursor skills (run after editing skills)
 - `sync-codex-config` – sync top-level Codex autonomy defaults without replacing auth/trust state or profile-specific settings
 - `sz` – re-source zshrc after edits
 - `rebase-wip` – stash local edits, fetch/rebase onto a target branch, then reapply the stash. Useful when dotfiles change mid-task

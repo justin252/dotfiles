@@ -76,7 +76,7 @@ tools/sync-codex-config      # Set Codex CLI autonomy defaults (workspace-write 
 tools/reset-dot              # Rebuild dotfiles-managed symlinks/copies/config scaffolding
 tools/rebase-wip             # Stash current work, fetch/rebase, then restore work
 tools/sesh                   # Session notes browser: ~/.claude/sessions/ (condensed summaries, context handoff)
-tools/refresh-skills         # Prune broken links, sync Claude skills, copy Cursor skills
+tools/refresh-skills         # Rebuild shared skills, sync Claude skills, copy Cursor skills
 karabiner/karabiner.json     # Karabiner-Elements config (Joy-Con L → Claude Code controls)
 karabiner/joycon-karabiner.md # Joy-Con mapping spec
 install.sh                   # Sets up symlinks, seeds local files, installs fzf + tmux
@@ -90,7 +90,7 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `~/.zshrc.work` – work-specific overlay (sourced if present; typically managed by a work dotfiles repo)
 - `~/.zshrc.personal` – machine-specific personal overrides (local only)
 - `~/.agents/AGENTS.md` – shared agent instructions, symlinked to this repo
-- `~/.agents/skills/` – shared skill layer, symlinked to this repo; Claude Code and Codex discover via symlink, Cursor via copied files (`refresh-skills` to sync)
+- `~/.agents/skills/` – shared runtime skill layer rebuilt by `refresh-skills` from base + optional work-overlay skills; Codex reads it directly, Claude symlinks to it, Cursor copies from it
 - `~/.claude/CLAUDE.md` – Claude Code config, symlinked to this repo (@imports shared AGENTS.md)
 - `~/.codex/config.toml` – local Codex config. `install.sh` / `sync-codex-config` adds top-level autonomy defaults without replacing auth, trust, or profile-specific entries
 - **Cursor global prefs** – paste AGENTS.md content into Cursor Settings > Rules > User Rules (no file-based auto-load for global prefs; per-project prefs use `AGENTS.md` at project root, auto-discovered natively)
@@ -100,7 +100,7 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `sz` re-sources zshrc after edits
 - `ag` – agent session manager: one command for parallel agent work. `ag <name>` auto-creates worktree + launches claude. `ag -m MSG` with initial task. `ag` fzf dashboard across all repos. `ag status` cross-repo unified view. `ag --cursor` for cursor + claude. `ag clean` sweeps dead sessions + merged worktrees.
 - `wt` – git worktree plumbing (create/list/switch/delete). Mostly used through `ag`; direct use for worktree-only ops.
-- `refresh-skills` – prune broken shared skill links, re-sync Claude skill symlinks, and re-copy Cursor skills (run after editing skills, or via `pull-dot`)
+- `refresh-skills` – rebuild `~/.agents/skills` from dotfiles sources, then re-sync Claude skill symlinks and re-copy Cursor skills (run after editing skills, or via `pull-dot`)
 - `sync-codex-config` – sync top-level Codex autonomy defaults without replacing auth, trust, or profile-specific settings
 - `reset-dot` – rebuild the managed dotfiles layer after migrations or drift while preserving local-only state; leaves a real `~/tools` directory alone
 - `review-output` – create/update `output.md` and run Codex review into `review.md` for the current topic. Requires a Codex CLI with `codex exec review`. Use `--background` for checkpoint-style async review
@@ -129,12 +129,17 @@ Work overlay (synced via work dotfiles repo, if present):
   ├── Claude Code            @import via CLAUDE.md (native)
   └── Cursor                 paste into User Rules (manual)
   ~/.agents/skills/          ← merged: personal + work skills
-  └── Both tools discover via ~/.cursor/skills/ and ~/.claude/skills/
+  ├── Claude Code            symlinks from ~/.claude/skills/
+  ├── Cursor                 copied to ~/.cursor/skills/
+  └── Codex                  reads ~/.agents/skills/ directly in this setup
 
 Project-specific patterns (committed to each repo):
   <repo>/AGENTS.md           ← team-shared, per-project
   └── All tools auto-discover natively
 ```
+
+Gemini future note:
+- Do not treat Gemini as a `SKILL.md` directory consumer by default. If added later, sync shared instructions to `~/.gemini/GEMINI.md` and native Gemini commands separately.
 
 ## Agent memory
 

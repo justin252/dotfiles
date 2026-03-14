@@ -1,24 +1,90 @@
 #!/usr/bin/env bash
-# refresh-skills - prune broken shared skills, re-sync Claude symlinks, and copy Cursor skills
-# Cursor doesn't follow symlinks, so skills must be real files.
-# Called by pull-dot automatically; run manually after editing skills.
+# refresh-skills - rebuild shared skills, sync Claude symlinks, and copy Cursor skills
+# Codex reads ~/.agents/skills directly in this setup.
 set -euo pipefail
 
-mkdir -p ~/.agents/skills ~/.claude/skills
+DOTFILES="${DOTFILES:-$HOME/dotfiles}"
+WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}"
 
-for dir in ~/.agents/skills ~/.claude/skills; do
+usage() {
+  cat <<'EOF'
+refresh-skills - rebuild shared skills and sync tool adapters
+
+Usage:
+  refresh-skills
+
+Sources:
+  ~/dotfiles/.agents/skills
+  ~/dotfiles-work/.agents/skills (optional overlay)
+EOF
+}
+
+case "${1:-}" in
+  -h|--help)
+    usage
+    exit 0
+    ;;
+esac
+
+prune_broken_links() {
+  local dir="$1"
+  [[ -d "$dir" ]] || return 0
   find "$dir" -maxdepth 1 -type l ! -exec test -e {} \; -delete 2>/dev/null || true
+}
+
+add_unique_name() {
+  local name="$1"
+  local existing=""
+  for existing in "${managed_names[@]:-}"; do
+    [[ "$existing" == "$name" ]] && return 0
+  done
+  managed_names+=("$name")
+}
+
+[[ -L "$HOME/.agents/skills" ]] && rm -f "$HOME/.agents/skills"
+[[ -L "$HOME/.claude/skills" ]] && rm -f "$HOME/.claude/skills"
+[[ -L "$HOME/.cursor/skills" ]] && rm -f "$HOME/.cursor/skills"
+
+mkdir -p "$HOME/.agents/skills" "$HOME/.claude/skills" "$HOME/.cursor/skills"
+
+prune_broken_links "$HOME/.agents/skills"
+prune_broken_links "$HOME/.claude/skills"
+
+skill_sources=()
+[[ -d "$DOTFILES/.agents/skills" ]] && skill_sources+=("$DOTFILES/.agents/skills")
+[[ -d "$WORK_DOTFILES/.agents/skills" ]] && skill_sources+=("$WORK_DOTFILES/.agents/skills")
+[[ ${#skill_sources[@]} -gt 0 ]] || { echo "no skill sources found" >&2; exit 1; }
+
+managed_names=()
+source_dir=""
+skill=""
+for source_dir in "${skill_sources[@]}"; do
+  for skill in "$source_dir"/*/; do
+    [[ -d "$skill" ]] || continue
+    add_unique_name "$(basename "$skill")"
+  done
 done
 
-[[ -d ~/.agents/skills ]] || { echo "no skills dir (~/.agents/skills)" >&2; exit 1; }
+skill_name=""
+for skill_name in "${managed_names[@]:-}"; do
+  rm -rf "$HOME/.agents/skills/$skill_name" "$HOME/.claude/skills/$skill_name" "$HOME/.cursor/skills/$skill_name"
+done
 
-rm -rf ~/.cursor/skills
-mkdir -p ~/.cursor/skills
+for source_dir in "${skill_sources[@]}"; do
+  for skill in "$source_dir"/*/; do
+    [[ -d "$skill" ]] || continue
+    ln -sfn "$skill" "$HOME/.agents/skills/$(basename "$skill")"
+  done
+done
+
 count=0
-for skill in ~/.agents/skills/*/; do
+for skill in "$HOME/.agents/skills"/*/; do
   [[ -d "$skill" ]] || continue
-  ln -sfn "$skill" ~/.claude/skills/"$(basename "$skill")"
-  cp -rL "$skill" ~/.cursor/skills/"$(basename "$skill")"
+  skill_name="$(basename "$skill")"
+  ln -sfn "$skill" "$HOME/.claude/skills/$skill_name"
+  cp -R -L "$skill" "$HOME/.cursor/skills/$skill_name"
   ((count++)) || true
 done
-echo "refreshed $count skills → ~/.claude/skills/, ~/.cursor/skills/"
+
+echo "refreshed $count skills → ~/.agents/skills/, ~/.claude/skills/, ~/.cursor/skills/"
+echo "codex uses ~/.agents/skills/ directly in this setup"

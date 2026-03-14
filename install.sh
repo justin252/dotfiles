@@ -68,25 +68,16 @@ for d in ~/.agents/skills ~/.claude/skills; do
 done
 
 # Shared source of truth
-# Skills use per-skill symlinks (real dir) so work dotfiles can add work-only skills
-[[ -L ~/.agents/skills ]] && rm ~/.agents/skills
-for skill in "$DOTFILES/.agents/skills"/*/; do
-  ln -sfn "$skill" ~/.agents/skills/"$(basename "$skill")"
-done
 ln -sfn "$DOTFILES/.agents/references" ~/.agents/references
 ln -sf "$DOTFILES/.agents/AGENTS.md" ~/.agents/AGENTS.md
 
-# Claude Code discovery (per-skill symlinks into Claude's own dir; don't replace it)
-for skill in ~/.agents/skills/*/; do
-  ln -sfn "$skill" ~/.claude/skills/"$(basename "$skill")"
-done
+# Shared skill sync: rebuild ~/.agents/skills, then sync Claude/Cursor views from it.
 ln -sfn "$DOTFILES/.claude/agents" ~/.claude/agents
 ln -sf "$DOTFILES/.claude/CLAUDE.md" ~/.claude/CLAUDE.md
 ln -sf "$DOTFILES/.claude/settings.json" ~/.claude/settings.json
 
-# Cursor/Claude shared skill sync (Cursor discovery uses copies; Codex reads ~/.agents/skills/)
-[[ -L ~/.cursor/skills ]] && rm ~/.cursor/skills
-"$DOTFILES/tools/refresh-skills"
+# Cursor/Claude shared skill sync (Codex reads ~/.agents/skills/ directly)
+DOTFILES="$DOTFILES" WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}" "$DOTFILES/tools/refresh-skills"
 ln -sfn "$DOTFILES/.cursor/rules" ~/.cursor/rules
 
 # Codex CLI defaults (keep auth/local trust state in ~/.codex/)
