@@ -86,10 +86,15 @@ ln -sfn "$DOTFILES/.claude/agents" ~/.claude/agents
 ln -sf "$DOTFILES/.claude/CLAUDE.md" ~/.claude/CLAUDE.md
 ln -sf "$DOTFILES/.claude/settings.json" ~/.claude/settings.json
 
-# Cursor discovery (cp, not symlink; Cursor doesn't follow symlinks – known bug)
+# Cursor/Claude shared skill sync (Cursor discovery uses copies; Codex reads ~/.agents/skills/)
 [[ -L ~/.cursor/skills ]] && rm ~/.cursor/skills
 "$DOTFILES/tools/refresh-skills"
 ln -sfn "$DOTFILES/.cursor/rules" ~/.cursor/rules
+
+# Codex CLI defaults (keep auth/local trust state in ~/.codex/)
+if command -v codex &> /dev/null; then
+  "$DOTFILES/tools/sync-codex-config"
+fi
 
 # RTK Claude Code hook (generates local hook script + RTK.md)
 if command -v rtk &> /dev/null && [[ ! -f ~/.claude/hooks/rtk-rewrite.sh ]]; then
@@ -132,6 +137,7 @@ echo "  ~/.claude/settings.json → $DOTFILES/.claude/settings.json"
 echo "  ~/.claude/agents/ → $DOTFILES/.claude/agents/"
 echo "  ~/.claude/skills/*/ → ~/.agents/skills/*/ (per-skill, merged)"
 echo "  ~/.cursor/skills/*/ ← ~/.agents/skills/*/ (copied; Cursor doesn't follow symlinks)"
+command -v codex &>/dev/null && echo "  ~/.codex/config.toml updated with workspace-write + never-ask defaults"
 echo "  ~/.cursor/rules/ → $DOTFILES/.cursor/rules/"
 echo "  ~/.zshrc → $DOTFILES/shell/zshrc"
 echo "  ~/.tmux.conf → $DOTFILES/shell/tmux.conf"

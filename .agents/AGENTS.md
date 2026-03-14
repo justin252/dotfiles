@@ -180,14 +180,15 @@ Model: session → INBOX.md (short-term) → triage → AGENTS.md (long-term)
 
 Docs:
 - `~/.agents/docs/<topic>/` = all long-lived docs. Flat by topic, frontmatter for metadata. Local-only (`.gitignore`).
-- 4 doc types: problem.md (why), design.md (how), plan.md (what/when), reference.md (learnings).
-- Pipeline: problem → design → plan → execute. Each has ## Open for feedback loop.
+- Core docs: problem.md (why), design.md (how), plan.md (what/when), reference.md (learnings).
+- Delivery artifacts: output.md (what shipped), review.md (review loop for an output). Multi-output topics can use `outputs/<slug>.md` and `reviews/<slug>.md`.
+- Pipeline: problem → design → plan → output → review → checkpoint. Each doc type except reference can use ## Open for feedback loop.
 - Templates: `~/.agents/references/doc-templates.md`. Agents consult when creating docs.
 - `load <topic>` → search `~/.agents/docs/`. Partial match; ambiguous → show options. Read all doc types, summarize status + next steps.
 - `~/.agents/references/workflow.md` – comprehensive workflow reference. Read on demand: `@~/.agents/references/workflow.md`.
 
 Composability:
-- Pipeline: /propose persists to docs/, /execute tracks progress in plan.md, /checkpoint ships.
+- Pipeline: /propose persists to docs/, /execute tracks progress in plan.md, outputs carry concrete delivery state, /checkpoint ships and can trigger review.
 - Transitions + skill→doc mapping: see `~/.agents/references/workflow.md` § Composability.
 
 Capture:
@@ -234,25 +235,30 @@ Idempotent. Safe to re-run anytime. What it does:
 ~/.agents/skills/            <- merged personal + work skills (symlinks)
   ~/.claude/skills/          symlink to ~/.agents/skills/ (Claude Code discovers)
   ~/.cursor/skills/          copied from ~/.agents/skills/ (Cursor needs real files)
+  Codex CLI                  reads ~/.agents/skills/ directly in this setup
 
 Repo-root AGENTS.md          <- per-project, auto-discovered by both tools
 ```
 
 Cursor does NOT follow @import or read `~/.agents/` directly. User Rules (plain text in Settings UI) is the only global mechanism; no file-based auto-load. Paste both AGENTS.md and AGENTS-work.md into User Rules for full context.
 
-Cursor skills: copied (not symlinked) because Cursor doesn't follow symlinks for skill discovery (known bug). Run `refresh-skills` after editing skills, or `pull-dot` (which calls it automatically).
+Cursor skills: copied (not symlinked) because Cursor doesn't follow symlinks for skill discovery (known bug). Run `refresh-skills` after editing skills, or `pull-dot` (which calls it automatically). `refresh-skills` also re-syncs Claude skill symlinks and prunes broken shared skill links.
 
 ### Key tools
 
 All on PATH via `~/tools` symlink:
 - `h` – fzf alias browser. `h suggest` surfaces forgotten aliases from history.
-- `pull-dot` – pull dotfiles + re-source zshrc (work version pulls both repos + refreshes Cursor skills)
-- `refresh-skills` – re-copy `~/.agents/skills/` to `~/.cursor/skills/` (run after editing skills)
+- `pull-dot` – pull dotfiles + re-source zshrc (work version pulls both repos + refreshes shared skills + Codex defaults)
+- `reset-dot` – rebuild dotfiles-managed symlinks/copies/config scaffolding, then re-source zshrc. Preserve local-only state
+- `refresh-skills` – prune broken shared skill links, re-sync Claude skill symlinks, and re-copy Cursor skills (run after editing skills)
+- `sync-codex-config` – sync Codex autonomy defaults without replacing auth/trust state
 - `sz` – re-source zshrc after edits
+- `rebase-wip` – stash local edits, fetch/rebase onto a target branch, then reapply the stash. Useful when dotfiles change mid-task
 - `ag` – agent session manager (stage 6-7 orchestrator). One command for parallel work: `ag <name>` auto-creates worktree + launches claude. `ag <name> -m MSG` with initial task. `ag` fzf dashboard (all repos). `ag status` cross-repo view. `ag --cursor` cursor + claude. `ag clean` dead sessions + merged worktrees.
 - `wt` – git worktree plumbing. `wt <name>` create, `wt` fzf switch, `wt -d` delete, `wt status`, `wt clean`. Mostly used through `ag`; direct use for worktree-only ops.
 - `wss` – workspace SSH+tmux. `wss <name>` connect, `wss` fzf picker. Work-only (macOS guard).
-- `doc` – unified doc browser (fzf). Sources: `~/.agents/docs/`. Frontmatter-aware picker: [type] topic repo/component status. Actions: edit, view, execute, propose, claude, cursor. `doc <query>` pre-filters.
+- `doc` – unified doc browser (fzf). Sources: `~/.agents/docs/`. Frontmatter-aware picker: [type] topic repo/component status. Actions: edit, view, execute, propose, review, claude, cursor. `doc <query>` pre-filters.
+- `review-output` – create/update the current topic output artifact and run Codex review into the linked review artifact
 - `sesh` – session notes browser (fzf). Sources: `~/.claude/sessions/`. Condensed .md summaries for humans; pass context to new sessions. `sesh <query>` pre-filters.
 
 ### Testing dotfiles changes

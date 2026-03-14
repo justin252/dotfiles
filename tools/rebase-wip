@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+rebase-wip - stash local work, fetch, rebase, restore work
+
+Usage:
+  rebase-wip [target]
+
+Examples:
+  rebase-wip
+  rebase-wip origin/main
+  rebase-wip origin/fix/dotfiles-audit
+EOF
+}
+
+case "${1:-}" in
+  -h|--help)
+    usage
+    exit 0
+    ;;
+esac
+
+git rev-parse --show-toplevel >/dev/null 2>&1 || { echo "not in a git repo" >&2; exit 1; }
+
+target="${1:-}"
+if [[ -z "$target" ]]; then
+  target="$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || true)"
+fi
+if [[ -z "$target" ]]; then
+  target="origin/main"
+fi
+
+stash_name="rebase-wip-$(date +%Y%m%d-%H%M%S)"
+stashed=false
+
+if [[ -n "$(git status --short)" ]]; then
+  git stash push --include-untracked -m "$stash_name" >/dev/null
+  stashed=true
+  echo "stashed local work: $stash_name"
+fi
+
+if [[ "$target" == origin/* ]]; then
+  git fetch origin
+fi
+
+git rebase "$target"
+echo "rebased onto $target"
+
+if [[ "$stashed" == true ]]; then
+  if git stash pop >/dev/null; then
+    echo "restored stashed work"
+  else
+    echo "stash pop hit conflicts; stash remains available in git stash list" >&2
+    exit 1
+  fi
+fi

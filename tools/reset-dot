@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DOTFILES="${DOTFILES:-$HOME/dotfiles}"
+WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}"
+
+[[ -d "$DOTFILES" ]] || { echo "dotfiles repo not found at $DOTFILES" >&2; exit 1; }
+[[ -f "$DOTFILES/install.sh" ]] || { echo "missing $DOTFILES/install.sh" >&2; exit 1; }
+
+remove_path() {
+  local path="$1"
+  [[ -e "$path" || -L "$path" ]] || return 0
+  rm -rf "$path"
+}
+
+remove_skill_links() {
+  local dir="$1"
+  [[ -d "$dir" ]] || return 0
+  find "$dir" -maxdepth 1 -type l -exec rm -f {} + 2>/dev/null || true
+}
+
+echo "Resetting dotfiles-managed state"
+
+# Generated or symlinked paths managed by install scripts.
+remove_path "$HOME/tools"
+remove_path "$HOME/.zshrc"
+remove_path "$HOME/.tmux.conf"
+remove_path "$HOME/.agents/AGENTS.md"
+remove_path "$HOME/.agents/references"
+remove_path "$HOME/.claude/CLAUDE.md"
+remove_path "$HOME/.claude/settings.json"
+remove_path "$HOME/.claude/agents"
+remove_path "$HOME/.cursor/rules"
+remove_path "$HOME/.cursor/skills"
+
+# Per-item skill links are regenerated; keep the parent dirs and local-only files.
+remove_skill_links "$HOME/.agents/skills"
+remove_skill_links "$HOME/.claude/skills"
+
+bash "$DOTFILES/install.sh"
+
+if [[ -f "$WORK_DOTFILES/install.sh" ]]; then
+  bash "$WORK_DOTFILES/install.sh"
+fi
+
+echo "reset complete"

@@ -42,6 +42,7 @@ Each layer is independent. Skip any and the rest works:
   - `wt -d <name>` – delete worktree (auto-kills ag session)
   - `wt status` – unified view (also available as `ag status`)
   - `wt clean` – remove worktrees with merged PRs (also in `ag clean`)
+- **rebase-wip** – stash current work, fetch/rebase, then restore work. Useful for mid-session branch updates without manually juggling a stash
 - **cc/ccy/ccplan** – claude mode aliases for interactive work (see zshrc)
 
 ### Layer 3: Agent
@@ -60,7 +61,7 @@ Each layer is independent. Skip any and the rest works:
 ### Layer 4: Skills
 
 - `/execute` – execute phased plans
-- `/checkpoint` – build, test, ship PRs, commit, push, retro
+- `/checkpoint` – build, test, ship PRs, commit, push, trigger async review, retro
 - `/propose` – create/continue problem → design → plan pipeline in ~/.agents/docs/
 - `/review` – review PR or diff
 - `/retro` – capture friction to INBOX.md
@@ -87,7 +88,7 @@ dotfiles repo → install.sh → symlinks (zshrc, tmux.conf, agents, skills, cla
                             → seeds (INBOX.md, wins.md, ~/.agents/docs/)
 ```
 
-`pull-dot` – pull both repos, refresh cursor skills, re-source zshrc.
+`pull-dot` – pull both repos, refresh shared skills, sync Codex defaults, re-source zshrc.
 
 ## Memory Model
 
@@ -106,12 +107,14 @@ Capture:
 
 ## Artifact Lifecycle
 
-4 doc types, 3 in pipeline + 1 side channel:
+Core docs plus delivery artifacts:
 
 ```
-problem.md → design.md → plan.md → execute → ship
+problem.md → design.md → plan.md → output.md → review.md → checkpoint/ship
 reference.md (learnings, not actionable)
 ```
+
+Most topics use one `output.md` and one `review.md`. Multi-output topics can add `outputs/<slug>.md` and `reviews/<slug>.md` when a plan truly spans multiple reviewable deliverables.
 
 Each lives in `~/.agents/docs/<topic>/` with YAML frontmatter (topic, repo, component, status).
 Templates: `~/.agents/references/doc-templates.md`.
@@ -121,22 +124,25 @@ Templates: `~/.agents/references/doc-templates.md`.
 Three layers feed each other:
 - **Plan mode** = thinking (ephemeral, conversation-scoped)
 - **docs/<topic>/** = writing it down (persisted artifacts)
-- **/execute** = executing (tracked progress in plan.md)
+- **/execute** = executing (tracked progress in plan.md, output.md, review.md)
 
 | From | To | What happens |
 |---|---|---|
 | Plan mode | /propose | Captures conversation context into problem/design |
 | Plan mode | /execute | Creates minimal plan.md, starts executing |
 | /propose | /execute | Design done → plan.md → execute |
+| /execute | /checkpoint | Ships the current output and can trigger async review |
 | /execute | /propose | Pauses, updates design with learnings |
-| Any | /retro | Scans ## Open sections, captures friction |
+| Any | /retro | Scans ## Open and review learnings, captures friction |
 
-### Skill → doc type mapping
+### Skill → artifact mapping
 
 - /propose → problem.md, design.md, plan.md (context-aware, picks up where left off)
-- /execute → resumes plan.md
+- /execute → resumes plan.md and keeps output links current
+- /checkpoint → ships the current output and may launch review.md generation
+- /review → reviews a diff/PR; Codex-backed output review writes review.md
 - /explain → reference.md
-- /retro → scans ## Open sections
+- /retro → scans ## Open sections and Future learnings
 - /triage → can promote INBOX items to problem.md
 
 ## Key File Paths
@@ -150,7 +156,7 @@ Three layers feed each other:
 ~/dotfiles/.agents/AGENTS.md    agent instructions (source of truth)
 ~/dotfiles/.agents/references/  reference docs (this file, cli-guidelines, etc.)
 ~/dotfiles/.agents/skills/      shared skill definitions
-~/.agents/docs/<topic>/         long-lived docs: problem, design, plan, reference
+~/.agents/docs/<topic>/         long-lived docs: problem, design, plan, output, review, reference
 ~/.agents/INBOX.md              short-term capture (local, never synced)
 ~/.agents/wins.md               promo-packet items
 ~/.claude/sessions/             session notes
@@ -164,6 +170,14 @@ Three layers feed each other:
 doc                                     # pick a plan → execute action → ag launches
 # or manually:
 ag auth-fix -m "/execute from ~/.agents/docs/auth/plan.md"
+```
+
+### Review the current output
+
+```bash
+review-output ~/.agents/docs/auth
+# or from doc:
+doc                                     # pick output/review → review action
 ```
 
 ### Parallel tasks

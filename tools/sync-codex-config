@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+config_dir="${HOME}/.codex"
+config_file="${config_dir}/config.toml"
+
+mkdir -p "$config_dir"
+[[ -f "$config_file" ]] || touch "$config_file"
+
+ruby - "$config_file" <<'RUBY'
+path = ARGV.fetch(0)
+text = File.read(path)
+
+managed = {
+  "approval_policy" => '"never"',
+  "sandbox_mode" => '"workspace-write"'
+}
+
+managed.each do |key, value|
+  pattern = /^#{Regexp.escape(key)}\s*=.*$/
+  if text.match?(pattern)
+    text.gsub!(pattern, "#{key} = #{value}")
+  else
+    text << "\n" unless text.empty? || text.end_with?("\n")
+    text << "#{key} = #{value}\n"
+  end
+end
+
+File.write(path, text)
+RUBY
+
+echo "synced Codex defaults in $config_file"

@@ -1,0 +1,229 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DOCS_ROOT="${DOCS_ROOT:-$HOME/.agents/docs}"
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+MODEL_INSTRUCTIONS="$REPO_ROOT/.codex/review-instructions.md"
+
+usage() {
+  cat <<'EOF'
+review-output - create/update a topic output artifact and run Codex review
+
+Usage:
+  review-output <topic-dir|topic> [--repo <dir>] [--output <slug>] [--base <branch>] [--title <title>] [--background]
+
+Examples:
+  review-output ~/.agents/docs/auth
+  review-output auth
+  review-output auth --output phase-2
+  review-output auth --background
+EOF
+}
+
+topic_arg=""
+target_repo=""
+output_slug=""
+base_branch=""
+review_title=""
+background=false
+background_args=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --output)
+      output_slug="${2:-}"
+      [[ -n "$output_slug" ]] || { echo "missing value for --output" >&2; exit 1; }
+      shift 2
+      ;;
+    --repo)
+      target_repo="${2:-}"
+      [[ -n "$target_repo" ]] || { echo "missing value for --repo" >&2; exit 1; }
+      shift 2
+      ;;
+    --base)
+      base_branch="${2:-}"
+      [[ -n "$base_branch" ]] || { echo "missing value for --base" >&2; exit 1; }
+      shift 2
+      ;;
+    --title)
+      review_title="${2:-}"
+      [[ -n "$review_title" ]] || { echo "missing value for --title" >&2; exit 1; }
+      shift 2
+      ;;
+    --background)
+      background=true
+      shift
+      ;;
+    -*)
+      echo "unknown flag: $1" >&2
+      usage >&2
+      exit 1
+      ;;
+    *)
+      [[ -z "$topic_arg" ]] || { echo "unexpected extra arg: $1" >&2; exit 1; }
+      topic_arg="$1"
+      shift
+      ;;
+  esac
+done
+
+[[ -n "$topic_arg" ]] || { usage >&2; exit 1; }
+command -v codex >/dev/null 2>&1 || { echo "codex not found on PATH" >&2; exit 1; }
+
+resolve_topic_dir() {
+  local value="$1"
+  if [[ -d "$value" ]]; then
+    (cd "$value" && pwd)
+  elif [[ -f "$value" ]]; then
+    (cd "$(dirname "$value")" && pwd)
+  elif [[ -d "$DOCS_ROOT/$value" ]]; then
+    (cd "$DOCS_ROOT/$value" && pwd)
+  else
+    return 1
+  fi
+}
+
+topic_dir="$(resolve_topic_dir "$topic_arg")" || {
+  echo "topic not found: $topic_arg" >&2
+  exit 1
+}
+
+topic="$(basename "$topic_dir")"
+if [[ -n "$output_slug" ]]; then
+  output_path="$topic_dir/outputs/$output_slug.md"
+  review_path="$topic_dir/reviews/$output_slug.md"
+  background_args=(--output "$output_slug")
+else
+  output_path="$topic_dir/output.md"
+  review_path="$topic_dir/review.md"
+  background_args=()
+fi
+
+if [[ -n "$target_repo" ]]; then
+  target_repo="$(cd "$target_repo" && pwd)"
+fi
+
+if [[ "$background" == true && "${REVIEW_OUTPUT_BACKGROUND:-0}" != "1" ]]; then
+  log_path="$topic_dir/review-run.log"
+  mkdir -p "$(dirname "$log_path")"
+  cmd=("$SCRIPT_PATH" "$topic_arg")
+  [[ ${#background_args[@]} -gt 0 ]] && cmd+=("${background_args[@]}")
+  [[ -n "$target_repo" ]] && cmd+=(--repo "$target_repo")
+  [[ -n "$base_branch" ]] && cmd+=(--base "$base_branch")
+  [[ -n "$review_title" ]] && cmd+=(--title "$review_title")
+  REVIEW_OUTPUT_BACKGROUND=1 nohup "${cmd[@]}" >"$log_path" 2>&1 < /dev/null &
+  echo "review started in background"
+  echo "log: $log_path"
+  exit 0
+fi
+
+mkdir -p "$(dirname "$output_path")" "$(dirname "$review_path")"
+
+today="$(date +%F)"
+timestamp="$(date '+%F %H:%M')"
+
+plan_path="$topic_dir/plan.md"
+plan_ref="pending"
+[[ -f "$plan_path" ]] && plan_ref="$plan_path"
+
+branch="pending"
+pr_url="pending"
+repo_name=""
+
+if [[ -z "$target_repo" ]] && git rev-parse --show-toplevel >/dev/null 2>&1; then
+  target_repo="$(git rev-parse --show-toplevel)"
+fi
+
+if [[ -n "$target_repo" ]] && git -C "$target_repo" rev-parse --show-toplevel >/dev/null 2>&1; then
+  branch="$(git -C "$target_repo" branch --show-current 2>/dev/null || true)"
+  [[ -n "$branch" ]] || branch="pending"
+  repo_name="$(basename "$(git -C "$target_repo" rev-parse --show-toplevel)")"
+  if [[ -z "$base_branch" ]]; then
+    base_branch="$(git -C "$target_repo" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||' || true)"
+  fi
+  [[ -n "$base_branch" ]] || base_branch="main"
+  if command -v gh >/dev/null 2>&1; then
+    pr_url="$(cd "$target_repo" && gh pr view --json url --jq .url 2>/dev/null || true)"
+    [[ -n "$pr_url" ]] || pr_url="pending"
+  fi
+else
+  [[ -n "$base_branch" ]] || base_branch="main"
+fi
+
+if [[ ! -f "$output_path" ]]; then
+  cat >"$output_path" <<EOF
+---
+topic: $topic
+repo: ${repo_name:-}
+status: active
+created: $today
+updated: $today
+chain: problem.md → design.md → plan.md → **$(basename "$output_path")**
+---
+# Output: ${review_title:-$topic}
+
+## Summary
+Current reviewable output for $topic.
+
+## Links
+- Plan: $plan_ref
+- Branch: $branch
+- PR: $pr_url
+- Review: $review_path
+
+## State
+- Current phase: pending
+- Next step: run review-output and continue the fix loop
+EOF
+fi
+
+existing_review=""
+if [[ -f "$review_path" ]]; then
+  existing_review="$(cat "$review_path")"
+fi
+
+prompt_file="$(mktemp)"
+last_message_file="$(mktemp)"
+trap 'rm -f "$prompt_file" "$last_message_file"' EXIT
+
+cat >"$prompt_file" <<EOF
+Review the current output for topic "$topic".
+
+Context:
+- Topic dir: $topic_dir
+- Repo root: ${target_repo:-pending}
+- Plan: $plan_ref
+- Output artifact: $output_path
+- Review artifact target: $review_path
+- Base branch: $base_branch
+- Branch: $branch
+- PR: $pr_url
+
+Instructions:
+- Review the current repository diff against "$base_branch".
+- Use the plan and output artifacts to understand intent and current state.
+- Return the full review artifact in the exact markdown shape from the model instructions file.
+- Preserve useful existing resolution history when appropriate.
+
+Existing review artifact:
+$existing_review
+EOF
+
+[[ -n "$target_repo" ]] || { echo "no target repo found; run from the repo being reviewed or pass --repo" >&2; exit 1; }
+
+codex -C "$target_repo" exec review \
+  --base "$base_branch" \
+  -c "model_reasoning_effort=\"high\"" \
+  -c "model_instructions_file=\"$MODEL_INSTRUCTIONS\"" \
+  -o "$last_message_file" \
+  - <"$prompt_file"
+
+mv "$last_message_file" "$review_path"
+echo "updated review: $review_path"
+echo "output: $output_path"

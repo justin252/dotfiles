@@ -1,0 +1,12 @@
+# Repo-owned Codex skeleton.
+# Do not symlink over ~/.codex/config.toml blindly; merge the parts you want.
+
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+
+[profiles.dotfiles_review]
+model_reasoning_effort = "high"
+personality = "pragmatic"
+model_instructions_file = "/Users/justinhsu/dotfiles/.codex/review-instructions.md"
