@@ -1,17 +1,17 @@
 ---
 name: propose
-description: Draft an RFC at ~/documents/<topic>/rfc.md. Use when the user says 'propose', 'design', 'rfc', or needs to think through a system before building it.
+description: Draft an RFC at ~/.agents/docs/<topic>/rfc.md. Use when the user says 'propose', 'design', 'rfc', or needs to think through a system before building it.
 ---
 
 # /propose
 
-Research, then produce an RFC at `~/documents/<topic>/rfc.md`.
+Research, then produce an RFC at `~/.agents/docs/<topic>/rfc.md`.
 
 ## Bootstrap
 
 1. Read `~/.agents/AGENTS.md` for conventions
 2. Determine topic from $ARGUMENTS or conversation context
-3. Create `~/documents/<topic>/` if missing
+3. Create `~/.agents/docs/<topic>/` if missing
 4. If `rfc.md` exists, offer to resume or start fresh
 
 ## Workflow

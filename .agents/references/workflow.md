@@ -61,7 +61,7 @@ Each layer is independent. Skip any and the rest works:
 
 - `/implement` – execute phased plans
 - `/checkpoint` – build, test, ship PRs, commit, push, retro
-- `/propose` – draft RFC at ~/documents/
+- `/propose` – draft RFC at ~/.agents/docs/
 - `/review` – review PR or diff
 - `/retro` – capture friction to INBOX.md
 
@@ -84,7 +84,7 @@ Two repos:
 ```
 dotfiles repo → install.sh → symlinks (zshrc, tmux.conf, agents, skills, claude)
                             → copies (karabiner, cursor skills)
-                            → seeds (INBOX.md, wins.md, ~/documents/)
+                            → seeds (INBOX.md, wins.md, ~/.agents/docs/)
 ```
 
 `pull-dot` – pull both repos, refresh cursor skills, re-source zshrc.
@@ -115,7 +115,7 @@ Capture triggers:
 ~/dotfiles/.agents/AGENTS.md    agent instructions (source of truth)
 ~/dotfiles/.agents/references/  reference docs (this file, cli-guidelines, etc.)
 ~/dotfiles/.agents/skills/      shared skill definitions
-~/documents/                    long-lived docs (RFCs, impl plans, research)
+~/.agents/docs/                 long-lived docs (RFCs, impl plans, research)
 ~/.agents/INBOX.md              short-term capture (local, never synced)
 ~/.agents/wins.md               promo-packet items
 ~/.claude/plans/saved/          promoted plans
@@ -129,7 +129,7 @@ Capture triggers:
 ```bash
 doc                                     # pick a plan → implement action → ag launches
 # or manually:
-ag auth-fix -m "/implement from ~/documents/auth/impl.md"
+ag auth-fix -m "/implement from ~/.agents/docs/auth/impl.md"
 ```
 
 ### Parallel tasks

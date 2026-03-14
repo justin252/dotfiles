@@ -25,7 +25,7 @@ Skills run in constrained context windows. Minimize what the agent needs to load
 ### Composability
 Skills should chain naturally without explicit orchestration.
 - Output of one skill feeds input of the next (propose -> implement -> checkpoint)
-- Use `~/documents/<topic>/` as the shared state directory
+- Use `~/.agents/docs/<topic>/` as the shared state directory
 - Standardize artifact names: `rfc.md`, `impl.md`, `explain.md`
 
 ### Progressive Disclosure

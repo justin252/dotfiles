@@ -8,7 +8,7 @@ tools: Read, Grep, Glob, Bash
 
 Read `~/.agents/AGENTS.md` for conventions.
 
-Research $ARGUMENTS. Scan relevant source files, docs, and prior art. Save findings to `~/documents/<topic>/research.md`:
+Research $ARGUMENTS. Scan relevant source files, docs, and prior art. Save findings to `~/.agents/docs/<topic>/research.md`:
 
 - Key findings with file:line citations
 - Related systems and how they connect

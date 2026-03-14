@@ -62,6 +62,11 @@ ln -sfn "$DOTFILES/tools" ~/tools
 
 mkdir -p ~/.claude ~/.cursor ~/.agents
 
+# Clean broken symlinks in dirs we manage with per-item symlinks
+for d in ~/.agents/skills ~/.claude/skills; do
+  find "$d" -maxdepth 1 -type l ! -exec test -e {} \; -delete 2>/dev/null
+done
+
 # Shared source of truth
 # Skills use per-skill symlinks (real dir) so work dotfiles can add work-only skills
 [[ -L ~/.agents/skills ]] && rm ~/.agents/skills
@@ -102,7 +107,7 @@ if [[ "$OSTYPE" == darwin* ]]; then
 fi
 
 # Seed local-only files (never synced via git)
-mkdir -p ~/documents
+mkdir -p ~/.agents/docs
 if [[ ! -f ~/.agents/INBOX.md ]]; then
   cat > ~/.agents/INBOX.md <<'EOF'
 ## Refined

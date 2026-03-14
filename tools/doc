@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Unified docs browser – searches ~/documents/ and ~/.claude/plans/saved/
+# Unified docs browser – searches ~/.agents/docs/ and ~/.claude/plans/saved/
 
-DOCS_ROOT="${DOCS_ROOT:-$HOME/documents}"
+DOCS_ROOT="${DOCS_ROOT:-$HOME/.agents/docs}"
 PLANS_ROOT="$HOME/.claude/plans/saved"
 
 if ! command -v fzf &>/dev/null; then

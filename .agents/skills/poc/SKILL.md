@@ -11,7 +11,7 @@ Prove an idea works with minimal effort. Compounds three skills into one flow.
 
 ## Flow
 
-1. **Propose (light)**: create `~/documents/<topic>/rfc.md` with just Problem & Context + Proposal. Skip Implementation section -- the poc IS the implementation test. 2-3 minutes max.
+1. **Propose (light)**: create `~/.agents/docs/<topic>/rfc.md` with just Problem & Context + Proposal. Skip Implementation section -- the poc IS the implementation test. 2-3 minutes max.
 
 2. **Implement (phase 1 only)**: scaffold `impl.md` with a single phase -- the shortest path to "it works." Autonomous mode. Explicitly allowed:
    - Hardcoded values, magic strings
