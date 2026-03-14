@@ -43,17 +43,19 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 
 ```
 .agents/AGENTS.md            # Shared agent instructions (cross-tool source of truth)
-.agents/references/          # Reference docs auto-consulted by agents (e.g. CLI guidelines)
+.agents/.gitignore           # Boundary: docs/, INBOX.md, wins.md are local-only
+.agents/references/          # Reference docs auto-consulted by agents
+.agents/references/doc-templates.md  # 4 doc types: problem, design, plan, reference
 .agents/skills/              # Agent skills (symlinked to ~/.agents/, ~/.claude/; copied to ~/.cursor/)
 .claude/CLAUDE.md            # Claude Code config (@imports AGENTS.md + Claude-specific)
-.claude/agents/              # CC subagent definitions (implementer, researcher)
+.claude/agents/              # CC subagent definitions (executor, researcher)
 .claude/settings.json        # Claude Code permissions (dontAsk allow list)
 shell/zshrc                  # Universal shell config (aliases, functions, env)
 shell/tmux.conf              # tmux config (C-a prefix, vim nav, cross-platform clipboard)
 tools/                       # CLI scripts on PATH (symlinked to ~/tools)
 tools/ag                     # Agent session manager (tmux-backed: launch, list, attach, kill)
-tools/doc                    # Unified doc browser: ~/.agents/docs/ + ~/.claude/plans/saved/ (colored tags, actions)
-tools/convo                  # Session notes browser: ~/.claude/sessions/ (star, resume, search)
+tools/doc                    # Unified doc browser: ~/.agents/docs/ (frontmatter-aware, typed actions)
+tools/sesh                   # Session notes browser: ~/.claude/sessions/ (condensed summaries, context handoff)
 tools/refresh-skills         # Re-copy skills to ~/.cursor/skills/ (Cursor can't follow symlinks)
 karabiner/karabiner.json     # Karabiner-Elements config (Joy-Con L → Claude Code controls)
 karabiner/joycon-karabiner.md # Joy-Con mapping spec
@@ -77,8 +79,8 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `ag` – agent session manager: one command for parallel agent work. `ag <name>` auto-creates worktree + launches claude. `ag -m MSG` with initial task. `ag` fzf dashboard across all repos. `ag status` cross-repo unified view. `ag --cursor` for cursor + claude. `ag clean` sweeps dead sessions + merged worktrees.
 - `wt` – git worktree plumbing (create/list/switch/delete). Mostly used through `ag`; direct use for worktree-only ops.
 - `refresh-skills` – re-copy `~/.agents/skills/` to `~/.cursor/skills/` (run after editing skills, or via `pull-dot`)
-- `doc` – unified doc browser: `~/.agents/docs/` [doc] + `~/.claude/plans/saved/` [plan] with colored tags, preview, actions (edit, view, implement, claude, cursor). `implement` action launches `ag` sessions from plans. `doc <query>` pre-filters.
-- `convo` – session notes browser: `~/.claude/sessions/` [sesh] + `sessions/starred/` [★]. Star notable sessions, resume in Claude Code, or search old context. `convo <query>` pre-filters.
+- `doc` – unified doc browser: `~/.agents/docs/` with frontmatter-aware picker (type, topic, repo, status). Actions: edit, view, execute, propose, claude, cursor. `doc <query>` pre-filters.
+- `sesh` – session notes browser: `~/.claude/sessions/`. Condensed .md summaries for humans; pass context to new sessions. `sesh <query>` pre-filters.
 
 ## Preference distribution
 
@@ -120,5 +122,5 @@ session → friction/insights
 | Per-project | `<repo>/AGENTS.md` | Team-shared, committed | Manual or /triage |
 | Per-project | `~/.claude/projects/*/memory/` | Claude Code auto-memory | Claude Code |
 
-Capture triggers (both tools): `log`, `idea: <thought>`, `win: <description>`.
-Triage (`/triage`) promotes INBOX items to AGENTS.md rules, zshrc aliases, scripts, or discards them.
+Capture: `log`, `idea: <thought>`, `win: <description>`.
+Triage (`/triage`) promotes INBOX items to AGENTS.md rules, problem.md docs, zshrc aliases, scripts, or discards them.

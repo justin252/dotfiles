@@ -63,7 +63,7 @@ Default to higher blast radius when uncertain. The cost of context-switching is 
 - `eli5 [topic]` → Simplest first, I'll ask deeper.
 - `teach` (during execute) → Narrate changes. How each diff fits plan, gotchas, idioms. Link code inline. Approve each logical unit.
 - `poc <idea>` → Prove it works. Feasibility research → minimal build → draft PR with gaps documented. Single branch, no stacking. Requires `ccy`.
-- Plan mode is for code exploration + writing a plan. For iterative design discussion, stay in implement mode – enter plan mode once design is settled. Exception: plan mode suits exploratory design in a new domain where read-only codebase scanning drives the discussion.
+- Plan mode is for code exploration + writing a plan. For iterative design discussion, stay in execute mode – enter plan mode once design is settled. Exception: plan mode suits exploratory design in a new domain where read-only codebase scanning drives the discussion.
 - Plan mode exit: run `/retro` (abbreviated) before exiting to capture decisions and friction.
 
 ## Workflow
@@ -113,7 +113,7 @@ Use as reference frame – draw analogies to these when explaining new tech or m
 - Failing test: fix code, not test. Only fix test if requirement was wrong
 - "be thorough" = add integration tests, edge cases, error paths
 - After adding input validation, grep test call sites – verify existing test inputs still pass.
-- At review-to-implement transitions, re-read Testing section – analysis mindset skips TDD.
+- At review-to-execute transitions, re-read Testing section – analysis mindset skips TDD.
 
 ## Safety
 
@@ -134,7 +134,7 @@ In all modes:
 - Squash-merge PRs – one commit per PR on main.
 - `gh pr create` always uses `--draft` unless repo-level AGENTS.md says otherwise. In worktrees, always pass `--head <branch>` (gh can't detect tracking branch).
 - New repos → always `.gitignore` with `.DS_Store` immediately.
-- In implement mode: never commit without user confirmation – show diff, summarize, wait for go-ahead.
+- In execute mode: never commit without user confirmation – show diff, summarize, wait for go-ahead.
 - Before committing, verify current branch matches intent – check for open PRs, whether the PR is already merged, and whether changes belong there.
 - Feature branches: prefer rewriting history (reset + force push) over revert commits. Reverts only on main/shared branches.
 - Never `git reset --soft main` – local main drifts. Use `HEAD~N` (relative) for squashing branch commits.
@@ -178,19 +178,22 @@ Model: session → INBOX.md (short-term) → triage → AGENTS.md (long-term)
 - Skill vs instruction: single command + context → AGENTS.md instruction. Multi-step, branching logic, or cross-repo → skill.
 - When updating a skill or its reference example, diff conventions against the artifact to catch drift.
 
-Docs location:
-- `~/.agents/docs/<topic>/` = canonical location for all long-lived docs (RFCs, impl plans, research). Arbitrary nesting OK. Local-only, never synced.
-- `~/documents/` and `~/.claude/docs/` deprecated – use `~/.agents/docs/` instead.
-- `~/.agents/references/workflow.md` – comprehensive workflow reference (stack, tools, skills, memory model).
-  Any agent reads on demand: `@~/.agents/references/workflow.md`.
-  Update when: adding/changing tools, skills, aliases, or workflow patterns in dotfiles.
+Docs:
+- `~/.agents/docs/<topic>/` = all long-lived docs. Flat by topic, frontmatter for metadata. Local-only (`.gitignore`).
+- 4 doc types: problem.md (why), design.md (how), plan.md (what/when), reference.md (learnings).
+- Pipeline: problem → design → plan → execute. Each has ## Open for feedback loop.
+- Templates: `~/.agents/references/doc-templates.md`. Agents consult when creating docs.
+- `load <topic>` → search `~/.agents/docs/`. Partial match; ambiguous → show options. Read all doc types, summarize status + next steps.
+- `~/.agents/references/workflow.md` – comprehensive workflow reference. Read on demand: `@~/.agents/references/workflow.md`.
 
-Capture triggers:
+Composability:
+- Pipeline: /propose persists to docs/, /execute tracks progress in plan.md, /checkpoint ships.
+- Transitions + skill→doc mapping: see `~/.agents/references/workflow.md` § Composability.
+
+Capture:
 - `log` / `idea: <thought>` → append to INBOX.md (date, context, idea)
 - `win: <description>` → `~/.agents/wins.md` (promo-packet worthy)
-
-When capturing friction:
-- Self-resolve once. If reusable insight, suggest INBOX.md entry.
+- Self-resolve friction once. If reusable, suggest INBOX.md entry.
 - At capture time, note if INBOX.md is growing and nudge toward triage.
 
 ## Dotfiles
@@ -249,8 +252,8 @@ All on PATH via `~/tools` symlink:
 - `ag` – agent session manager (stage 6-7 orchestrator). One command for parallel work: `ag <name>` auto-creates worktree + launches claude. `ag <name> -m MSG` with initial task. `ag` fzf dashboard (all repos). `ag status` cross-repo view. `ag --cursor` cursor + claude. `ag clean` dead sessions + merged worktrees.
 - `wt` – git worktree plumbing. `wt <name>` create, `wt` fzf switch, `wt -d` delete, `wt status`, `wt clean`. Mostly used through `ag`; direct use for worktree-only ops.
 - `wss` – workspace SSH+tmux. `wss <name>` connect, `wss` fzf picker. Work-only (macOS guard).
-- `doc` – unified doc browser (fzf). Sources: `~/.agents/docs/` `[doc]`, `~/.claude/plans/saved/` `[plan]`. Colored tags, preview, actions (edit, view, implement, claude, cursor). `implement` action launches `ag` sessions from plans. `doc <query>` pre-filters.
-- `convo` – session notes browser (fzf). Sources: `~/.claude/sessions/` `[sesh]`, `~/.claude/sessions/starred/` `[★]`. Actions: view, star/unstar, claude, edit. `convo <query>` pre-filters.
+- `doc` – unified doc browser (fzf). Sources: `~/.agents/docs/`. Frontmatter-aware picker: [type] topic repo/component status. Actions: edit, view, execute, propose, claude, cursor. `doc <query>` pre-filters.
+- `sesh` – session notes browser (fzf). Sources: `~/.claude/sessions/`. Condensed .md summaries for humans; pass context to new sessions. `sesh <query>` pre-filters.
 
 ### Testing dotfiles changes
 

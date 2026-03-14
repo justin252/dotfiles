@@ -1,66 +1,67 @@
 ---
-name: implement
-description: Execute phased implementation plans. Creates or reads ~/.agents/docs/<topic>/impl.md, works through phases with testable checkpoints. Use when the user wants to implement something, execute a plan, build a feature, or says 'implement', 'build this', 'execute', 'impl'.
+name: execute
+description: Execute phased implementation plans. Creates or reads ~/.agents/docs/<topic>/plan.md, works through phases with testable checkpoints. Use when the user wants to implement something, execute a plan, build a feature, or says 'execute', 'build this', 'implement', 'exec'.
 ---
 
-# /implement
+# /execute
 
-Execute a phased implementation plan. Each phase is independently valuable and testable.
+Execute a phased plan. Each phase is independently valuable and testable.
 
 ## Launch
 
-Preferred: `ag <name> -m "/implement from ~/.agents/docs/<topic>/impl.md"` (auto-creates worktree, autonomous).
-Or via `doc` → pick plan → implement action.
+Preferred: `ag <name> -m "/execute from ~/.agents/docs/<topic>/plan.md"` (auto-creates worktree, autonomous).
+Or via `doc` → pick plan → execute action.
 Can also run inline in an existing claude session.
 
 ## Bootstrap
 
 1. Read `~/.agents/AGENTS.md` for conventions (commit style, PR template, safety rules)
 2. Determine the topic: $ARGUMENTS, or infer from conversation context
-3. Check `~/.agents/docs/<topic>/impl.md`:
-   - **Exists**: read it, find the next unchecked phase, resume there
-   - **Missing**: create it. If an RFC exists (`~/.agents/docs/<topic>/rfc.md`), derive phases from it. Otherwise, draft phases from the task description.
+3. Check `~/.agents/docs/<topic>/`:
+   - **plan.md exists**: read it, find the next unchecked phase, resume there
+   - **No plan.md but design.md exists**: derive plan.md from design. Read ## Open sections from problem.md/design.md first – append unresolved items as phase 0 decisions.
+   - **Nothing exists**: draft plan.md from task description.
 4. Confirm the plan with the user before executing (skip in autonomous mode)
 
-## Impl Doc Format
+## Plan Doc Format
+
+See `~/.agents/references/doc-templates.md` for the canonical template. Key structure:
 
 ```markdown
 ---
-status: in-progress
+topic: <slug>
+status: active
 created: YYYY-MM-DD
+updated: YYYY-MM-DD
+chain: problem.md → design.md → **plan.md**
 ---
-
-# <Topic> – Implementation Plan
-
-Source: [rfc](../rfc.md) (if exists)
+# Plan: <title>
 
 ## Phase N: <Name>
-
-<Description of what this phase accomplishes>
-
 - [ ] Task 1
 - [ ] Task 2
-- [ ] **Validate**: <test criteria>
-```
+- [ ] **Verify**: <test criteria>
 
-Each phase: description, task checkboxes, validation criteria at the end.
+## Open
+- [ ] <unresolved questions>
+```
 
 ## Execution
 
 For each phase:
 1. Read the phase tasks
 2. Work through them sequentially
-3. Check off tasks as completed (edit the impl.md)
+3. Check off tasks as completed (edit the plan.md)
 4. Add references inline (PR links, test output, file paths)
 5. At phase end: run validation criteria
-6. **Stop and report** -- let the user validate before continuing to next phase
+6. **Stop and report** – let the user validate before continuing to next phase
 
 When a phase is done, update its checkboxes and add a completion note:
 
 ```markdown
 - [x] Task 1 – [PR #123](url)
 - [x] Task 2
-- [x] **Validate**: passed – `source ~/.zshrc` clean, `wt --help` works
+- [x] **Verify**: passed – `source ~/.zshrc` clean, `wt --help` works
 ```
 
 ## Execution Modes
@@ -73,7 +74,7 @@ Default is interactive. User can request a different mode:
 
 ## Conventions (self-contained for subagent isolation)
 
-These duplicate AGENTS.md essentials so CC subagents work without inheriting parent context:
+These duplicate AGENTS.md essentials so subagents work without inheriting parent context:
 
 - **Commits**: conventional (`feat:`, `fix:`, `chore:`, `refactor:`). Single-line subject, no body.
 - **Branches**: `<type>/<slug>` (e.g. `feat/add-grep-tool`)
@@ -89,6 +90,6 @@ If a phase maps cleanly to a PR, create the branch and commit at phase end. Pref
 ## Completion
 
 When all phases are checked off:
-1. Update impl.md frontmatter: `status: done`
-2. If an RFC exists, update its status too
+1. Update plan.md frontmatter: `status: done`
+2. If problem.md/design.md exist, update their status too
 3. Run /retro to capture session learnings
