@@ -42,7 +42,7 @@ if [[ -n "$(git status --short)" ]]; then
 fi
 
 if [[ "$target" == origin/* ]]; then
-  git fetch origin
+  git fetch origin "${target#origin/}"
 fi
 
 git rebase "$target"

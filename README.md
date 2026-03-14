@@ -92,7 +92,7 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `~/.agents/AGENTS.md` – shared agent instructions, symlinked to this repo
 - `~/.agents/skills/` – shared skill layer, symlinked to this repo; Claude Code and Codex discover via symlink, Cursor via copied files (`refresh-skills` to sync)
 - `~/.claude/CLAUDE.md` – Claude Code config, symlinked to this repo (@imports shared AGENTS.md)
-- `~/.codex/config.toml` – local Codex config. `install.sh` / `sync-codex-config` adds autonomy defaults without replacing auth or project trust entries
+- `~/.codex/config.toml` – local Codex config. `install.sh` / `sync-codex-config` adds top-level autonomy defaults without replacing auth, trust, or profile-specific entries
 - **Cursor global prefs** – paste AGENTS.md content into Cursor Settings > Rules > User Rules (no file-based auto-load for global prefs; per-project prefs use `AGENTS.md` at project root, auto-discovered natively)
 - `~/.config/karabiner/karabiner.json` is copied from this repo (Karabiner breaks symlinks)
 - `pull-dot` pulls, refreshes shared skills + Codex defaults, and re-sources zshrc
@@ -101,12 +101,19 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `ag` – agent session manager: one command for parallel agent work. `ag <name>` auto-creates worktree + launches claude. `ag -m MSG` with initial task. `ag` fzf dashboard across all repos. `ag status` cross-repo unified view. `ag --cursor` for cursor + claude. `ag clean` sweeps dead sessions + merged worktrees.
 - `wt` – git worktree plumbing (create/list/switch/delete). Mostly used through `ag`; direct use for worktree-only ops.
 - `refresh-skills` – prune broken shared skill links, re-sync Claude skill symlinks, and re-copy Cursor skills (run after editing skills, or via `pull-dot`)
-- `sync-codex-config` – sync Codex autonomy defaults without replacing auth or trust state
-- `reset-dot` – rebuild the managed dotfiles layer after migrations or drift while preserving local-only state
-- `review-output` – create/update `output.md` and run Codex review into `review.md` for the current topic. Use `--background` for checkpoint-style async review
+- `sync-codex-config` – sync top-level Codex autonomy defaults without replacing auth, trust, or profile-specific settings
+- `reset-dot` – rebuild the managed dotfiles layer after migrations or drift while preserving local-only state; leaves a real `~/tools` directory alone
+- `review-output` – create/update `output.md` and run Codex review into `review.md` for the current topic. Requires a Codex CLI with `codex exec review`. Use `--background` for checkpoint-style async review
 - `rebase-wip` – stash local edits, fetch/rebase onto the target branch, then reapply the stash. Useful when dotfiles change mid-task
 - `doc` – unified doc browser: `~/.agents/docs/` with frontmatter-aware picker (type, topic, repo, status). Actions: edit, view, execute, propose, review, claude, cursor. `doc <query>` pre-filters.
 - `sesh` – session notes browser: `~/.claude/sessions/`. Condensed .md summaries for humans; pass context to new sessions. `sesh <query>` pre-filters.
+
+## Contributing
+
+- `install.sh`: clean-machine-first; create dirs before scanning them; optional integrations should warn, not abort; only delete clearly managed paths
+- `tools/`: keep `-h`/`--help`, idempotent defaults, and macOS/Linux shell compatibility
+- `skills/`: keep YAML frontmatter valid and update workflow docs when behavior changes
+- Smoke-test install/repair changes with a temp `HOME`, not just your live machine
 
 ## Preference distribution
 

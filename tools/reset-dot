@@ -9,7 +9,12 @@ WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}"
 
 remove_path() {
   local path="$1"
+  local mode="${2:-managed}"
   [[ -e "$path" || -L "$path" ]] || return 0
+  if [[ "$mode" == "symlink_only" && ! -L "$path" ]]; then
+    echo "warning: leaving non-symlink path in place: $path" >&2
+    return 0
+  fi
   rm -rf "$path"
 }
 
@@ -22,7 +27,7 @@ remove_skill_links() {
 echo "Resetting dotfiles-managed state"
 
 # Generated or symlinked paths managed by install scripts.
-remove_path "$HOME/tools"
+remove_path "$HOME/tools" symlink_only
 remove_path "$HOME/.zshrc"
 remove_path "$HOME/.tmux.conf"
 remove_path "$HOME/.agents/AGENTS.md"

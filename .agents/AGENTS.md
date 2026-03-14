@@ -18,6 +18,7 @@
 - Before proposing new tools/aliases, grep existing config to avoid duplicating what's already there.
 - Verify platform capabilities before designing around them – don't assume features exist at system boundaries.
 - Shell scripts (dotfiles): verify BSD (macOS) vs GNU flag compatibility. Dotfiles run on both macOS (laptop) and Linux (workspace); prefer cross-platform implementations, only guard with `$OSTYPE` when genuinely platform-specific (desktop apps, macOS-only tools). Use existence checks (`command -v`, `[[ -d ]]`) over OS checks when possible.
+- Dotfiles install/repair flows: design for a clean machine first. Create dirs before scanning them; keep optional integrations non-fatal; only remove clearly managed paths; smoke-test with a temp `HOME`.
 - Flag performance when it matters – hot paths, large datasets, repeated calls. Don't optimize prematurely.
 - Shell startup (.zshrc, etc.): never source commands that hit the network. Auth/token refreshes → on-demand or lazy.
 - Go: default to unexported (lowercase). Only export when cross-package usage is confirmed.
@@ -221,6 +222,12 @@ Idempotent. Safe to re-run anytime. What it does:
 - Sets `git pull.rebase true`
 - Karabiner: copies (not symlinks) on macOS
 
+Contribution defaults:
+- Clean-machine-first: `mkdir -p` before `find`/loops over managed dirs
+- Optional integrations warn instead of aborting the full install
+- Only delete clearly managed paths; if a path might contain user content, prefer symlink-only removal or warn
+- Validate on both macOS/BSD and Linux/GNU shell behavior
+
 ### Agent config distribution
 
 ```
@@ -251,7 +258,7 @@ All on PATH via `~/tools` symlink:
 - `pull-dot` – pull dotfiles + re-source zshrc (work version pulls both repos + refreshes shared skills + Codex defaults)
 - `reset-dot` – rebuild dotfiles-managed symlinks/copies/config scaffolding, then re-source zshrc. Preserve local-only state
 - `refresh-skills` – prune broken shared skill links, re-sync Claude skill symlinks, and re-copy Cursor skills (run after editing skills)
-- `sync-codex-config` – sync Codex autonomy defaults without replacing auth/trust state
+- `sync-codex-config` – sync top-level Codex autonomy defaults without replacing auth/trust state or profile-specific settings
 - `sz` – re-source zshrc after edits
 - `rebase-wip` – stash local edits, fetch/rebase onto a target branch, then reapply the stash. Useful when dotfiles change mid-task
 - `ag` – agent session manager (stage 6-7 orchestrator). One command for parallel work: `ag <name>` auto-creates worktree + launches claude. `ag <name> -m MSG` with initial task. `ag` fzf dashboard (all repos). `ag status` cross-repo view. `ag --cursor` cursor + claude. `ag clean` dead sessions + merged worktrees.
@@ -268,4 +275,5 @@ zsh -n <file>                                    # syntax check
 zsh -c 'source ~/.zshrc && echo OK'              # clean source
 bash ~/dotfiles/install.sh                       # idempotent re-run
 zsh -c 'source ~/.zshrc; source ~/.zshrc'        # double-source (catches alias conflicts)
+bash -c 'HOME="$(mktemp -d)" bash ~/dotfiles/install.sh'   # clean-machine smoke test
 ```

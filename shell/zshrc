@@ -191,7 +191,7 @@ function pull-dot {
   git -C ~/dotfiles fetch origin main && git -C ~/dotfiles rebase --autostash origin/main
   [[ -d ~/dotfiles-work/.git ]] && git -C ~/dotfiles-work pull --rebase --autostash
   command -v refresh-skills &>/dev/null && refresh-skills
-  command -v sync-codex-config &>/dev/null && sync-codex-config
+  command -v sync-codex-config &>/dev/null && { sync-codex-config || true; }
   source ~/.zshrc
 }
 unalias reset-dot 2>/dev/null

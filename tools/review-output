@@ -75,6 +75,10 @@ done
 
 [[ -n "$topic_arg" ]] || { usage >&2; exit 1; }
 command -v codex >/dev/null 2>&1 || { echo "codex not found on PATH" >&2; exit 1; }
+codex exec review --help >/dev/null 2>&1 || {
+  echo "installed codex CLI does not support 'codex exec review'" >&2
+  exit 1
+}
 
 resolve_topic_dir() {
   local value="$1"
@@ -223,6 +227,11 @@ codex -C "$target_repo" exec review \
   -c "model_instructions_file=\"$MODEL_INSTRUCTIONS\"" \
   -o "$last_message_file" \
   - <"$prompt_file"
+
+[[ -s "$last_message_file" ]] || {
+  echo "codex produced no review output" >&2
+  exit 1
+}
 
 mv "$last_message_file" "$review_path"
 echo "updated review: $review_path"

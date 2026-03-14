@@ -60,7 +60,7 @@ fi
 # Symlink tools
 ln -sfn "$DOTFILES/tools" ~/tools
 
-mkdir -p ~/.claude ~/.cursor ~/.agents
+mkdir -p ~/.claude ~/.cursor ~/.agents ~/.agents/skills ~/.claude/skills
 
 # Clean broken symlinks in dirs we manage with per-item symlinks
 for d in ~/.agents/skills ~/.claude/skills; do
@@ -70,7 +70,6 @@ done
 # Shared source of truth
 # Skills use per-skill symlinks (real dir) so work dotfiles can add work-only skills
 [[ -L ~/.agents/skills ]] && rm ~/.agents/skills
-mkdir -p ~/.agents/skills
 for skill in "$DOTFILES/.agents/skills"/*/; do
   ln -sfn "$skill" ~/.agents/skills/"$(basename "$skill")"
 done
@@ -78,7 +77,6 @@ ln -sfn "$DOTFILES/.agents/references" ~/.agents/references
 ln -sf "$DOTFILES/.agents/AGENTS.md" ~/.agents/AGENTS.md
 
 # Claude Code discovery (per-skill symlinks into Claude's own dir; don't replace it)
-mkdir -p ~/.claude/skills
 for skill in ~/.agents/skills/*/; do
   ln -sfn "$skill" ~/.claude/skills/"$(basename "$skill")"
 done
@@ -93,13 +91,16 @@ ln -sfn "$DOTFILES/.cursor/rules" ~/.cursor/rules
 
 # Codex CLI defaults (keep auth/local trust state in ~/.codex/)
 if command -v codex &> /dev/null; then
-  "$DOTFILES/tools/sync-codex-config"
+  "$DOTFILES/tools/sync-codex-config" || echo "Warning: could not sync Codex defaults"
 fi
 
 # RTK Claude Code hook (generates local hook script + RTK.md)
 if command -v rtk &> /dev/null && [[ ! -f ~/.claude/hooks/rtk-rewrite.sh ]]; then
-  rtk init --global --auto-patch --hook-only
-  echo "RTK hook initialized for Claude Code"
+  if rtk init --global --auto-patch --hook-only; then
+    echo "RTK hook initialized for Claude Code"
+  else
+    echo "Warning: could not initialize RTK hook"
+  fi
 fi
 
 ln -sf "$DOTFILES/shell/zshrc" ~/.zshrc

@@ -48,7 +48,7 @@ parse_frontmatter() {
 }
 
 # Build entries list
-# Format: "colored_display \t full_path \t type \t topic \t repo \t component \t status"
+# Format: "colored_display \t full_path \t type \t topic_root \t topic \t repo \t component \t status"
 entries=""
 
 if [[ -d "$DOCS_ROOT" ]]; then
@@ -86,7 +86,7 @@ if [[ -d "$DOCS_ROOT" ]]; then
     [[ -n "$repo" ]] && display+="${RESET}"
     [[ -n "$status" ]] && display+="  ${DIM}${status}${RESET}"
 
-    entries+="${display}"$'\t'"${file}"$'\t'"${doc_type}"$'\t'"${topic_name}"$'\t'"${repo}"$'\t'"${component}"$'\t'"${status}"$'\n'
+    entries+="${display}"$'\t'"${file}"$'\t'"${doc_type}"$'\t'"${topic_dir}"$'\t'"${topic_name}"$'\t'"${repo}"$'\t'"${component}"$'\t'"${status}"$'\n'
   done < <(find "$DOCS_ROOT" -type f -name '*.md' | sort)
 fi
 
@@ -115,9 +115,8 @@ selection=$(printf '%s' "$entries" | fzf "${fzf_args[@]}") || exit 0
 # Parse hidden fields from selection
 full=$(echo "$selection" | cut -f2)
 doc_type=$(echo "$selection" | cut -f3)
-
-topic_dir=$(dirname "$full")
-topic=$(basename "$topic_dir")
+topic_dir=$(echo "$selection" | cut -f4)
+topic=$(echo "$selection" | cut -f5)
 
 # Build actions list based on what exists in topic dir
 actions=("edit" "view")
