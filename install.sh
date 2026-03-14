@@ -60,7 +60,7 @@ fi
 # Symlink tools
 ln -sfn "$DOTFILES/tools" ~/tools
 
-mkdir -p ~/.claude ~/.cursor ~/.agents
+mkdir -p ~/.claude ~/.cursor ~/.agents ~/.agents/skills ~/.claude/skills
 
 # Clean broken symlinks in dirs we manage with per-item symlinks
 for d in ~/.agents/skills ~/.claude/skills; do
@@ -68,33 +68,30 @@ for d in ~/.agents/skills ~/.claude/skills; do
 done
 
 # Shared source of truth
-# Skills use per-skill symlinks (real dir) so work dotfiles can add work-only skills
-[[ -L ~/.agents/skills ]] && rm ~/.agents/skills
-mkdir -p ~/.agents/skills
-for skill in "$DOTFILES/.agents/skills"/*/; do
-  ln -sfn "$skill" ~/.agents/skills/"$(basename "$skill")"
-done
 ln -sfn "$DOTFILES/.agents/references" ~/.agents/references
 ln -sf "$DOTFILES/.agents/AGENTS.md" ~/.agents/AGENTS.md
 
-# Claude Code discovery (per-skill symlinks into Claude's own dir; don't replace it)
-mkdir -p ~/.claude/skills
-for skill in ~/.agents/skills/*/; do
-  ln -sfn "$skill" ~/.claude/skills/"$(basename "$skill")"
-done
+# Shared skill sync: rebuild ~/.agents/skills, then sync Claude/Cursor views from it.
 ln -sfn "$DOTFILES/.claude/agents" ~/.claude/agents
 ln -sf "$DOTFILES/.claude/CLAUDE.md" ~/.claude/CLAUDE.md
 ln -sf "$DOTFILES/.claude/settings.json" ~/.claude/settings.json
 
-# Cursor discovery (cp, not symlink; Cursor doesn't follow symlinks – known bug)
-[[ -L ~/.cursor/skills ]] && rm ~/.cursor/skills
-"$DOTFILES/tools/refresh-skills"
+# Cursor/Claude shared skill sync (Codex reads ~/.agents/skills/ directly)
+DOTFILES="$DOTFILES" WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}" "$DOTFILES/tools/refresh-skills"
 ln -sfn "$DOTFILES/.cursor/rules" ~/.cursor/rules
+
+# Codex CLI defaults (keep auth/local trust state in ~/.codex/)
+if command -v codex &> /dev/null; then
+  "$DOTFILES/tools/sync-codex-config" || echo "Warning: could not sync Codex defaults"
+fi
 
 # RTK Claude Code hook (generates local hook script + RTK.md)
 if command -v rtk &> /dev/null && [[ ! -f ~/.claude/hooks/rtk-rewrite.sh ]]; then
-  rtk init --global --auto-patch --hook-only
-  echo "RTK hook initialized for Claude Code"
+  if rtk init --global --auto-patch --hook-only; then
+    echo "RTK hook initialized for Claude Code"
+  else
+    echo "Warning: could not initialize RTK hook"
+  fi
 fi
 
 ln -sf "$DOTFILES/shell/zshrc" ~/.zshrc
@@ -132,6 +129,7 @@ echo "  ~/.claude/settings.json → $DOTFILES/.claude/settings.json"
 echo "  ~/.claude/agents/ → $DOTFILES/.claude/agents/"
 echo "  ~/.claude/skills/*/ → ~/.agents/skills/*/ (per-skill, merged)"
 echo "  ~/.cursor/skills/*/ ← ~/.agents/skills/*/ (copied; Cursor doesn't follow symlinks)"
+command -v codex &>/dev/null && echo "  ~/.codex/config.toml updated with workspace-write + never-ask defaults"
 echo "  ~/.cursor/rules/ → $DOTFILES/.cursor/rules/"
 echo "  ~/.zshrc → $DOTFILES/shell/zshrc"
 echo "  ~/.tmux.conf → $DOTFILES/shell/tmux.conf"

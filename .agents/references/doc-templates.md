@@ -18,7 +18,7 @@ chain: <position>       # e.g. "problem.md → **design.md**"
 ---
 ```
 
-## Types
+## Core doc types
 
 ### problem.md – why
 
@@ -89,6 +89,9 @@ chain: problem.md → design.md → **plan.md**
 ---
 # Plan: <title>
 
+## Outputs
+- [ ] <output slug> – current | planned | shipped. Branch/PR/review refs when known.
+
 ## Phase N: <Name>
 - [ ] Task 1
 - [ ] Task 2
@@ -118,3 +121,63 @@ updated: YYYY-MM-DD
 
 No pipeline, no ## Open. Just knowledge.
 
+## Delivery artifacts
+
+These sit alongside the core docs in `~/.agents/docs/<topic>/`.
+
+### output.md – the reviewable delivery unit
+
+Default for one-plan-one-output topics. If a topic has multiple independently reviewable deliverables, use `outputs/<slug>.md` instead.
+
+```markdown
+---
+topic: <slug>
+status: draft | active | shipped
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+chain: problem.md → design.md → plan.md → **output.md**
+---
+# Output: <title>
+
+## Summary
+<what this output is and why it exists>
+
+## Links
+- Plan: <path or note>
+- Branch: <branch name>
+- PR: <url or pending>
+- Review: <path or pending>
+
+## State
+- Current phase: <phase name>
+- Next step: <what happens next>
+```
+
+### review.md – review loop for one output
+
+Default for one-plan-one-output topics. If a topic has multiple outputs, use `reviews/<slug>.md` and link it from the matching output artifact.
+
+```markdown
+---
+topic: <slug>
+status: active | clean | waived
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+chain: plan.md → output.md → **review.md**
+---
+# Review: <title>
+
+## Action items
+- [ ] P0 <blocking item>
+- [ ] P1 <should-fix item>
+- [ ] P2 <optional item>
+
+## Future features
+- <new PR or later follow-up>
+
+## Future learnings
+- <candidate process or workflow lesson>
+
+## Resolution log
+- YYYY-MM-DD HH:MM – <what changed or what was waived>
+```
