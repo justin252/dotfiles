@@ -246,7 +246,7 @@ wt() {
 
 # ─── INBOX ───────────────────────────────────────────────────
 if [[ -f ~/.agents/INBOX.md ]] && [[ -o interactive ]]; then
-  _inbox_count=$(awk '/^## Inbox$/,/^## /{if(/^- /)c++}END{print c+0}' ~/.agents/INBOX.md 2>/dev/null)
+  _inbox_count=$(awk '/^## Inbox$/,/^## /{if(/^### /)c++}END{print c+0}' ~/.agents/INBOX.md 2>/dev/null)
   (( _inbox_count > 0 )) && echo "inbox: $_inbox_count items pending (/triage to process)"
   unset _inbox_count
 fi
