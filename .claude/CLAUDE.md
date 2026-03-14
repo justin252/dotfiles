@@ -26,7 +26,7 @@ See AGENTS.md § Memory for the model.
 Claude Code additions:
 - Auto-memory (`~/.claude/projects/*/memory/`): per-project, Claude manages. AGENTS.md wins on conflict.
 - `save plan [slug]` → `~/.claude/plans/saved/<slug>.md`. Header: `# Title` + `> Status: draft | active | done` + `> Repo: <repo> | Branch: <branch>`.
-- `load <query>` → search `~/documents/`, `~/.claude/plans/saved/`, `~/.claude/sessions/`. Partial match; ambiguous → show options. Topic dir: read rfc.md + impl.md. Single file: read it. Summarize status + next steps.
+- `load <query>` → search `~/.agents/docs/`, `~/.claude/plans/saved/`, `~/.claude/sessions/`. Partial match; ambiguous → show options. Topic dir: read rfc.md + impl.md. Single file: read it. Summarize status + next steps.
 
 ## Setup
 

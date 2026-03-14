@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Execute phased implementation plans. Creates or reads ~/documents/<topic>/impl.md, works through phases with testable checkpoints. Use when the user wants to implement something, execute a plan, build a feature, or says 'implement', 'build this', 'execute', 'impl'.
+description: Execute phased implementation plans. Creates or reads ~/.agents/docs/<topic>/impl.md, works through phases with testable checkpoints. Use when the user wants to implement something, execute a plan, build a feature, or says 'implement', 'build this', 'execute', 'impl'.
 ---
 
 # /implement
@@ -9,7 +9,7 @@ Execute a phased implementation plan. Each phase is independently valuable and t
 
 ## Launch
 
-Preferred: `ag <name> -m "/implement from ~/documents/<topic>/impl.md"` (auto-creates worktree, autonomous).
+Preferred: `ag <name> -m "/implement from ~/.agents/docs/<topic>/impl.md"` (auto-creates worktree, autonomous).
 Or via `doc` → pick plan → implement action.
 Can also run inline in an existing claude session.
 
@@ -17,9 +17,9 @@ Can also run inline in an existing claude session.
 
 1. Read `~/.agents/AGENTS.md` for conventions (commit style, PR template, safety rules)
 2. Determine the topic: $ARGUMENTS, or infer from conversation context
-3. Check `~/documents/<topic>/impl.md`:
+3. Check `~/.agents/docs/<topic>/impl.md`:
    - **Exists**: read it, find the next unchecked phase, resume there
-   - **Missing**: create it. If an RFC exists (`~/documents/<topic>/rfc.md`), derive phases from it. Otherwise, draft phases from the task description.
+   - **Missing**: create it. If an RFC exists (`~/.agents/docs/<topic>/rfc.md`), derive phases from it. Otherwise, draft phases from the task description.
 4. Confirm the plan with the user before executing (skip in autonomous mode)
 
 ## Impl Doc Format

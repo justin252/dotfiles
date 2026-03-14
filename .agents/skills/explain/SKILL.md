@@ -1,6 +1,6 @@
 ---
 name: explain
-description: Produce a written explanation of a codebase, system, or concept. Saves to ~/documents/<topic>/. Use when the user says 'explain', 'document this', 'how does X work', or needs a reference doc with code citations.
+description: Produce a written explanation of a codebase, system, or concept. Saves to ~/.agents/docs/<topic>/. Use when the user says 'explain', 'document this', 'how does X work', or needs a reference doc with code citations.
 ---
 
 # /explain
@@ -11,7 +11,7 @@ Research a codebase or system and produce a reference document with code citatio
 
 1. Determine topic: $ARGUMENTS, or infer from conversation context
 2. Determine scope: specific file/package, system/service, or concept
-3. Create `~/documents/<topic>/` if missing
+3. Create `~/.agents/docs/<topic>/` if missing
 
 ## Research
 
@@ -22,7 +22,7 @@ Research a codebase or system and produce a reference document with code citatio
 
 ## Output Format
 
-Save to `~/documents/<topic>/explain.md`:
+Save to `~/.agents/docs/<topic>/explain.md`:
 
 ```markdown
 ---

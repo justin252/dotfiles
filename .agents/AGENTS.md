@@ -31,8 +31,8 @@
 - Hang detection: run potentially-slow commands in background. Poll output – if no new output for 15s (with verbose/debug flags) or 30s (without), assume hung. Kill, retry with timeout, or fall back.
 - Exit loops if no progress toward verifiable goal. Never loop 3+ times on same failure – stop, note pattern, ask.
 - Ask before guessing paths/values – don't assume from directory listings.
-- Saved docs (drafts, research, proposals) → `~/documents/<topic-folder>/` with descriptive slug filenames. Not repo `docs/`, not `~/.cursor/plans/`. Exception: project design docs that belong with the repo stay in-repo (e.g. `docs/design/`).
-- Before creating files/dirs, confirm destination with user – especially when "save locally" or "keep it local" is ambiguous between repo, dotfiles, and `~/documents/`.
+- Saved docs (drafts, research, proposals) → `~/.agents/docs/<topic-folder>/` with descriptive slug filenames. Not repo `docs/`, not `~/.cursor/plans/`. Exception: project design docs that belong with the repo stay in-repo (e.g. `docs/design/`).
+- Before creating files/dirs, confirm destination with user – especially when "save locally" or "keep it local" is ambiguous between repo, dotfiles, and `~/.agents/docs/`.
 - Flag over/under-prompting: if user is over-specifying something obvious, say so. If under-specifying is causing rework, flag that too. When flagging, log the pattern to INBOX.md so /triage can promote it to a default (AGENTS.md rule, alias, or skill).
 - For review/planning sessions, present 1–2 decisions at a time, not a full menu.
 - When working across repos, confirm target repo early.
@@ -179,8 +179,8 @@ Model: session → INBOX.md (short-term) → triage → AGENTS.md (long-term)
 - When updating a skill or its reference example, diff conventions against the artifact to catch drift.
 
 Docs location:
-- `~/documents/<topic>/` = canonical location for all long-lived docs (RFCs, impl plans, research). Arbitrary nesting OK.
-- `~/.claude/docs/` deprecated – use `~/documents/` instead.
+- `~/.agents/docs/<topic>/` = canonical location for all long-lived docs (RFCs, impl plans, research). Arbitrary nesting OK. Local-only, never synced.
+- `~/documents/` and `~/.claude/docs/` deprecated – use `~/.agents/docs/` instead.
 - `~/.agents/references/workflow.md` – comprehensive workflow reference (stack, tools, skills, memory model).
   Any agent reads on demand: `@~/.agents/references/workflow.md`.
   Update when: adding/changing tools, skills, aliases, or workflow patterns in dotfiles.
@@ -212,7 +212,7 @@ Overlays are symlinked by their respective install scripts. Personal zshrc ends 
 Idempotent. Safe to re-run anytime. What it does:
 - Symlinks: `~/.zshrc`, `~/tools`, `~/.agents/AGENTS.md`, `~/.agents/skills/*/`, `~/.agents/references/`, `~/.claude/CLAUDE.md`, `~/.claude/settings.json`, `~/.claude/agents/`
 - Copies skills to `~/.cursor/skills/` (Cursor doesn't follow symlinks)
-- Seeds local-only files: `~/.agents/INBOX.md`, `~/.agents/wins.md`, `~/documents/`
+- Seeds local-only files: `~/.agents/INBOX.md`, `~/.agents/wins.md`, `~/.agents/docs/`
 - Installs fzf if missing (brew on macOS, binary download on Linux)
 - Sets `git pull.rebase true`
 - Karabiner: copies (not symlinks) on macOS
@@ -249,7 +249,7 @@ All on PATH via `~/tools` symlink:
 - `ag` – agent session manager (stage 6-7 orchestrator). One command for parallel work: `ag <name>` auto-creates worktree + launches claude. `ag <name> -m MSG` with initial task. `ag` fzf dashboard (all repos). `ag status` cross-repo view. `ag --cursor` cursor + claude. `ag clean` dead sessions + merged worktrees.
 - `wt` – git worktree plumbing. `wt <name>` create, `wt` fzf switch, `wt -d` delete, `wt status`, `wt clean`. Mostly used through `ag`; direct use for worktree-only ops.
 - `wss` – workspace SSH+tmux. `wss <name>` connect, `wss` fzf picker. Work-only (macOS guard).
-- `doc` – unified doc browser (fzf). Sources: `~/documents/` `[doc]`, `~/.claude/plans/saved/` `[plan]`. Colored tags, preview, actions (edit, view, implement, claude, cursor). `implement` action launches `ag` sessions from plans. `doc <query>` pre-filters.
+- `doc` – unified doc browser (fzf). Sources: `~/.agents/docs/` `[doc]`, `~/.claude/plans/saved/` `[plan]`. Colored tags, preview, actions (edit, view, implement, claude, cursor). `implement` action launches `ag` sessions from plans. `doc <query>` pre-filters.
 - `convo` – session notes browser (fzf). Sources: `~/.claude/sessions/` `[sesh]`, `~/.claude/sessions/starred/` `[★]`. Actions: view, star/unstar, claude, edit. `convo <query>` pre-filters.
 
 ### Testing dotfiles changes

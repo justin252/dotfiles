@@ -41,5 +41,9 @@
       }
     ]
   },
-  "voiceEnabled": true
+  "effortLevel": "max",
+  "voiceEnabled": true,
+  "enabledPlugins": {
+    "rust-analyzer-lsp@claude-plugins-official": true
+  }
 }
