@@ -45,7 +45,15 @@ if [[ "$target" == origin/* ]]; then
   git fetch origin "${target#origin/}"
 fi
 
-git rebase "$target"
+if ! git rebase "$target"; then
+  echo "rebase failed; aborting to restore clean state" >&2
+  git rebase --abort 2>/dev/null || true
+  if [[ "$stashed" == true ]]; then
+    git stash pop >/dev/null 2>&1 || true
+    echo "restored stashed work"
+  fi
+  exit 1
+fi
 echo "rebased onto $target"
 
 if [[ "$stashed" == true ]]; then

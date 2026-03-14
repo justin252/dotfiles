@@ -75,6 +75,7 @@ done
 
 [[ -n "$topic_arg" ]] || { usage >&2; exit 1; }
 command -v codex >/dev/null 2>&1 || { echo "codex not found on PATH" >&2; exit 1; }
+[[ -f "$MODEL_INSTRUCTIONS" ]] || { echo "missing review instructions: $MODEL_INSTRUCTIONS" >&2; exit 1; }
 codex exec review --help >/dev/null 2>&1 || {
   echo "installed codex CLI does not support 'codex exec review'" >&2
   exit 1

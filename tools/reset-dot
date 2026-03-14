@@ -1,6 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+usage() {
+  cat <<'EOF'
+reset-dot - rebuild dotfiles-managed symlinks/copies/config scaffolding
+
+Usage:
+  reset-dot
+
+Removes managed symlinks and re-runs install.sh (+ work install if present).
+Preserves local-only state: auth, ~/.agents/docs, INBOX.md, overlays.
+EOF
+}
+
+case "${1:-}" in
+  -h|--help) usage; exit 0 ;;
+esac
+
 DOTFILES="${DOTFILES:-$HOME/dotfiles}"
 WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}"
 

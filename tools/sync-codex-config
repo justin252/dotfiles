@@ -1,6 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+usage() {
+  cat <<'EOF'
+sync-codex-config - set Codex CLI autonomy defaults
+
+Usage:
+  sync-codex-config
+
+Sets approval_policy=never and sandbox_mode=workspace-write in
+~/.codex/config.toml without replacing auth, trust, or profile entries.
+EOF
+}
+
+case "${1:-}" in
+  -h|--help) usage; exit 0 ;;
+esac
+
 config_dir="${HOME}/.codex"
 config_file="${config_dir}/config.toml"
 tmp_file="$(mktemp "${TMPDIR:-/tmp}/codex-config.XXXXXX")"

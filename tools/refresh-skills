@@ -82,6 +82,7 @@ for skill in "$HOME/.agents/skills"/*/; do
   [[ -d "$skill" ]] || continue
   skill_name="$(basename "$skill")"
   ln -sfn "$skill" "$HOME/.claude/skills/$skill_name"
+  rm -rf "$HOME/.cursor/skills/$skill_name"
   cp -R -L "$skill" "$HOME/.cursor/skills/$skill_name"
   ((count++)) || true
 done
