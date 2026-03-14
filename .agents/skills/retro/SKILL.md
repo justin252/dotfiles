@@ -7,8 +7,8 @@ Review this session and capture learnings to `~/.agents/INBOX.md`.
 
 ## Scope (context-aware)
 
-- **Full** (checkpoint, session end): scan all categories. Skip empty ones.
-- **Abbreviated** (before context loss -- plan mode exit, repo switch, pause): friction + key decisions only. 30 seconds max.
+- **Full** (checkpoint, session end): scan all categories + ## Open audit. Skip empty ones.
+- **Abbreviated** (before context loss – plan mode exit, repo switch, pause): friction + key decisions only. 30 seconds max.
 
 Auto-trigger: don't wait to be asked. Run at checkpoint, session end, and before any context-loss event (mode switch, repo switch, long break).
 
@@ -29,6 +29,11 @@ Auto-trigger: don't wait to be asked. Run at checkpoint, session end, and before
 - What worked well, what didn't
 - AGENTS.md rules that helped or were missing
 - Over/under-prompting patterns
+
+**## Open audit:**
+- Scan `~/.agents/docs/*/` for active docs with ## Open sections
+- Flag unresolved items that were addressed this session but not checked off
+- Flag items that are now stale or no longer relevant
 
 ## Output
 

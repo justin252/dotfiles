@@ -1,57 +1,52 @@
 ---
 name: propose
-description: Draft an RFC at ~/.agents/docs/<topic>/rfc.md. Use when the user says 'propose', 'design', 'rfc', or needs to think through a system before building it.
+description: Create or continue the problem → design → plan pipeline at ~/.agents/docs/<topic>/. Use when the user says 'propose', 'design', 'rfc', or needs to think through a system before building it.
 ---
 
 # /propose
 
-Research, then produce an RFC at `~/.agents/docs/<topic>/rfc.md`.
+Research, then produce docs at `~/.agents/docs/<topic>/`. Context-aware – picks up where the pipeline left off.
 
 ## Bootstrap
 
 1. Read `~/.agents/AGENTS.md` for conventions
-2. Determine topic from $ARGUMENTS or conversation context
-3. Create `~/.agents/docs/<topic>/` if missing
-4. If `rfc.md` exists, offer to resume or start fresh
+2. Read `~/.agents/references/doc-templates.md` for doc format
+3. Determine topic from $ARGUMENTS or conversation context
+4. Create `~/.agents/docs/<topic>/` if missing
+5. Check what exists and pick up there:
+   - **Nothing**: start with problem.md
+   - **problem.md**: read it, continue to design.md
+   - **design.md**: read it + problem.md, continue to plan.md
+   - **plan.md**: offer to revise or hand off to /execute
+   - Offer to start fresh if user wants to rethink
 
 ## Workflow
 
 1. Scan codebase for related systems, prior art, existing docs
-2. Ask 2-3 focused questions to clarify scope
-3. Draft iteratively -- present each section, refine
-4. Write `rfc.md`; scaffold `impl.md` if phases are clear
+2. Ask 2-3 focused questions to clarify scope (skip if context is clear)
+3. Draft iteratively – present each section, refine
+4. Write the next doc in the pipeline
+5. If plan.md is reached, offer /execute handoff
 
-## RFC Format
+## Scaling
 
-```markdown
----
-status: draft
-created: YYYY-MM-DD
-topic: <slug>
----
+Match verbosity to problem size:
+- **Quick task** (alias, config change, small fix): lightweight problem.md (3-5 lines), skip design.md, go straight to plan.md
+- **Medium** (feature, refactor, tool): problem + design, maybe combined
+- **Large** (system, architecture, multi-session): full pipeline with all sections
 
-# <Title>
+## Doc Formats
 
-<Blurb: what this is, why now, expected impact. 2-3 sentences.>
+See `~/.agents/references/doc-templates.md` for canonical templates. Key points:
 
-## Problem & Context
-What exists today. What's broken or missing. How to measure impact.
-
-## Proposal
-Architecture, key decisions, trade-offs. Diagrams where useful.
-
-## Implementation
-Phased plan. Each phase: theme, tasks, validation. Feeds /implement.
-
-## Open Questions
-Numbered. Each with enough context to be actionable.
-```
+- All docs use YAML frontmatter (topic, repo, component, status, created, updated, chain)
+- Each actionable type has ## Open for unresolved questions
+- chain field shows position: `problem.md → **design.md**`
 
 ## Principles
 
-- Most important information first. Blurb should stand alone.
-- Concise. Cut anything a reader can infer. Defend against redundancy.
-- Inline hyperlinks, never bracket citations.
-- ASCII diagrams in fenced blocks (render everywhere).
-- Implementation section converts directly to /implement phases.
-- Open questions are blockers/decisions; roadmap lives in impl.md.
+- Most important information first. Problem statement should stand alone.
+- Concise. Cut anything a reader can infer.
+- ## Open sections are for real blockers/decisions, not wishlists.
+- Design tradeoffs: state what was considered, what was chosen, why.
+- Plan phases feed directly to /execute.

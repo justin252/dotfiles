@@ -18,6 +18,7 @@ Single pass, all items in `## Inbox`:
   - `~/.agents/AGENTS.md` – shared preferences (both Claude Code and Cursor benefit)
   - `~/.agents/AGENTS-work.md` – work-specific agent persona (no-op if missing)
   - `~/.cursor/rules/*.mdc` – Cursor-only scoped rules
+  - `~/.agents/docs/<topic>/problem.md` – promote to a problem doc if the item represents a systemic issue worth solving (not a one-liner fix)
 - Quick items: execute inline (add a line, done) → move to `## Resolved`
 - No longer relevant? Move to `## Resolved` with `discarded` + reason
 - Medium/large: move to `## Refined` with priority + approach notes

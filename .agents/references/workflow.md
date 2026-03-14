@@ -5,7 +5,7 @@ Comprehensive reference for the full development setup. Not auto-loaded; access 
 ## Composability Stack
 
 ```
-Layer 4: Skills       /implement, /checkpoint, /propose, /review, /retro
+Layer 4: Skills       /execute, /checkpoint, /propose, /review, /retro
                       (skills call cleanup commands; /checkpoint offers wt clean after merge)
 Layer 3: Agent        ag (orchestrator – auto-worktree, autonomous claude, dashboard, status)
 Layer 2: Code         wt (worktree plumbing), cc/ccy/ccplan (claude modes)
@@ -59,9 +59,9 @@ Each layer is independent. Skip any and the rest works:
 
 ### Layer 4: Skills
 
-- `/implement` – execute phased plans
+- `/execute` – execute phased plans
 - `/checkpoint` – build, test, ship PRs, commit, push, retro
-- `/propose` – draft RFC at ~/.agents/docs/
+- `/propose` – create/continue problem → design → plan pipeline in ~/.agents/docs/
 - `/review` – review PR or diff
 - `/retro` – capture friction to INBOX.md
 
@@ -100,9 +100,44 @@ session → INBOX.md (short-term) → triage → AGENTS.md (long-term)
 - **retro** – capture friction → INBOX.md
 - **triage** – promote stable patterns → AGENTS.md or discard
 
-Capture triggers:
+Capture:
 - `log` / `idea: <thought>` → INBOX.md
 - `win: <description>` → ~/.agents/wins.md
+
+## Artifact Lifecycle
+
+4 doc types, 3 in pipeline + 1 side channel:
+
+```
+problem.md → design.md → plan.md → execute → ship
+reference.md (learnings, not actionable)
+```
+
+Each lives in `~/.agents/docs/<topic>/` with YAML frontmatter (topic, repo, component, status).
+Templates: `~/.agents/references/doc-templates.md`.
+
+### Composability
+
+Three layers feed each other:
+- **Plan mode** = thinking (ephemeral, conversation-scoped)
+- **docs/<topic>/** = writing it down (persisted artifacts)
+- **/execute** = executing (tracked progress in plan.md)
+
+| From | To | What happens |
+|---|---|---|
+| Plan mode | /propose | Captures conversation context into problem/design |
+| Plan mode | /execute | Creates minimal plan.md, starts executing |
+| /propose | /execute | Design done → plan.md → execute |
+| /execute | /propose | Pauses, updates design with learnings |
+| Any | /retro | Scans ## Open sections, captures friction |
+
+### Skill → doc type mapping
+
+- /propose → problem.md, design.md, plan.md (context-aware, picks up where left off)
+- /execute → resumes plan.md
+- /explain → reference.md
+- /retro → scans ## Open sections
+- /triage → can promote INBOX items to problem.md
 
 ## Key File Paths
 
@@ -111,25 +146,24 @@ Capture triggers:
 ~/dotfiles-work/                work dotfiles repo
 ~/dotfiles/shell/zshrc          universal shell config
 ~/dotfiles/shell/tmux.conf      tmux config
-~/dotfiles/tools/               tools on PATH (ag, h, doc, convo, etc.)
+~/dotfiles/tools/               tools on PATH (ag, h, doc, sesh, etc.)
 ~/dotfiles/.agents/AGENTS.md    agent instructions (source of truth)
 ~/dotfiles/.agents/references/  reference docs (this file, cli-guidelines, etc.)
 ~/dotfiles/.agents/skills/      shared skill definitions
-~/.agents/docs/                 long-lived docs (RFCs, impl plans, research)
+~/.agents/docs/<topic>/         long-lived docs: problem, design, plan, reference
 ~/.agents/INBOX.md              short-term capture (local, never synced)
 ~/.agents/wins.md               promo-packet items
-~/.claude/plans/saved/          promoted plans
 ~/.claude/sessions/             session notes
 ```
 
 ## Common Workflows
 
-### Implement from a plan
+### Execute from a plan
 
 ```bash
-doc                                     # pick a plan → implement action → ag launches
+doc                                     # pick a plan → execute action → ag launches
 # or manually:
-ag auth-fix -m "/implement from ~/.agents/docs/auth/impl.md"
+ag auth-fix -m "/execute from ~/.agents/docs/auth/plan.md"
 ```
 
 ### Parallel tasks

@@ -6,14 +6,14 @@ Auto-consult when building or refining agent skills.
 
 Skill vs AGENTS.md instruction:
 - **Instruction**: single command + context. Fits in one paragraph. e.g., "always use --draft for PRs"
-- **Skill**: multi-step workflow, branching logic, cross-repo, or produces artifacts. e.g., /checkpoint, /implement
+- **Skill**: multi-step workflow, branching logic, cross-repo, or produces artifacts. e.g., /checkpoint, /execute
 
 ## Principles
 
 ### Blast Radius
 Every skill should have a predictable blast radius. Document what it creates, modifies, and never touches.
 - Read-only skills (explain, review): no side effects beyond output files
-- Write skills (implement, checkpoint): enumerate what gets modified
+- Write skills (execute, checkpoint): enumerate what gets modified
 - Destructive operations: require explicit confirmation, support --dry-run
 
 ### Context Budget
@@ -24,9 +24,9 @@ Skills run in constrained context windows. Minimize what the agent needs to load
 
 ### Composability
 Skills should chain naturally without explicit orchestration.
-- Output of one skill feeds input of the next (propose -> implement -> checkpoint)
+- Output of one skill feeds input of the next (propose -> execute -> checkpoint)
 - Use `~/.agents/docs/<topic>/` as the shared state directory
-- Standardize artifact names: `rfc.md`, `impl.md`, `explain.md`
+- Standardize artifact names: `problem.md`, `design.md`, `plan.md`, `reference.md`
 
 ### Progressive Disclosure
 Don't front-load every option. Start simple, reveal complexity on demand.
@@ -53,7 +53,7 @@ Optional:
 
 ## Naming
 
-- Verb-based: `implement`, `propose`, `explain`, `review`, `checkpoint`
+- Verb-based: `execute`, `propose`, `explain`, `review`, `checkpoint`
 - Match the natural command: what would you type after `/`?
 - One skill per verb. Don't create `propose-rfc` and `propose-design` -- one `propose` with variants.
 

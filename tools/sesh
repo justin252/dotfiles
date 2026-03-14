@@ -1,70 +1,75 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Browse saved Claude Code session notes
-# Sources: ~/.claude/sessions/ [sesh], ~/.claude/sessions/starred/ [★]
+# sesh - browse Claude Code session summaries (~/.claude/sessions/)
+# Condensed .md notes for humans to read and to pass context to new sessions.
+# Default: .md summaries only. --all includes JSON transcripts.
 
 SESSIONS_ROOT="$HOME/.claude/sessions"
-STARRED_ROOT="$SESSIONS_ROOT/starred"
 
 if ! command -v fzf &>/dev/null; then
   echo "fzf required but not found" >&2
   exit 1
 fi
 
-# Ensure dirs exist
-mkdir -p "$SESSIONS_ROOT" "$STARRED_ROOT"
+mkdir -p "$SESSIONS_ROOT"
+
+# Parse flags
+show_all=false
+query=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --all) show_all=true; shift ;;
+    *) query="$1"; shift ;;
+  esac
+done
 
 # ANSI color codes
 YELLOW=$'\033[33m'
-MAGENTA=$'\033[35m'
+DIM=$'\033[2m'
 RESET=$'\033[0m'
 
-# Format: "colored_tag  relative_path \t full_path \t tag"
 entries=""
 
-while IFS= read -r file; do
-  rel="${file#"$STARRED_ROOT"/}"
-  entries+="${MAGENTA}[★]${RESET}    $rel"$'\t'"$file"$'\t'"starred"$'\n'
-done < <(find "$STARRED_ROOT" -maxdepth 1 -type f -name '*.md' | sort)
-
+# Always show .md summaries
 while IFS= read -r file; do
   rel="${file#"$SESSIONS_ROOT"/}"
-  entries+="${YELLOW}[sesh]${RESET} $rel"$'\t'"$file"$'\t'"sesh"$'\n'
+  entries+="${YELLOW}[sesh]${RESET} $rel"$'\t'"$file"$'\n'
 done < <(find "$SESSIONS_ROOT" -maxdepth 1 -type f -name '*.md' | sort)
+
+# Optionally show JSON transcripts
+if [[ "$show_all" == true ]]; then
+  while IFS= read -r file; do
+    rel="${file#"$SESSIONS_ROOT"/}"
+    entries+="${DIM}[json]${RESET} $rel"$'\t'"$file"$'\n'
+  done < <(find "$SESSIONS_ROOT" -maxdepth 1 -type f -name '*.json' | sort)
+fi
 
 if [[ -z "$entries" ]]; then
   echo "No sessions found in $SESSIONS_ROOT" >&2
+  echo "Use 'save sesh' in a Claude Code session to create summaries." >&2
   exit 1
 fi
 
 preview_cmd="bat --style=plain --color=always {2} 2>/dev/null || cat {2}"
 
 fzf_args=(
-  --prompt="convo> "
+  --prompt="sesh> "
   --ansi
   --delimiter=$'\t'
   --with-nth=1
   --preview="$preview_cmd"
   --preview-window=right:60%:wrap
 )
-[[ $# -gt 0 ]] && fzf_args+=(--query="$1")
+[[ -n "$query" ]] && fzf_args+=(--query="$query")
 
 selection=$(printf '%s' "$entries" | fzf "${fzf_args[@]}") || exit 0
 [[ -z "$selection" ]] && exit 0
 
 full=$(echo "$selection" | cut -f2)
-tag=$(echo "$selection" | cut -f3)
 fname=$(basename "$full")
 
-# Build actions with star/unstar based on current location
-actions=("view")
-if [[ "$tag" == "starred" ]]; then
-  actions+=("unstar")
-else
-  actions+=("star")
-fi
-actions+=("claude" "edit")
+actions=("view" "claude" "edit")
 
 action=$(printf '%s\n' "${actions[@]}" | \
   fzf --prompt="action> " --header="$fname") || exit 0
@@ -76,12 +81,6 @@ case "$action" in
     else
       cat "$full"
     fi ;;
-  star)
-    mv "$full" "$STARRED_ROOT/$fname"
-    echo "★ Starred: $fname" ;;
-  unstar)
-    mv "$full" "$SESSIONS_ROOT/$fname"
-    echo "Unstarred: $fname" ;;
   claude)
     echo "Launching Claude Code: ${fname%.md}"
     claude "load ${fname%.md} ($full)" ;;

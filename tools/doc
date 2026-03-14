@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Unified docs browser – searches ~/.agents/docs/ and ~/.claude/plans/saved/
+# doc - browse agent docs (problem → design → plan → reference)
+# Sources: ~/.agents/docs/<topic>/ with YAML frontmatter
 
 DOCS_ROOT="${DOCS_ROOT:-$HOME/.agents/docs}"
-PLANS_ROOT="$HOME/.claude/plans/saved"
 
 if ! command -v fzf &>/dev/null; then
   echo "fzf required but not found" >&2
@@ -12,37 +12,82 @@ if ! command -v fzf &>/dev/null; then
 fi
 
 # ANSI color codes
-GREEN=$'\033[32m'
+RED=$'\033[31m'
 BLUE=$'\033[34m'
+YELLOW=$'\033[33m'
+DIM=$'\033[2m'
 RESET=$'\033[0m'
 
-# Format: "colored_tag  relative_path \t full_path \t tag"
-# fzf shows only first field (--with-nth=1), preview/actions use hidden fields
+# Map doc type to color
+color_for_type() {
+  case "$1" in
+    problem)   printf '%s' "$RED" ;;
+    design)    printf '%s' "$BLUE" ;;
+    plan)      printf '%s' "$YELLOW" ;;
+    reference) printf '%s' "$DIM" ;;
+    *)         printf '%s' "$RESET" ;;
+  esac
+}
+
+# Parse frontmatter via ruby (macOS stdlib, zero install)
+# Returns: topic repo component status
+parse_frontmatter() {
+  ruby -ryaml -rdate -e '
+    content = File.read(ARGV[0])
+    if content =~ /\A---\n(.*?\n)---/m
+      fm = YAML.safe_load($1, permitted_classes: [Date]) || {}
+      puts [fm["topic"], fm["repo"], fm["component"], fm["status"]].map { |v| v.to_s }.join("\t")
+    else
+      puts "\t\t\t"
+    end
+  ' "$1" 2>/dev/null || printf '\t\t\t'
+}
+
+# Build entries list
+# Format: "colored_display \t full_path \t type \t topic \t repo \t component \t status"
 entries=""
 
 if [[ -d "$DOCS_ROOT" ]]; then
   while IFS= read -r file; do
-    rel="${file#"$DOCS_ROOT"/}"
-    entries+="${GREEN}[doc]${RESET}  $rel"$'\t'"$file"$'\t'"doc"$'\n'
+    fname=$(basename "$file" .md)
+    topic_dir=$(dirname "$file")
+    topic_name=$(basename "$topic_dir")
+
+    # Skip non-doc files at root level
+    [[ "$topic_dir" == "$DOCS_ROOT" ]] && continue
+
+    # Determine type from filename
+    doc_type="$fname"
+    color=$(color_for_type "$doc_type")
+
+    # Parse frontmatter
+    IFS=$'\t' read -r fm_topic fm_repo fm_component fm_status <<< "$(parse_frontmatter "$file")"
+
+    # Use frontmatter values or defaults
+    repo="${fm_repo:-}"
+    component="${fm_component:-}"
+    status="${fm_status:-}"
+
+    # Build display: [type] topic  repo/component  status
+    display="${color}[${doc_type}]${RESET}  ${topic_name}"
+    [[ -n "$repo" ]] && display+="  ${DIM}${repo}"
+    [[ -n "$component" ]] && display+="/${component}"
+    [[ -n "$repo" ]] && display+="${RESET}"
+    [[ -n "$status" ]] && display+="  ${DIM}${status}${RESET}"
+
+    entries+="${display}"$'\t'"${file}"$'\t'"${doc_type}"$'\t'"${topic_name}"$'\t'"${repo}"$'\t'"${component}"$'\t'"${status}"$'\n'
   done < <(find "$DOCS_ROOT" -type f -name '*.md' | sort)
 fi
 
-if [[ -d "$PLANS_ROOT" ]]; then
-  while IFS= read -r file; do
-    rel="${file#"$PLANS_ROOT"/}"
-    entries+="${BLUE}[plan]${RESET} $rel"$'\t'"$file"$'\t'"plan"$'\n'
-  done < <(find "$PLANS_ROOT" -type f -name '*.md' | sort)
-fi
-
 if [[ -z "$entries" ]]; then
-  echo "No documents found in $DOCS_ROOT or $PLANS_ROOT" >&2
+  echo "No documents found in $DOCS_ROOT" >&2
   exit 1
 fi
 
 # Preview uses hidden field {2} = full path
 preview_cmd="bat --style=plain --color=always {2} 2>/dev/null || cat {2}"
 
-# fzf with optional query arg
+# fzf with optional query arg – searches across all fields including hidden ones
 fzf_args=(
   --prompt="doc> "
   --ansi
@@ -58,20 +103,24 @@ selection=$(printf '%s' "$entries" | fzf "${fzf_args[@]}") || exit 0
 
 # Parse hidden fields from selection
 full=$(echo "$selection" | cut -f2)
-tag=$(echo "$selection" | cut -f3)
+doc_type=$(echo "$selection" | cut -f3)
 
 topic_dir=$(dirname "$full")
 topic=$(basename "$topic_dir")
-fname=$(basename "$full")
 
-# Build actions list
+# Build actions list based on what exists in topic dir
 actions=("edit" "view")
-[[ -f "$topic_dir/impl.md" ]] && actions+=("implement")
+
+if [[ -f "$topic_dir/plan.md" ]]; then
+  actions+=("execute")
+elif [[ -f "$topic_dir/problem.md" || -f "$topic_dir/design.md" ]]; then
+  actions+=("propose")
+fi
+
 actions+=("claude" "cursor")
 
-
 action=$(printf '%s\n' "${actions[@]}" | \
-  fzf --prompt="action> " --header="$(basename "$full")") || exit 0
+  fzf --prompt="action> " --header="$topic – $(basename "$full")") || exit 0
 
 case "$action" in
   edit)
@@ -82,18 +131,26 @@ case "$action" in
     else
       cat "$full"
     fi ;;
-  implement)
-    slug=$(basename "$topic_dir")
-    # if in a git repo, launch via ag (auto-creates worktree + autonomous claude)
+  execute)
+    slug="$topic"
     if git rev-parse --show-toplevel &>/dev/null; then
-      echo "Launching agent: ag $slug -m \"/implement from $full\""
-      ag "$slug" -m "/implement from $full"
+      echo "Launching agent: ag $slug -m \"/execute from $topic_dir/plan.md\""
+      ag "$slug" -m "/execute from $topic_dir/plan.md"
     else
-      echo "Launching Claude Code: /implement $topic"
-      cd "$topic_dir" && claude "/implement $topic"
+      echo "Launching Claude Code: /execute $topic"
+      cd "$topic_dir" && claude "/execute $topic"
+    fi ;;
+  propose)
+    slug="$topic"
+    if git rev-parse --show-toplevel &>/dev/null; then
+      echo "Launching agent: ag $slug -m \"/propose $topic\""
+      ag "$slug" -m "/propose $topic"
+    else
+      echo "Launching Claude Code: /propose $topic"
+      cd "$topic_dir" && claude "/propose $topic"
     fi ;;
   claude)
-    if [[ -d "$topic_dir" && "$topic_dir" != "$DOCS_ROOT" && "$topic_dir" != "$PLANS_ROOT" ]]; then
+    if [[ -d "$topic_dir" && "$topic_dir" != "$DOCS_ROOT" ]]; then
       echo "Launching Claude Code: $topic"
       cd "$topic_dir" && claude "load $topic ($topic_dir/)"
     else
@@ -101,7 +158,7 @@ case "$action" in
       claude "load $full"
     fi ;;
   cursor)
-    if [[ -d "$topic_dir" && "$topic_dir" != "$DOCS_ROOT" && "$topic_dir" != "$PLANS_ROOT" ]]; then
+    if [[ -d "$topic_dir" && "$topic_dir" != "$DOCS_ROOT" ]]; then
       cursor "$topic_dir"
     else
       cursor "$full"
