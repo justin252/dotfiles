@@ -14,20 +14,32 @@ ag - agent session manager
   ag <name> --codex         force using codex
   ag                        dashboard – all sessions, all repos (fzf)
   ag status                 cross-repo unified view
-  ag -k <name>              kill session
+  ag kill <name>            kill session
   ag clean                  dead sessions + merged worktrees
 EOF
 }
 
+main_repo_root() {
+  local toplevel common
+  toplevel=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
+  common=$(git rev-parse --git-common-dir 2>/dev/null)
+  if [[ "$common" != ".git" && "$common" != "$(git rev-parse --git-dir 2>/dev/null)" ]]; then
+    # Inside a worktree: common dir is /path/to/main/.git
+    (cd "$(dirname "$common")" && pwd)
+  else
+    echo "$toplevel"
+  fi
+}
+
 repo_name() {
-  basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null || echo "local"
+  basename "$(main_repo_root 2>/dev/null)" 2>/dev/null || echo "local"
 }
 
 # Resolve worktree path: exact match → fuzzy → fzf disambiguate → auto-create
 resolve_worktree() {
-  local name="$1"
+  local name="$1" auto_confirm="${2:-false}"
   local root repo dest
-  root=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not in a git repo" >&2; return 1; }
+  root=$(main_repo_root) || { echo "not in a git repo" >&2; return 1; }
   repo=$(basename "$root")
   dest="${root}/../${repo}-wt-${name}"
 
@@ -59,14 +71,39 @@ resolve_worktree() {
     fi
   fi
 
-  # auto-create worktree
+  # lock to prevent race between concurrent ag calls
+  local lockdir="/tmp/ag-create-${name}.lock"
+  if ! mkdir "$lockdir" 2>/dev/null; then
+    echo "error: another ag instance is creating '$name'" >&2
+    return 1
+  fi
+  trap "rmdir '$lockdir' 2>/dev/null" RETURN
+
+  # auto-create worktree – confirm unless auto_confirm or non-TTY
+  if [[ "$auto_confirm" != true && -t 0 ]]; then
+    echo "will create worktree: $dest (branch: wt/$name)" >&2
+    read -r -p "continue? [Y/n] " reply
+    [[ "$reply" =~ ^[Nn] ]] && return 1
+  fi
   local default_branch
   default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||')
-  [[ -z "$default_branch" ]] && default_branch="main"
-  git fetch origin "$default_branch" --quiet
-  git worktree add "$dest" -b "wt/$name" "origin/$default_branch" >/dev/null 2>&1 || {
-    echo "failed to create worktree '$name'" >&2; return 1
-  }
+  if [[ -z "$default_branch" ]]; then
+    default_branch="main"
+    echo "warning: origin/HEAD not set, assuming '$default_branch'" >&2
+  fi
+  if ! git fetch origin "$default_branch" --quiet 2>&1; then
+    echo "error: git fetch failed – check network/auth" >&2
+    return 1
+  fi
+  local output
+  if ! output=$(git worktree add "$dest" -b "wt/$name" "origin/$default_branch" 2>&1); then
+    if echo "$output" | grep -q "already exists"; then
+      echo "error: branch 'wt/$name' already exists – use a different name or: git branch -d wt/$name" >&2
+    else
+      echo "error: failed to create worktree '$name': $output" >&2
+    fi
+    return 1
+  fi
   echo "created worktree: $dest" >&2
   echo "$dest"
 }
@@ -82,16 +119,30 @@ attach_or_switch() {
 
 case "${1:-}" in
   -h|--help) usage ;;
-  -k)
-    [[ -z "${2:-}" ]] && { echo "usage: ag -k <name>" >&2; exit 1; }
+  kill)
+    if [[ "${2:-}" == "--help" || "${2:-}" == "-h" ]]; then
+      echo "ag kill <name> – kill an agent session"; exit 0
+    fi
+    [[ -z "${2:-}" ]] && { echo "usage: ag kill <name>" >&2; exit 1; }
     local_repo=$(repo_name)
-    tmux kill-session -t "ag-${local_repo}-${2}" 2>/dev/null && echo "killed ag-${local_repo}-${2}" || echo "no session ag-${local_repo}-${2}"
+    tmux kill-session -t "ag-${local_repo}-${2}" 2>/dev/null && echo "killed ag-${local_repo}-${2}" || echo "no session ag-${local_repo}-${2}" >&2
     ;;
   status)
+    if [[ "${2:-}" == "--help" || "${2:-}" == "-h" ]]; then
+      echo "ag status – show all agent sessions across repos"
+      echo "  columns: SESSION, BRANCH, STATUS (active/idle), PR state"
+      exit 0
+    fi
     # cross-repo: iterate all ag-* tmux sessions
+    sessions_list=$(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^ag-' || true)
+    [[ -z "$sessions_list" ]] && { echo "no agent sessions"; exit 0; }
+
     printf "%-25s %-25s %-10s %s\n" "SESSION" "BRANCH" "STATUS" "PR"
-    tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^ag-' | while read -r sess; do
-      # get working dir of session
+
+    # collect session info, fire gh calls in parallel
+    tmpdir=$(mktemp -d)
+    trap "rm -rf '$tmpdir'" EXIT
+    while read -r sess; do
       wt_path=$(tmux display-message -t "$sess" -p '#{pane_current_path}' 2>/dev/null) || continue
       branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "-")
       pane_cmd=$(tmux display-message -t "$sess" -p '#{pane_current_command}' 2>/dev/null)
@@ -100,30 +151,45 @@ case "${1:-}" in
       else
         state="active"
       fi
-      pr_state="-"
+      echo "$sess $branch $state" >> "$tmpdir/sessions"
       if [[ "$branch" != "-" ]]; then
-        pr_state=$(gh pr list --head "$branch" --json state --jq '.[0].state // "-"' 2>/dev/null || echo "-")
+        (gh pr list --head "$branch" --no-interactive --json state --jq '.[0].state // "-"' 2>/dev/null || echo "-") > "$tmpdir/pr-${sess}" &
+      else
+        echo "-" > "$tmpdir/pr-${sess}"
       fi
+    done <<< "$sessions_list"
+    wait
+
+    # print results
+    while read -r sess branch state; do
+      pr_state=$(cat "$tmpdir/pr-${sess}" 2>/dev/null || echo "-")
       printf "%-25s %-25s %-10s %s\n" "$sess" "$branch" "$state" "$pr_state"
-    done
+    done < "$tmpdir/sessions"
     ;;
   clean)
+    force=false
+    for arg in "${@:2}"; do
+      case "$arg" in
+        --help|-h) echo "ag clean – kill dead sessions + remove merged worktrees"; exit 0 ;;
+        --force|-f) force=true ;;
+      esac
+    done
     # kill dead sessions
     echo "=== dead sessions ==="
     found_dead=false
-    tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^ag-' | while read -r sess; do
+    while read -r sess; do
       pane_cmd=$(tmux display-message -t "$sess" -p '#{pane_current_command}' 2>/dev/null)
       if [[ "$pane_cmd" == "zsh" || "$pane_cmd" == "bash" ]]; then
         echo "killing dead session: $sess"
         tmux kill-session -t "$sess"
         found_dead=true
       fi
-    done
+    done < <(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^ag-')
     $found_dead || echo "  (none)"
 
     # offer to remove merged worktrees (current repo)
-    if git rev-parse --show-toplevel &>/dev/null; then
-      root=$(git rev-parse --show-toplevel)
+    if main_repo_root &>/dev/null; then
+      root=$(main_repo_root)
       repo=$(basename "$root")
       echo ""
       echo "=== merged worktrees ($(repo_name)) ==="
@@ -132,7 +198,7 @@ case "${1:-}" in
         [[ "$wt_path" == "$root" ]] && continue
         branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
         name=$(basename "$wt_path")
-        merged=$(gh pr list --head "$branch" --state merged --json number --jq '.[0].number // empty' 2>/dev/null)
+        merged=$(gh pr list --head "$branch" --state merged --no-interactive --json number --jq '.[0].number // empty' 2>/dev/null)
         if [[ -n "$merged" ]]; then
           echo "  $name ($branch) – PR #$merged merged"
           to_remove+=("$name")
@@ -141,11 +207,22 @@ case "${1:-}" in
 
       if [[ ${#to_remove[@]} -gt 0 ]]; then
         echo ""
-        read -r -p "Remove these merged worktrees? [y/N] " reply
+        if [[ "$force" == true ]]; then
+          reply="y"
+        elif [[ -t 0 ]]; then
+          read -r -p "Remove these merged worktrees? [y/N] " reply
+        else
+          echo "skipping prompt (not a TTY). Use 'ag clean --force'." >&2
+          reply="n"
+        fi
         if [[ "$reply" =~ ^[Yy] ]]; then
           for name in "${to_remove[@]}"; do
             tmux kill-session -t "ag-${repo}-${name}" 2>/dev/null
-            git worktree remove "$name" 2>/dev/null && echo "removed $name"
+            if git worktree remove "$name" 2>/dev/null; then
+              echo "removed $name"
+            else
+              echo "  failed to remove $name (dirty or locked?)" >&2
+            fi
           done
         fi
       else
@@ -166,7 +243,17 @@ case "${1:-}" in
     ;;
   *)
     # launch: ag <name> [flags]
-    name="$1"; shift
+    name="$1"
+    if [[ "$name" == -* ]]; then
+      echo "error: name cannot start with '-': $name" >&2
+      echo "run 'ag --help' for usage" >&2
+      exit 1
+    fi
+    if [[ ! "$name" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
+      echo "error: name must be alphanumeric (hyphens/underscores ok): $name" >&2
+      exit 1
+    fi
+    shift
 
     cmd="${AGENT_EXECUTOR:-claude}"
     open_cursor=false
@@ -180,13 +267,15 @@ case "${1:-}" in
         --codex)  cmd="codex"; shift ;;
         -m)       [[ -z "${2:-}" ]] && { echo "usage: ag <name> -m MSG" >&2; exit 1; }
                   prompt="$2"; shift 2 ;;
-        *)        shift ;;
+        *)        echo "unknown flag: $1" >&2; exit 1 ;;
       esac
     done
 
     command -v "$cmd" >/dev/null 2>&1 || { echo "$cmd not found on PATH" >&2; exit 1; }
 
-    worktree=$(resolve_worktree "$name") || exit 1
+    auto_confirm=false
+    [[ -n "$prompt" ]] && auto_confirm=true
+    worktree=$(resolve_worktree "$name" "$auto_confirm") || exit 1
     local_repo=$(repo_name)
     session="ag-${local_repo}-${name}"
 
@@ -208,7 +297,12 @@ case "${1:-}" in
     fi
 
     # create tmux session
-    tmux new-session -d -s "$session" -c "$worktree"
+    if ! tmux new-session -d -s "$session" -c "$worktree" 2>/dev/null; then
+      echo "error: failed to create tmux session '$session'" >&2
+      echo "cleaning up worktree..." >&2
+      git worktree remove "$worktree" 2>/dev/null
+      exit 1
+    fi
     if [[ -n "$prompt" ]]; then
       # positional arg = first message in interactive session (not -p pipe mode)
       tmux send-keys -t "$session" "$cmd $(printf '%q' "$prompt")" Enter
