@@ -45,6 +45,7 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 
 - Symlinks shell config (`~/.zshrc` → `shell/zshrc`), tools (`~/tools`), agent config (`~/.agents/`, `~/.claude/`, `~/.cursor/`)
 - Symlinks `.claude/agents/` (CC subagent definitions)
+- Symlinks `~/.gemini/GEMINI.md` to `.gemini/GEMINI.md` (Gemini global context, @imports AGENTS.md)
 - Syncs Codex defaults into `~/.codex/config.toml` without replacing auth/trust state
 - Seeds `~/.agents/INBOX.md`, `~/.agents/wins.md`, `~/.agents/docs/` (local-only, never synced)
 - Copies Karabiner config (can't symlink – Karabiner overwrites symlinks)
@@ -71,12 +72,12 @@ shell/tmux.conf              # tmux config (C-a prefix, vim nav, cross-platform 
 tools/                       # CLI scripts on PATH (symlinked to ~/tools)
 tools/ag                     # Agent session manager (tmux-backed: launch, list, attach, kill)
 tools/doc                    # Unified doc browser: ~/.agents/docs/ (frontmatter-aware, typed actions)
-tools/review-output          # Create/update output.md and run Codex review into review.md
+tools/review-output          # Create/update output.md and run agent review ($AGENT_REVIEWER)
 tools/sync-codex-config      # Set Codex CLI autonomy defaults (workspace-write + never ask)
 tools/reset-dot              # Rebuild dotfiles-managed symlinks/copies/config scaffolding
 tools/rebase-wip             # Stash current work, fetch/rebase, then restore work
-tools/sesh                   # Session notes browser: ~/.claude/sessions/ (condensed summaries, context handoff)
-tools/refresh-skills         # Rebuild shared skills, sync Claude skills, copy Cursor skills
+tools/sesh                   # Session notes browser: ~/.agents/sessions/ (curated .md)
+tools/refresh-skills         # Rebuild shared skills, sync Claude/Gemini/Cursor adapters
 karabiner/karabiner.json     # Karabiner-Elements config (Joy-Con L → Claude Code controls)
 karabiner/joycon-karabiner.md # Joy-Con mapping spec
 install.sh                   # Sets up symlinks, seeds local files, installs fzf + tmux
@@ -90,23 +91,24 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `~/.zshrc.work` – work-specific overlay (sourced if present; typically managed by a work dotfiles repo)
 - `~/.zshrc.personal` – machine-specific personal overrides (local only)
 - `~/.agents/AGENTS.md` – shared agent instructions, symlinked to this repo
-- `~/.agents/skills/` – shared runtime skill layer rebuilt by `refresh-skills` from base + optional work-overlay skills; Codex reads it directly, Claude symlinks to it, Cursor copies from it
+- `~/.agents/skills/` – shared runtime skill layer rebuilt by `refresh-skills` from base + optional work-overlay skills; Codex reads it directly, Claude symlinks to it, Cursor copies from it, Gemini uses generated slash commands in `~/.gemini/commands/`
 - `~/.claude/CLAUDE.md` – Claude Code config, symlinked to this repo (@imports shared AGENTS.md)
+- `~/.gemini/GEMINI.md` – Gemini global context, @imports shared AGENTS.md (same pattern as Claude's CLAUDE.md)
 - `~/.codex/config.toml` – local Codex config. `install.sh` / `sync-codex-config` adds top-level autonomy defaults without replacing auth, trust, or profile-specific entries
 - **Cursor global prefs** – paste AGENTS.md content into Cursor Settings > Rules > User Rules (no file-based auto-load for global prefs; per-project prefs use `AGENTS.md` at project root, auto-discovered natively)
 - `~/.config/karabiner/karabiner.json` is copied from this repo (Karabiner breaks symlinks)
 - `pull-dot` pulls, refreshes shared skills + Codex defaults, and re-sources zshrc
 - `reset-dot` repairs dotfiles-managed state and re-sources zshrc
 - `sz` re-sources zshrc after edits
-- `ag` – agent session manager: one command for parallel agent work. `ag <name>` auto-creates worktree + launches claude. `ag -m MSG` with initial task. `ag` fzf dashboard across all repos. `ag status` cross-repo unified view. `ag --cursor` for cursor + claude. `ag clean` sweeps dead sessions + merged worktrees.
+- `ag` – agent session manager: one command for parallel agent work. `ag <name>` auto-creates worktree + launches agent (defaults to Claude; use `--gemini` or `--codex` to switch). `ag -m MSG` with initial task. `ag` fzf dashboard across all repos. `ag status` cross-repo unified view. `ag --cursor` for cursor + agent. `ag clean` sweeps dead sessions + merged worktrees.
 - `wt` – git worktree plumbing (create/list/switch/delete). Mostly used through `ag`; direct use for worktree-only ops.
-- `refresh-skills` – rebuild `~/.agents/skills` from dotfiles sources, then re-sync Claude skill symlinks and re-copy Cursor skills (run after editing skills, or via `pull-dot`)
+- `refresh-skills` – rebuild `~/.agents/skills` from dotfiles sources, then re-sync Claude symlinks, re-copy Cursor skills, and generate Gemini slash commands with real SKILL.md descriptions (run after editing skills, or via `pull-dot`)
 - `sync-codex-config` – sync top-level Codex autonomy defaults without replacing auth, trust, or profile-specific settings
 - `reset-dot` – rebuild the managed dotfiles layer after migrations or drift while preserving local-only state; leaves a real `~/tools` directory alone
-- `review-output` – create/update `output.md` and run Codex review into `review.md` for the current topic. Requires a Codex CLI with `codex exec review`. Use `--background` for checkpoint-style async review
+- `review-output` – create/update `output.md` and run agent review into `review.md` for the current topic. Respects `$AGENT_REVIEWER` (codex only for now). Use `--background` for checkpoint-style async review
 - `rebase-wip` – stash local edits, fetch/rebase onto the target branch, then reapply the stash. Useful when dotfiles change mid-task
-- `doc` – unified doc browser: `~/.agents/docs/` with frontmatter-aware picker (type, topic, repo, status). Actions: edit, view, execute, propose, review, claude, cursor. `doc <query>` pre-filters.
-- `sesh` – session notes browser: `~/.claude/sessions/`. Condensed .md summaries for humans; pass context to new sessions. `sesh <query>` pre-filters.
+- `doc` – unified doc browser: `~/.agents/docs/` with frontmatter-aware picker. Actions: edit, view, execute, propose, review, claude, gemini, plan, cursor. `doc <query>` pre-filters.
+- `sesh` – session notes browser: `~/.agents/sessions/` (curated .md summaries for context handoff). `sesh <query>` pre-filters.
 
 ## Contributing
 
@@ -121,6 +123,7 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 Personal global prefs (synced via this repo):
   ~/.agents/AGENTS.md        ← source of truth
   ├── Claude Code            @import via CLAUDE.md (native)
+  ├── Gemini CLI             @import via ~/.gemini/GEMINI.md (native)
   ├── Cursor                 paste into User Rules (Settings UI, manual)
   └── Other tools            AGENTS.md at project root (native auto-discover)
 
@@ -129,18 +132,15 @@ Work overlay (synced via work dotfiles repo, if present):
   ├── Claude Code            @import via CLAUDE.md (native)
   └── Cursor                 paste into User Rules (manual)
   ~/.agents/skills/          ← merged: personal + work skills
-  ├── Claude Code            symlinks from ~/.claude/skills/
-  ├── Cursor                 copied to ~/.cursor/skills/
-  └── Codex                  reads ~/.agents/skills/ directly in this setup
+  ├── Claude Code                symlinks from ~/.claude/skills/
+  ├── Gemini CLI                 generated slash commands in ~/.gemini/commands/
+  ├── Cursor                     copied to ~/.cursor/skills/
+  └── Codex CLI                  reads ~/.agents/skills/ directly in this setup
 
 Project-specific patterns (committed to each repo):
   <repo>/AGENTS.md           ← team-shared, per-project
   └── All tools auto-discover natively
 ```
-
-Gemini future note:
-- Do not treat Gemini as a `SKILL.md` directory consumer by default. If added later, sync shared instructions to `~/.gemini/GEMINI.md` and native Gemini commands separately.
-
 ## Agent memory
 
 Self-learning feedback loop across Claude Code, Codex, and Cursor sessions.

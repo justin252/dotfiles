@@ -9,7 +9,7 @@ MODEL_INSTRUCTIONS="$REPO_ROOT/.codex/review-instructions.md"
 
 usage() {
   cat <<'EOF'
-review-output - create/update a topic output artifact and run Codex review
+review-output - create/update a topic output artifact and run agent review
 
 Usage:
   review-output <topic-dir|topic> [--repo <dir>] [--output <slug>] [--base <branch>] [--title <title>] [--background]
@@ -74,12 +74,19 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "$topic_arg" ]] || { usage >&2; exit 1; }
-command -v codex >/dev/null 2>&1 || { echo "codex not found on PATH" >&2; exit 1; }
-[[ -f "$MODEL_INSTRUCTIONS" ]] || { echo "missing review instructions: $MODEL_INSTRUCTIONS" >&2; exit 1; }
-codex exec review --help >/dev/null 2>&1 || {
-  echo "installed codex CLI does not support 'codex exec review'" >&2
+reviewer="${AGENT_REVIEWER:-codex}"
+
+if [[ "$reviewer" == "codex" ]]; then
+  command -v codex >/dev/null 2>&1 || { echo "codex not found on PATH" >&2; exit 1; }
+  [[ -f "$MODEL_INSTRUCTIONS" ]] || { echo "missing review instructions: $MODEL_INSTRUCTIONS" >&2; exit 1; }
+  codex exec review --help >/dev/null 2>&1 || {
+    echo "installed codex CLI does not support 'codex exec review'" >&2
+    exit 1
+  }
+else
+  echo "Unsupported AGENT_REVIEWER: $reviewer (only codex is supported)" >&2
   exit 1
-}
+fi
 
 resolve_topic_dir() {
   local value="$1"
@@ -230,7 +237,7 @@ codex -C "$target_repo" exec review \
   - <"$prompt_file"
 
 [[ -s "$last_message_file" ]] || {
-  echo "codex produced no review output" >&2
+  echo "$reviewer produced no review output" >&2
   exit 1
 }
 

@@ -187,7 +187,7 @@ Docs:
 - Delivery artifacts: output.md (what shipped), review.md (review loop for an output). Multi-output topics can use `outputs/<slug>.md` and `reviews/<slug>.md`.
 - Pipeline: problem → design → plan → output → review → checkpoint. Each doc type except reference can use ## Open for feedback loop.
 - Templates: `~/.agents/references/doc-templates.md`. Agents consult when creating docs.
-- `load <topic>` → search `~/.agents/docs/`. Partial match; ambiguous → show options. Read all doc types, summarize status + next steps.
+- `load <topic>` → search `~/.agents/docs/` and `~/.agents/sessions/`. Partial match; ambiguous → show options. Read all doc types, summarize status + next steps.
 - `~/.agents/references/workflow.md` – comprehensive workflow reference. Read on demand: `@~/.agents/references/workflow.md`.
 
 Composability:
@@ -268,7 +268,7 @@ All on PATH via `~/tools` symlink:
 - `wss` – workspace SSH+tmux. `wss <name>` connect, `wss` fzf picker. Work-only (macOS guard).
 - `doc` – unified doc browser (fzf). Sources: `~/.agents/docs/`. Frontmatter-aware picker: [type] topic repo/component status. Actions: edit, view, execute, propose, review, claude, cursor. `doc <query>` pre-filters.
 - `review-output` – create/update the current topic output artifact and run Codex review into the linked review artifact
-- `sesh` – session notes browser (fzf). Sources: `~/.claude/sessions/`. Condensed .md summaries for humans; pass context to new sessions. `sesh <query>` pre-filters.
+- `sesh` – session notes browser (fzf). Sources: `~/.agents/sessions/`. Curated .md summaries for context handoff to new sessions. `sesh <query>` pre-filters.
 
 ### Testing dotfiles changes
 
