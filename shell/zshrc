@@ -234,12 +234,14 @@ _wt_main_root() {
 wt() {
   case "${1:-}" in
     -h|--help)
-      echo "wt - git worktree plumbing (prefer 'ag <name>' for parallel agent work)"
-      echo "  wt              list worktrees (fzf to switch)"
-      echo "  wt <name>       create worktree only (no agent – use 'ag <name>' instead)"
-      echo "  wt -d <name>    delete worktree (kills ag session if running)"
-      echo "  wt status       show worktrees + agent sessions + PR state"
-      echo "  wt clean        remove worktrees with merged PRs"
+      echo "wt – navigate to any branch or PR (worktrees managed automatically)"
+      echo "  wt <branch>        go to branch (finds existing worktree or creates one)"
+      echo "  wt <PR#>           go to PR branch (e.g. wt 90, wt #90)"
+      echo "  wt <PR-URL>        go to PR branch from URL"
+      echo "  wt                 fzf picker – switch between worktrees"
+      echo "  wt list            show all worktrees (plain text)"
+      echo "  wt -d <name>       delete worktree (kills ag session if running)"
+      echo "  wt clean           remove merged/orphan worktrees"
       return ;;
     -d)
       [[ -z "${2:-}" ]] && { echo "usage: wt -d <name>" >&2; return 1; }
@@ -253,7 +255,7 @@ wt() {
         [[ ! "$reply" =~ ^[Yy] ]] && return 1
       fi
       tmux kill-session -t "ag-${repo}-${2}" 2>/dev/null
-      git worktree remove "$2" && echo "removed worktree '$2'"
+      git worktree remove "$wt_path" 2>/dev/null && echo "removed worktree '$2'" || echo "error: could not remove '$2'" >&2
       return ;;
     "")
       local trees
@@ -266,28 +268,17 @@ wt() {
         echo "$trees"
       fi
       return ;;
-    status)
-      ag status
+    list)
+      git worktree list 2>/dev/null || echo "not in a git repo" >&2
       return ;;
     clean)
       ag clean
       return ;;
     *)
-      local root base dest default_branch
-      root=$(_wt_main_root) || return 1
-      base=$(basename "$root")
-      dest="${root}/../${base}-wt-${1}"
-      default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||')
-      if [[ -z "$default_branch" ]]; then
-        default_branch="main"
-        echo "warning: origin/HEAD not set, assuming '$default_branch'" >&2
-      fi
-      git fetch origin "$default_branch" --quiet 2>&1 || { echo "error: git fetch failed" >&2; return 1; }
-      git worktree add "$dest" -b "$1" "origin/$default_branch" || return 1
+      local dest
+      dest=$(~/tools/wt-resolve "$1") || return 1
       cd "$dest"
-      echo "worktree '$1' at $dest (from origin/$default_branch)"
-      echo "  ag $1              # launch autonomous agent (preferred)"
-      echo "  ag $1 -i           # launch interactive agent" ;;
+      echo "→ $(git -C "$dest" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "$1") at $dest" ;;
   esac
 }
 

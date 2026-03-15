@@ -44,77 +44,36 @@ repo_name() {
   basename "$(main_repo_root 2>/dev/null)" 2>/dev/null || echo "local"
 }
 
-# Resolve worktree path: exact match → fuzzy → fzf disambiguate → auto-create
-resolve_worktree() {
-  local name="$1" auto_confirm="${2:-false}"
-  local root repo dest
-  root=$(main_repo_root) || { echo "not in a git repo" >&2; return 1; }
-  repo=$(basename "$root")
-  dest="${root}/../${repo}-wt-${name}"
+# Extract slug from tmux session, with fallback for older sessions
+_ag_slug() {
+  local sess="$1"
+  local slug
+  slug=$(tmux show-environment -t "$sess" AG_SLUG 2>/dev/null | sed 's/^AG_SLUG=//') || true
+  if [[ -z "$slug" ]]; then
+    # fallback: parse from session name (breaks on hyphenated repo names)
+    local tmp="${sess#ag-}"
+    slug="${tmp#*-}"
+  fi
+  echo "$slug"
+}
 
-  # exact match – fast path
-  if [[ -d "$dest" ]]; then
-    echo "$dest"; return
+# Extract branch from tmux session env, with fallback to git
+_ag_branch() {
+  local sess="$1" wt_path="${2:-}"
+  local branch
+  branch=$(tmux show-environment -t "$sess" AG_BRANCH 2>/dev/null | sed 's/^AG_BRANCH=//') || true
+  if [[ -z "$branch" && -n "$wt_path" ]]; then
+    branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
   fi
+  echo "$branch"
+}
 
-  # substring search across existing worktrees
-  local matches=()
-  while read -r wt; do
-    [[ -z "$wt" ]] && continue
-    [[ "$(basename "$wt")" == *"$name"* ]] && matches+=("$wt")
-  done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
-
-  if [[ ${#matches[@]} -eq 1 ]]; then
-    echo "${matches[0]}"; return
-  elif [[ ${#matches[@]} -gt 1 ]]; then
-    if command -v fzf &>/dev/null; then
-      local pick
-      pick=$(printf '%s\n' "${matches[@]}" "+ create new: $name" | fzf --prompt="multiple matches> ") || return 1
-      if [[ "$pick" != "+ create new: $name" ]]; then
-        echo "$pick"; return
-      fi
-    else
-      echo "multiple worktrees match '$name':" >&2
-      printf '  %s\n' "${matches[@]}" >&2
-      return 1
-    fi
-  fi
-
-  # lock to prevent race between concurrent ag calls
-  local lockdir="/tmp/ag-create-${name}.lock"
-  if ! mkdir "$lockdir" 2>/dev/null; then
-    echo "error: another ag instance is creating '$name'" >&2
-    return 1
-  fi
-  trap "rmdir '$lockdir' 2>/dev/null" RETURN
-
-  # auto-create worktree – confirm unless auto_confirm or non-TTY
-  if [[ "$auto_confirm" != true && -t 0 ]]; then
-    echo "will create worktree: $dest (branch: $name)" >&2
-    read -r -p "continue? [Y/n] " reply
-    [[ "$reply" =~ ^[Nn] ]] && return 1
-  fi
-  local default_branch
-  default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||')
-  if [[ -z "$default_branch" ]]; then
-    default_branch="main"
-    echo "warning: origin/HEAD not set, assuming '$default_branch'" >&2
-  fi
-  if ! git fetch origin "$default_branch" --quiet 2>&1; then
-    echo "error: git fetch failed – check network/auth" >&2
-    return 1
-  fi
-  local output
-  if ! output=$(git worktree add "$dest" -b "$name" "origin/$default_branch" 2>&1); then
-    if echo "$output" | grep -q "already exists"; then
-      echo "error: branch '$name' already exists – use a different name or: git branch -d $name" >&2
-    else
-      echo "error: failed to create worktree '$name': $output" >&2
-    fi
-    return 1
-  fi
-  echo "created worktree: $dest" >&2
-  echo "$dest"
+# Store session metadata in tmux environment
+_ag_set_env() {
+  local session="$1" slug="$2" repo="$3" branch="$4"
+  tmux set-environment -t "$session" AG_SLUG "$slug" 2>/dev/null || true
+  tmux set-environment -t "$session" AG_REPO "$repo" 2>/dev/null || true
+  tmux set-environment -t "$session" AG_BRANCH "$branch" 2>/dev/null || true
 }
 
 attach_or_switch() {
@@ -208,28 +167,11 @@ case "${1:-}" in
       cd "$local_repo"
     fi
 
-    # fetch the PR branch
-    if ! git fetch origin "$pr_branch" --quiet 2>&1; then
-      echo "error: could not fetch branch '$pr_branch'" >&2; exit 1
-    fi
-
-    # create worktree from PR branch (use branch name as slug)
-    # sanitize branch name for worktree slug (feat/foo → feat-foo)
+    # resolve worktree via wt-resolve (handles fetch, existing worktree, creation)
+    dest=$(~/tools/wt-resolve "$pr_branch") || exit 1
     slug=$(echo "$pr_branch" | tr '/' '-')
-    root=$(main_repo_root) || exit 1
-    repo=$(basename "$root")
-    dest="${root}/../${repo}-wt-${slug}"
-
-    if [[ ! -d "$dest" ]]; then
-      if ! git worktree add "$dest" "origin/$pr_branch" --detach 2>/dev/null; then
-        echo "error: could not create worktree for '$pr_branch'" >&2; exit 1
-      fi
-      # create local tracking branch
-      git -C "$dest" checkout -b "$pr_branch" "origin/$pr_branch" 2>/dev/null || true
-      echo "checked out PR #$pr_number: $pr_title" >&2
-    fi
-
-    session="ag-${repo}-${slug}"
+    local_repo=$(repo_name)
+    session="ag-${local_repo}-${slug}"
 
     if tmux has-session -t "$session" 2>/dev/null; then
       echo "attaching to $slug (PR #$pr_number)"
@@ -240,10 +182,11 @@ case "${1:-}" in
       exit 0
     fi
 
-    # create tmux session
+    # create tmux session + store metadata
     if ! tmux new-session -d -s "$session" -c "$dest" 2>/dev/null; then
       echo "error: failed to create tmux session '$session'" >&2; exit 1
     fi
+    _ag_set_env "$session" "$slug" "$local_repo" "$pr_branch"
 
     if [[ -n "$pr_prompt" ]]; then
       cmd="${AGENT_EXECUTOR:-claude}"
@@ -295,16 +238,15 @@ case "${1:-}" in
     trap "rm -rf '$tmpdir'" EXIT
     while read -r sess; do
       wt_path=$(tmux display-message -t "$sess" -p '#{pane_current_path}' 2>/dev/null) || continue
-      branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "-")
+      branch=$(_ag_branch "$sess" "$wt_path")
+      [[ -z "$branch" ]] && branch="-"
       pane_cmd=$(tmux display-message -t "$sess" -p '#{pane_current_command}' 2>/dev/null)
       if [[ "$pane_cmd" == "zsh" || "$pane_cmd" == "bash" ]]; then
         state="idle"
       else
         state="active"
       fi
-      # extract slug: ag-<repo>-<slug> → slug
-      tmp="${sess#ag-}"
-      slug="${tmp#*-}"
+      slug=$(_ag_slug "$sess")
       echo "$sess $branch $state $slug" >> "$tmpdir/sessions"
       if [[ "$branch" != "-" ]]; then
         (gh pr list --head "$branch" --no-interactive --json state --jq '.[0].state // "-"' 2>/dev/null || echo "-") > "$tmpdir/pr-${sess}" &
@@ -359,8 +301,7 @@ case "${1:-}" in
       while read -r sess; do
         pane_cmd=$(tmux display-message -t "$sess" -p '#{pane_current_command}' 2>/dev/null)
         if [[ "$pane_cmd" == "zsh" || "$pane_cmd" == "bash" ]]; then
-          tmp="${sess#ag-}"
-          slug="${tmp#*-}"
+          slug=$(_ag_slug "$sess")
           echo "  $slug (session idle)"
           tmux kill-session -t "$sess"
           found_dead=true
@@ -378,8 +319,7 @@ case "${1:-}" in
       while read -r sess; do
         wt_path=$(tmux display-message -t "$sess" -p '#{pane_current_path}' 2>/dev/null || echo "")
         if [[ -z "$wt_path" || ! -d "$wt_path/.git" ]]; then
-          tmp="${sess#ag-}"
-          slug="${tmp#*-}"
+          slug=$(_ag_slug "$sess")
           echo "  $slug (worktree missing)"
           tmux kill-session -t "$sess"
           found_orphan_sess=true
@@ -398,12 +338,15 @@ case "${1:-}" in
       found_merged=false
       while read -r wt_path; do
         [[ "$wt_path" == "$root" ]] && continue
-        branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-        [[ -z "$branch" ]] && continue
         wt_name=$(basename "$wt_path")
+        wt_slug="${wt_name#*-wt-}"
+        expected_sess="ag-${repo}-${wt_slug}"
+        # get branch: prefer tmux env (handles detached HEAD), fall back to git
+        branch=$(_ag_branch "$expected_sess" "$wt_path")
+        [[ -z "$branch" || "$branch" == "HEAD" ]] && continue
         merged=$(gh pr list --head "$branch" --state merged --no-interactive --json number --jq '.[0].number // empty' 2>/dev/null || true)
         if [[ -n "$merged" ]]; then
-          echo "  $wt_name ($branch) – PR #$merged merged"
+          echo "  $wt_slug ($branch) – PR #$merged merged"
           to_remove+=("$wt_path")
           found_merged=true
         fi
@@ -463,11 +406,15 @@ case "${1:-}" in
           for wt_path in "${to_remove[@]}"; do
             wt_name=$(basename "$wt_path")
             wt_slug="${wt_name#*-wt-}"
-            tmux kill-session -t "ag-${repo}-${wt_slug}" 2>/dev/null
+            sess_name="ag-${repo}-${wt_slug}"
+            # get actual branch name before killing session (tmux env has it)
+            branch=$(_ag_branch "$sess_name" "$wt_path")
+            tmux kill-session -t "$sess_name" 2>/dev/null
             if git worktree remove "$wt_path" --force 2>/dev/null; then
-              # also clean up the branch
-              branch=$(git -C "$root" branch --list "$wt_slug" 2>/dev/null | tr -d ' *')
-              [[ -n "$branch" ]] && git -C "$root" branch -d "$branch" 2>/dev/null
+              # clean up the branch using actual name (not slug)
+              if [[ -n "$branch" && "$branch" != "HEAD" ]]; then
+                git -C "$root" branch -d "$branch" 2>/dev/null || true
+              fi
               echo "  removed $wt_slug"
             else
               echo "  failed to remove $wt_slug (dirty?)" >&2
@@ -486,9 +433,9 @@ case "${1:-}" in
     lines=""
     while read -r sess; do
       if [[ "$sess" == ag-* ]]; then
-        tmp="${sess#ag-}"
-        repo="${tmp%%-*}"
-        slug="${tmp#*-}"
+        slug=$(_ag_slug "$sess")
+        repo=$(tmux show-environment -t "$sess" AG_REPO 2>/dev/null | sed 's/^AG_REPO=//' || true)
+        [[ -z "$repo" ]] && { tmp="${sess#ag-}"; repo="${tmp%%-*}"; }
         pane_cmd=$(tmux display-message -t "$sess" -p '#{pane_current_command}' 2>/dev/null || echo "")
         if [[ "$pane_cmd" == "zsh" || "$pane_cmd" == "bash" || -z "$pane_cmd" ]]; then
           state="idle"
@@ -566,9 +513,17 @@ case "${1:-}" in
 
     command -v "$cmd" >/dev/null 2>&1 || { echo "$cmd not found on PATH" >&2; exit 1; }
 
-    auto_confirm=false
-    [[ -n "$prompt" || "$no_input" == true ]] && auto_confirm=true
-    worktree=$(resolve_worktree "$name" "$auto_confirm") || exit 1
+    # resolve worktree: ag creates new branches (not checking out existing remote)
+    if [[ -n "$prompt" || "$no_input" == true ]]; then
+      # auto-confirm for background launch
+      worktree=$(WT_CREATE_MODE=new ~/tools/wt-resolve "$name") || exit 1
+    elif [[ -t 0 ]]; then
+      # interactive: confirm creation
+      echo "will create worktree for '$name' if needed" >&2
+      worktree=$(WT_CREATE_MODE=new ~/tools/wt-resolve "$name") || exit 1
+    else
+      worktree=$(WT_CREATE_MODE=new ~/tools/wt-resolve "$name") || exit 1
+    fi
     local_repo=$(repo_name)
     session="ag-${local_repo}-${name}"
 
@@ -592,13 +547,15 @@ case "${1:-}" in
       fi
     fi
 
-    # create tmux session
+    # create tmux session + store metadata
     if ! tmux new-session -d -s "$session" -c "$worktree" 2>/dev/null; then
       echo "error: failed to create tmux session '$session'" >&2
       echo "cleaning up worktree..." >&2
       git worktree remove "$worktree" 2>/dev/null
       exit 1
     fi
+    _ag_set_env "$session" "$name" "$local_repo" "$name"
+
     if [[ -n "$prompt" ]]; then
       # plan discovery: check for matching plan.md by agent name
       plan_file="$HOME/.agents/docs/$name/plan.md"

@@ -269,7 +269,7 @@ All on PATH via `~/tools` symlink:
 - `sz` – re-source zshrc after edits
 - `rebase-wip` – stash local edits, fetch/rebase onto a target branch, then reapply the stash. Useful when dotfiles change mid-task
 - `ag` – agent session manager (stage 6-7 orchestrator). One command for parallel work: `ag <name>` auto-creates worktree + launches agent. `ag <name> -m MSG` with initial task (background launch; prints guided output, doesn't attach). `ag` fzf dashboard (all repos). `ag status` cross-repo view. `ag kill <name>` kill session. `ag clean` dead sessions + merged worktrees (`--force` skips prompt). Name flows everywhere: branch, session, worktree, tmux status bar. Tmux status shows `name●` (active) / `name○` (idle). `C-a a` for popup dashboard.
-- `wt` – git worktree plumbing. `wt <name>` create, `wt` fzf switch, `wt -d` delete, `wt status`, `wt clean`. Mostly used through `ag`; direct use for worktree-only ops.
+- `wt` – navigate to any branch or PR. `wt <branch>` finds existing worktree or creates one. `wt 90` or `wt <PR-URL>` resolves PR. `wt` fzf switch. `wt -d` delete. `wt list` show all. `wt clean` cleanup. `ag` delegates worktree ops here.
 - `wss` – workspace SSH+tmux. `wss <name>` connect, `wss` fzf picker. Work-only (macOS guard).
 - `doc` – unified doc browser (fzf). Sources: `~/.agents/docs/`. Frontmatter-aware picker: [type] topic repo/component status. Actions: edit, view, execute, propose, review, claude, cursor. `doc <query>` pre-filters.
 - `review-output` – create/update the current topic output artifact and run Codex review into the linked review artifact

@@ -72,6 +72,7 @@ shell/tmux.conf              # tmux config (C-a prefix, vim nav, agent status ba
 tools/                       # CLI scripts on PATH (symlinked to ~/tools)
 tools/ag                     # Agent session manager (launch, PR checkout, dashboard, status, clean)
 tools/ag-preview             # fzf preview for ag picker (PR info, plan/review paths)
+tools/wt-resolve             # Worktree resolver: branch/PR# → worktree path (find existing or create)
 tools/ag-status-line         # tmux status bar: agent state indicators (polled every 5s)
 tools/doc                    # Unified doc browser: ~/.agents/docs/ (frontmatter-aware, typed actions)
 tools/review-output          # Create/update output.md and run agent review ($AGENT_REVIEWER)
@@ -103,7 +104,7 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `reset-dot` repairs dotfiles-managed state and re-sources zshrc
 - `sz` re-sources zshrc + tmux.conf after edits
 - `ag` – agent session manager: one command for parallel agent work. `ag <name>` auto-creates worktree + launches agent (defaults to Claude; use `--gemini` or `--codex` to switch). `ag <name> -m MSG` launches in background with guided output (auto-discovers matching plan.md). `ag pr <number>` checks out a PR into a worktree (`--review` for diff-only). `ag` fzf dashboard with preview pane (ctrl-o opens PR, ctrl-p copies plan). `ag status` cross-repo unified view (`--json` for scripts). `ag kill <name>` kill session. `ag clean` comprehensive cleanup: dead sessions, orphan worktrees/sessions, merged PRs, stale state. `AG_NO_INPUT=1` for scripting.
-- `wt` – git worktree plumbing (create/list/switch/delete). Mostly used through `ag`; direct use for worktree-only ops.
+- `wt` – navigate to any branch or PR. `wt <branch>` finds existing worktree or creates one. `wt 90` or `wt <PR-URL>` resolves PR to branch. `wt` fzf switch. `wt -d` delete. `wt list` show all. `wt clean` cleanup.
 - `refresh-skills` – rebuild `~/.agents/skills` from dotfiles sources, then re-sync Claude symlinks, re-copy Cursor skills, and generate Gemini slash commands with real SKILL.md descriptions (run after editing skills, or via `pull-dot`)
 - `sync-codex-config` – sync top-level Codex autonomy defaults without replacing auth, trust, or profile-specific settings
 - `reset-dot` – rebuild the managed dotfiles layer after migrations or drift while preserving local-only state; leaves a real `~/tools` directory alone
