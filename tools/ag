@@ -3,6 +3,10 @@
 # One command for parallel agent work: auto-creates worktrees, launches claude.
 set -euo pipefail
 
+# --no-input / AG_NO_INPUT: skip all interactive prompts
+no_input=false
+[[ "${AG_NO_INPUT:-}" == "1" ]] && no_input=true
+
 usage() {
   cat <<'EOF'
 ag - agent session manager
@@ -12,10 +16,15 @@ ag - agent session manager
   ag <name> --claude        force using claude
   ag <name> --gemini        force using gemini
   ag <name> --codex         force using codex
+  ag pr <number|url>        checkout PR into worktree + attach
+  ag pr <number|url> -m MSG checkout PR + launch agent with task
+  ag pr <number|url> --review  review PR diff with agent (no worktree)
   ag                        dashboard – all sessions, all repos (fzf)
   ag status                 cross-repo unified view
   ag kill <name>            kill session
   ag clean                  dead sessions + merged worktrees
+  ag clean --no-input       same, skip confirmation (also: --force)
+  AG_NO_INPUT=1 ag ...      skip all prompts (for scripts/orchestrator)
 EOF
 }
 
@@ -81,7 +90,7 @@ resolve_worktree() {
 
   # auto-create worktree – confirm unless auto_confirm or non-TTY
   if [[ "$auto_confirm" != true && -t 0 ]]; then
-    echo "will create worktree: $dest (branch: wt/$name)" >&2
+    echo "will create worktree: $dest (branch: $name)" >&2
     read -r -p "continue? [Y/n] " reply
     [[ "$reply" =~ ^[Nn] ]] && return 1
   fi
@@ -96,9 +105,9 @@ resolve_worktree() {
     return 1
   fi
   local output
-  if ! output=$(git worktree add "$dest" -b "wt/$name" "origin/$default_branch" 2>&1); then
+  if ! output=$(git worktree add "$dest" -b "$name" "origin/$default_branch" 2>&1); then
     if echo "$output" | grep -q "already exists"; then
-      echo "error: branch 'wt/$name' already exists – use a different name or: git branch -d wt/$name" >&2
+      echo "error: branch '$name' already exists – use a different name or: git branch -d $name" >&2
     else
       echo "error: failed to create worktree '$name': $output" >&2
     fi
@@ -119,6 +128,141 @@ attach_or_switch() {
 
 case "${1:-}" in
   -h|--help) usage ;;
+  pr)
+    if [[ "${2:-}" == "--help" || "${2:-}" == "-h" ]]; then
+      echo "ag pr – checkout PR into worktree + attach"
+      echo "  ag pr 90                                    local repo PR"
+      echo "  ag pr https://github.com/org/repo/pull/90   any repo PR"
+      echo "  ag pr 90 -m MSG                             checkout + launch agent"
+      echo "  ag pr 90 --review                           review diff with agent (no worktree)"
+      exit 0
+    fi
+    [[ -z "${2:-}" ]] && { echo "usage: ag pr <number|url>" >&2; exit 1; }
+
+    # smart input: URL or number
+    pr_input="$2"
+    shift 2
+    gh_repo_flag=""
+
+    if [[ "$pr_input" =~ ^https://github\.com/([^/]+/[^/]+)/pull/([0-9]+) ]]; then
+      # URL: extract org/repo and number
+      pr_repo="${BASH_REMATCH[1]}"
+      pr_number="${BASH_REMATCH[2]}"
+      gh_repo_flag="--repo $pr_repo"
+    elif [[ "$pr_input" =~ ^[0-9]+$ ]]; then
+      pr_number="$pr_input"
+    else
+      echo "error: expected PR number or GitHub PR URL" >&2
+      echo "  ag pr 90" >&2
+      echo "  ag pr https://github.com/org/repo/pull/90" >&2
+      exit 1
+    fi
+
+    # get PR metadata
+    pr_json=$(gh pr view "$pr_number" $gh_repo_flag --json headRefName,title,url,state 2>/dev/null) || {
+      echo "error: could not find PR #$pr_number" >&2; exit 1
+    }
+    pr_branch=$(echo "$pr_json" | jq -r '.headRefName')
+    pr_title=$(echo "$pr_json" | jq -r '.title')
+    pr_url=$(echo "$pr_json" | jq -r '.url')
+
+    # parse flags
+    pr_prompt=""
+    pr_review=false
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        -m) [[ -z "${2:-}" ]] && { echo "usage: ag pr <number> -m MSG" >&2; exit 1; }
+            pr_prompt="$2"; shift 2 ;;
+        --review) pr_review=true; shift ;;
+        *) echo "unknown flag: $1" >&2; exit 1 ;;
+      esac
+    done
+
+    # --review: no worktree, just pipe diff to agent (works for any repo via API)
+    if [[ "$pr_review" == true ]]; then
+      echo "reviewing PR #$pr_number: $pr_title"
+      echo "  $pr_url"
+      cmd="${AGENT_EXECUTOR:-claude}"
+      exec $cmd "Review this PR: $pr_title ($pr_url). Here is the diff: $(gh pr diff "$pr_number" $gh_repo_flag 2>/dev/null)"
+    fi
+
+    # checkout mode: need local repo
+    if [[ -n "$gh_repo_flag" ]]; then
+      # cross-repo PR: check if we have it cloned locally
+      # look in common locations: ~/<repo>, ~/code/<repo>
+      pr_repo_name="${pr_repo#*/}"
+      local_repo=""
+      for candidate in "$HOME/$pr_repo_name" "$HOME/code/$pr_repo_name" "$HOME/src/$pr_repo_name"; do
+        if [[ -d "$candidate/.git" ]]; then
+          local_repo="$candidate"
+          break
+        fi
+      done
+      if [[ -z "$local_repo" ]]; then
+        echo "error: repo '$pr_repo' not cloned locally" >&2
+        echo "  git clone git@github.com:${pr_repo}.git ~/$pr_repo_name" >&2
+        echo "  then retry: ag pr $pr_input" >&2
+        exit 1
+      fi
+      # operate from the local repo
+      cd "$local_repo"
+    fi
+
+    # fetch the PR branch
+    if ! git fetch origin "$pr_branch" --quiet 2>&1; then
+      echo "error: could not fetch branch '$pr_branch'" >&2; exit 1
+    fi
+
+    # create worktree from PR branch (use branch name as slug)
+    # sanitize branch name for worktree slug (feat/foo → feat-foo)
+    slug=$(echo "$pr_branch" | tr '/' '-')
+    root=$(main_repo_root) || exit 1
+    repo=$(basename "$root")
+    dest="${root}/../${repo}-wt-${slug}"
+
+    if [[ ! -d "$dest" ]]; then
+      if ! git worktree add "$dest" "origin/$pr_branch" --detach 2>/dev/null; then
+        echo "error: could not create worktree for '$pr_branch'" >&2; exit 1
+      fi
+      # create local tracking branch
+      git -C "$dest" checkout -b "$pr_branch" "origin/$pr_branch" 2>/dev/null || true
+      echo "checked out PR #$pr_number: $pr_title" >&2
+    fi
+
+    session="ag-${repo}-${slug}"
+
+    if tmux has-session -t "$session" 2>/dev/null; then
+      echo "attaching to $slug (PR #$pr_number)"
+      echo "  ag             switch to another session"
+      echo "  ag status      see all agents"
+      echo "  C-a d          detach back to terminal"
+      attach_or_switch "$session"
+      exit 0
+    fi
+
+    # create tmux session
+    if ! tmux new-session -d -s "$session" -c "$dest" 2>/dev/null; then
+      echo "error: failed to create tmux session '$session'" >&2; exit 1
+    fi
+
+    if [[ -n "$pr_prompt" ]]; then
+      cmd="${AGENT_EXECUTOR:-claude}"
+      tmux send-keys -t "$session" "$cmd $(printf '%q' "$pr_prompt")" Enter
+      echo "launched $slug (PR #$pr_number: $pr_title)"
+      echo "  $pr_url"
+      echo "  ag $slug       attach to session"
+      echo "  ag status      see all agents"
+      echo "  ag             pick from list"
+    else
+      tmux send-keys -t "$session" "${AGENT_EXECUTOR:-claude}" Enter
+      echo "attaching to $slug (PR #$pr_number)"
+      echo "  $pr_url"
+      echo "  ag             switch to another session"
+      echo "  ag status      see all agents"
+      echo "  C-a d          detach back to terminal"
+      attach_or_switch "$session"
+    fi
+    ;;
   kill)
     if [[ "${2:-}" == "--help" || "${2:-}" == "-h" ]]; then
       echo "ag kill <name> – kill an agent session"; exit 0
@@ -128,16 +272,23 @@ case "${1:-}" in
     tmux kill-session -t "ag-${local_repo}-${2}" 2>/dev/null && echo "killed ag-${local_repo}-${2}" || echo "no session ag-${local_repo}-${2}" >&2
     ;;
   status)
-    if [[ "${2:-}" == "--help" || "${2:-}" == "-h" ]]; then
-      echo "ag status – show all agent sessions across repos"
-      echo "  columns: SESSION, BRANCH, STATUS (active/idle), PR state"
-      exit 0
-    fi
+    json=false
+    for arg in "${@:2}"; do
+      case "$arg" in
+        --help|-h) echo "ag status – show all agent sessions across repos"
+                   echo "  --json    machine-readable output"
+                   exit 0 ;;
+        --json) json=true ;;
+      esac
+    done
     # cross-repo: iterate all ag-* tmux sessions
     sessions_list=$(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^ag-' || true)
-    [[ -z "$sessions_list" ]] && { echo "no agent sessions"; exit 0; }
+    if [[ -z "$sessions_list" ]]; then
+      [[ "$json" == true ]] && echo "[]" || echo "no agent sessions"
+      exit 0
+    fi
 
-    printf "%-25s %-25s %-10s %s\n" "SESSION" "BRANCH" "STATUS" "PR"
+    [[ "$json" == false ]] && printf "%-20s %-10s %-20s %s\n" "NAME" "STATUS" "BRANCH" "PR"
 
     # collect session info, fire gh calls in parallel
     tmpdir=$(mktemp -d)
@@ -151,7 +302,10 @@ case "${1:-}" in
       else
         state="active"
       fi
-      echo "$sess $branch $state" >> "$tmpdir/sessions"
+      # extract slug: ag-<repo>-<slug> → slug
+      tmp="${sess#ag-}"
+      slug="${tmp#*-}"
+      echo "$sess $branch $state $slug" >> "$tmpdir/sessions"
       if [[ "$branch" != "-" ]]; then
         (gh pr list --head "$branch" --no-interactive --json state --jq '.[0].state // "-"' 2>/dev/null || echo "-") > "$tmpdir/pr-${sess}" &
       else
@@ -161,84 +315,222 @@ case "${1:-}" in
     wait
 
     # print results
-    while read -r sess branch state; do
-      pr_state=$(cat "$tmpdir/pr-${sess}" 2>/dev/null || echo "-")
-      printf "%-25s %-25s %-10s %s\n" "$sess" "$branch" "$state" "$pr_state"
-    done < "$tmpdir/sessions"
+    if [[ "$json" == true ]]; then
+      echo "["
+      first=true
+      while read -r sess branch state slug; do
+        pr_state=$(cat "$tmpdir/pr-${sess}" 2>/dev/null || echo "-")
+        $first || echo ","
+        printf '  {"name":"%s","session":"%s","branch":"%s","state":"%s","pr":"%s"}' \
+          "$slug" "$sess" "$branch" "$state" "$pr_state"
+        first=false
+      done < "$tmpdir/sessions"
+      echo ""
+      echo "]"
+    else
+      while read -r sess branch state slug; do
+        pr_state=$(cat "$tmpdir/pr-${sess}" 2>/dev/null || echo "-")
+        printf "%-20s %-10s %-20s %s\n" "$slug" "$state" "$branch" "$pr_state"
+      done < "$tmpdir/sessions"
+    fi
     ;;
   clean)
     force=false
+    [[ "$no_input" == true ]] && force=true
     for arg in "${@:2}"; do
       case "$arg" in
-        --help|-h) echo "ag clean – kill dead sessions + remove merged worktrees"; exit 0 ;;
-        --force|-f) force=true ;;
+        --help|-h)
+          echo "ag clean – comprehensive cleanup of agent resources"
+          echo "  kills dead sessions, removes merged worktrees,"
+          echo "  finds orphan worktrees/sessions, cleans state files"
+          echo "  --force/--no-input  skip confirmation prompts"
+          exit 0 ;;
+        --force|-f|--no-input) force=true ;;
       esac
     done
-    # kill dead sessions
+
+    to_remove=()
+
+    # 1. dead sessions (agent exited, sitting at shell prompt)
     echo "=== dead sessions ==="
     found_dead=false
-    while read -r sess; do
-      pane_cmd=$(tmux display-message -t "$sess" -p '#{pane_current_command}' 2>/dev/null)
-      if [[ "$pane_cmd" == "zsh" || "$pane_cmd" == "bash" ]]; then
-        echo "killing dead session: $sess"
-        tmux kill-session -t "$sess"
-        found_dead=true
-      fi
-    done < <(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^ag-')
+    ag_sessions=$(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^ag-' || true)
+    if [[ -n "$ag_sessions" ]]; then
+      while read -r sess; do
+        pane_cmd=$(tmux display-message -t "$sess" -p '#{pane_current_command}' 2>/dev/null)
+        if [[ "$pane_cmd" == "zsh" || "$pane_cmd" == "bash" ]]; then
+          tmp="${sess#ag-}"
+          slug="${tmp#*-}"
+          echo "  $slug (session idle)"
+          tmux kill-session -t "$sess"
+          found_dead=true
+        fi
+      done <<< "$ag_sessions"
+    fi
     $found_dead || echo "  (none)"
 
-    # offer to remove merged worktrees (current repo)
+    # 2. orphan sessions (tmux session exists but worktree is gone)
+    echo ""
+    echo "=== orphan sessions (no worktree) ==="
+    found_orphan_sess=false
+    ag_sessions=$(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^ag-' || true)
+    if [[ -n "$ag_sessions" ]]; then
+      while read -r sess; do
+        wt_path=$(tmux display-message -t "$sess" -p '#{pane_current_path}' 2>/dev/null || echo "")
+        if [[ -z "$wt_path" || ! -d "$wt_path/.git" ]]; then
+          tmp="${sess#ag-}"
+          slug="${tmp#*-}"
+          echo "  $slug (worktree missing)"
+          tmux kill-session -t "$sess"
+          found_orphan_sess=true
+        fi
+      done <<< "$ag_sessions"
+    fi
+    $found_orphan_sess || echo "  (none)"
+
     if main_repo_root &>/dev/null; then
       root=$(main_repo_root)
       repo=$(basename "$root")
+
+      # 3. merged worktrees (PR merged, safe to remove)
       echo ""
-      echo "=== merged worktrees ($(repo_name)) ==="
-      to_remove=()
+      echo "=== merged worktrees ($repo) ==="
+      found_merged=false
       while read -r wt_path; do
         [[ "$wt_path" == "$root" ]] && continue
-        branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null)
-        name=$(basename "$wt_path")
-        merged=$(gh pr list --head "$branch" --state merged --no-interactive --json number --jq '.[0].number // empty' 2>/dev/null)
+        branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+        [[ -z "$branch" ]] && continue
+        wt_name=$(basename "$wt_path")
+        merged=$(gh pr list --head "$branch" --state merged --no-interactive --json number --jq '.[0].number // empty' 2>/dev/null || true)
         if [[ -n "$merged" ]]; then
-          echo "  $name ($branch) – PR #$merged merged"
-          to_remove+=("$name")
+          echo "  $wt_name ($branch) – PR #$merged merged"
+          to_remove+=("$wt_path")
+          found_merged=true
         fi
       done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
+      $found_merged || echo "  (none)"
 
+      # 4. orphan worktrees (worktree exists but no tmux session)
+      echo ""
+      echo "=== orphan worktrees (no session) ==="
+      found_orphan_wt=false
+      while read -r wt_path; do
+        [[ "$wt_path" == "$root" ]] && continue
+        wt_name=$(basename "$wt_path")
+        # extract slug from worktree name: <repo>-wt-<slug>
+        wt_slug="${wt_name#*-wt-}"
+        expected_sess="ag-${repo}-${wt_slug}"
+        if ! tmux has-session -t "$expected_sess" 2>/dev/null; then
+          branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "-")
+          echo "  $wt_slug ($branch) – no active session"
+          to_remove+=("$wt_path")
+          found_orphan_wt=true
+        fi
+      done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
+      $found_orphan_wt || echo "  (none)"
+
+      # 5. stale state files
+      if [[ -d "$HOME/.agents/state" ]]; then
+        echo ""
+        echo "=== stale state files ==="
+        found_stale=false
+        for state_dir in "$HOME/.agents/state"/*/; do
+          [[ ! -d "$state_dir" ]] && continue
+          state_name=$(basename "$state_dir")
+          expected_sess="ag-${repo}-${state_name}"
+          if ! tmux has-session -t "$expected_sess" 2>/dev/null; then
+            echo "  $state_name"
+            found_stale=true
+            # auto-remove state files (low risk, regenerated)
+            rm -rf "$state_dir"
+          fi
+        done
+        $found_stale || echo "  (none)"
+      fi
+
+      # prompt to remove worktrees
       if [[ ${#to_remove[@]} -gt 0 ]]; then
         echo ""
         if [[ "$force" == true ]]; then
           reply="y"
         elif [[ -t 0 ]]; then
-          read -r -p "Remove these merged worktrees? [y/N] " reply
+          read -r -p "Remove ${#to_remove[@]} worktree(s)? [y/N] " reply
         else
           echo "skipping prompt (not a TTY). Use 'ag clean --force'." >&2
           reply="n"
         fi
         if [[ "$reply" =~ ^[Yy] ]]; then
-          for name in "${to_remove[@]}"; do
-            tmux kill-session -t "ag-${repo}-${name}" 2>/dev/null
-            if git worktree remove "$name" 2>/dev/null; then
-              echo "removed $name"
+          for wt_path in "${to_remove[@]}"; do
+            wt_name=$(basename "$wt_path")
+            wt_slug="${wt_name#*-wt-}"
+            tmux kill-session -t "ag-${repo}-${wt_slug}" 2>/dev/null
+            if git worktree remove "$wt_path" --force 2>/dev/null; then
+              # also clean up the branch
+              branch=$(git -C "$root" branch --list "$wt_slug" 2>/dev/null | tr -d ' *')
+              [[ -n "$branch" ]] && git -C "$root" branch -d "$branch" 2>/dev/null
+              echo "  removed $wt_slug"
             else
-              echo "  failed to remove $name (dirty or locked?)" >&2
+              echo "  failed to remove $wt_slug (dirty?)" >&2
             fi
           done
         fi
-      else
-        echo "  (none)"
       fi
     fi
     ;;
   "")
-    # dashboard: all ag-* sessions across all repos
-    sessions=$(tmux list-sessions -F '#{session_name}  (#{session_windows} windows, #{?session_attached,attached,detached})' 2>/dev/null | grep '^ag-' || true)
-    [[ -z "${sessions:-}" ]] && { echo "no agent sessions"; exit 0; }
+    # dashboard: all sessions, ag sessions enriched with state + PR
+    all_sessions=$(tmux list-sessions -F '#{session_name}' 2>/dev/null || true)
+    [[ -z "$all_sessions" ]] && { echo "no tmux sessions"; exit 0; }
+
+    # build display lines: slug/name  state  repo  PR
+    lines=""
+    while read -r sess; do
+      if [[ "$sess" == ag-* ]]; then
+        tmp="${sess#ag-}"
+        repo="${tmp%%-*}"
+        slug="${tmp#*-}"
+        pane_cmd=$(tmux display-message -t "$sess" -p '#{pane_current_command}' 2>/dev/null || echo "")
+        if [[ "$pane_cmd" == "zsh" || "$pane_cmd" == "bash" || -z "$pane_cmd" ]]; then
+          state="idle"
+        else
+          state="active"
+        fi
+        # quick PR check (cached from parallel calls)
+        wt_path=$(tmux display-message -t "$sess" -p '#{pane_current_path}' 2>/dev/null || echo "")
+        branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "-")
+        pr_info=$(gh pr list --head "$branch" --no-interactive --json number,state --jq '"PR #" + (.[0].number|tostring) + " " + (.[0].state|ascii_downcase)' 2>/dev/null || true)
+        line=$(printf "%-20s %-8s %-12s %s" "$slug" "$state" "$repo" "$pr_info")
+      else
+        line=$(printf "%-20s %-8s" "$sess" "")
+      fi
+      lines+="$line"$'\n'
+    done <<< "$all_sessions"
+
     if command -v fzf &>/dev/null; then
-      pick=$(echo "$sessions" | fzf --prompt="agent> " | awk '{print $1}') || exit 0
-      attach_or_switch "$pick"
+      pick=$(echo "$lines" | fzf \
+        --prompt="agent> " \
+        --header="enter: attach | ctrl-o: open PR | ctrl-p: copy plan" \
+        --preview='~/tools/ag-preview {1}' \
+        --preview-window=right:50% \
+        --bind="ctrl-o:execute-silent(~/tools/ag-preview {1} | grep -o 'https://[^ ]*' | head -1 | xargs open 2>/dev/null)" \
+        --bind="ctrl-p:execute-silent(~/tools/ag-preview {1} | grep '^plan: ' | sed 's/^plan: //' | tr -d '\n' | pbcopy 2>/dev/null)" \
+        | awk '{print $1}') || exit 0
+
+      # resolve: if it's an ag slug, convert back to session name
+      if tmux has-session -t "$pick" 2>/dev/null; then
+        attach_or_switch "$pick"
+      else
+        # find ag session matching this slug
+        match=$(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep -F -- "-${pick}" | head -1 || true)
+        if [[ -n "$match" ]]; then
+          attach_or_switch "$match"
+        else
+          echo "no session matching '$pick'" >&2
+          exit 1
+        fi
+      fi
     else
-      echo "$sessions"
+      echo "$lines"
     fi
     ;;
   *)
@@ -265,6 +557,7 @@ case "${1:-}" in
         --gemini) cmd="gemini"; shift ;;
         --claude) cmd="claude"; shift ;;
         --codex)  cmd="codex"; shift ;;
+        --no-input) no_input=true; shift ;;
         -m)       [[ -z "${2:-}" ]] && { echo "usage: ag <name> -m MSG" >&2; exit 1; }
                   prompt="$2"; shift 2 ;;
         *)        echo "unknown flag: $1" >&2; exit 1 ;;
@@ -274,14 +567,17 @@ case "${1:-}" in
     command -v "$cmd" >/dev/null 2>&1 || { echo "$cmd not found on PATH" >&2; exit 1; }
 
     auto_confirm=false
-    [[ -n "$prompt" ]] && auto_confirm=true
+    [[ -n "$prompt" || "$no_input" == true ]] && auto_confirm=true
     worktree=$(resolve_worktree "$name" "$auto_confirm") || exit 1
     local_repo=$(repo_name)
     session="ag-${local_repo}-${name}"
 
     # if session exists, just attach
     if tmux has-session -t "$session" 2>/dev/null; then
-      echo "attaching to existing session: $session"
+      echo "attaching to $name"
+      echo "  ag             switch to another session"
+      echo "  ag status      see all agents"
+      echo "  C-a d          detach back to terminal"
       attach_or_switch "$session"
       exit 0
     fi
@@ -304,13 +600,22 @@ case "${1:-}" in
       exit 1
     fi
     if [[ -n "$prompt" ]]; then
+      # plan discovery: check for matching plan.md by agent name
+      plan_file="$HOME/.agents/docs/$name/plan.md"
+      if [[ -f "$plan_file" ]]; then
+        prompt="Context: plan at $plan_file — $prompt"
+        echo "  plan: $plan_file" >&2
+      fi
       # positional arg = first message in interactive session (not -p pipe mode)
       tmux send-keys -t "$session" "$cmd $(printf '%q' "$prompt")" Enter
+      # background launch: print guided output, don't attach
+      echo "launched $name (branch: $name)"
+      echo "  ag $name       attach to session"
+      echo "  ag status      see all agents"
+      echo "  ag             pick from list"
     else
       tmux send-keys -t "$session" "$cmd" Enter
+      attach_or_switch "$session"
     fi
-
-    # attach
-    attach_or_switch "$session"
     ;;
 esac
