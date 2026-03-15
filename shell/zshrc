@@ -156,6 +156,7 @@ export AGENT_PLANNER="claude"
 export AGENT_REVIEWER="codex"
 
 # ─── Claude ───────────────────────────────────────────────────
+export CLAUDE_CODE_EFFORT_LEVEL=max
 # Plan (read-only research, probes design)
 alias ccplan="claude --permission-mode plan"
 alias ccplanc="claude -c --permission-mode plan"
