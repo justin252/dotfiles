@@ -7,6 +7,7 @@ Self-contained workflow -- execute steps fully, don't inject extra confirmation 
 
 ## Steps
 
+0. **Branch guard**: if `git branch --show-current` is main or master, abort: "create a feature branch first – all changes to main require a PR"
 1. **Assess scope**: `git diff --stat` to understand what changed
 2. **Build + test**: scope to affected targets. Skip if:
    - Docs-only change (no source files modified)
