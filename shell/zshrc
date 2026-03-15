@@ -220,6 +220,17 @@ function reset-dot {
 alias dotw="cd ~/dotfiles-work"
 
 # ─── Git Worktrees ───────────────────────────────────────────
+_wt_main_root() {
+  local toplevel common
+  toplevel=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
+  common=$(git rev-parse --git-common-dir 2>/dev/null)
+  if [[ "$common" != ".git" && "$common" != "$(git rev-parse --git-dir 2>/dev/null)" ]]; then
+    (cd "$(dirname "$common")" && pwd)
+  else
+    echo "$toplevel"
+  fi
+}
+
 wt() {
   case "${1:-}" in
     -h|--help)
@@ -232,7 +243,15 @@ wt() {
       return ;;
     -d)
       [[ -z "${2:-}" ]] && { echo "usage: wt -d <name>" >&2; return 1; }
-      local repo; repo=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)")
+      local repo wt_path
+      repo=$(basename "$(_wt_main_root 2>/dev/null)")
+      wt_path="$(_wt_main_root)/../${repo}-wt-${2}"
+      if [[ -d "$wt_path" ]] && [[ -n "$(git -C "$wt_path" status --porcelain 2>/dev/null)" ]]; then
+        echo "warning: worktree '$2' has uncommitted changes" >&2
+        [[ -t 0 ]] || { echo "use --force or run interactively" >&2; return 1; }
+        read -r "reply?remove anyway? [y/N] "
+        [[ ! "$reply" =~ ^[Yy] ]] && return 1
+      fi
       tmux kill-session -t "ag-${repo}-${2}" 2>/dev/null
       git worktree remove "$2" && echo "removed worktree '$2'"
       return ;;
@@ -255,13 +274,17 @@ wt() {
       return ;;
     *)
       local root base dest default_branch
-      root=$(git rev-parse --show-toplevel) || return 1
+      root=$(_wt_main_root) || return 1
       base=$(basename "$root")
       dest="${root}/../${base}-wt-${1}"
       default_branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||')
-      [[ -z "$default_branch" ]] && default_branch="main"
-      git fetch origin "$default_branch" --quiet
-      git worktree add "$dest" -b "wt/$1" "origin/$default_branch" && cd "$dest"
+      if [[ -z "$default_branch" ]]; then
+        default_branch="main"
+        echo "warning: origin/HEAD not set, assuming '$default_branch'" >&2
+      fi
+      git fetch origin "$default_branch" --quiet 2>&1 || { echo "error: git fetch failed" >&2; return 1; }
+      git worktree add "$dest" -b "wt/$1" "origin/$default_branch" || return 1
+      cd "$dest"
       echo "worktree '$1' at $dest (from origin/$default_branch)"
       echo "  ag $1              # launch autonomous agent (preferred)"
       echo "  ag $1 -i           # launch interactive agent" ;;
