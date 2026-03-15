@@ -184,6 +184,7 @@ openplan() {
 # ─── Shell ────────────────────────────────────────────────────
 alias dot="cd ~/dotfiles"
 alias docs="cd ~/.agents/docs"
+alias pen="cd ~/code/penny"
 tools() { cd "${TOOLS_PATH:-$HOME/tools}"; }
 alias sz="source ~/.zshrc"
 unalias pull-dot 2>/dev/null

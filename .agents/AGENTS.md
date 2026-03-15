@@ -13,7 +13,7 @@
 - No adding comments/docstrings to untouched code.
 - If a README exists and changes affect it, update it automatically.
 - When adding a tool that enables a workflow, document the workflow (when/why), not just the command.
-- After renames/refactors, grep for old name to catch stale references. Before broad find-replace, verify all match sites – short tokens hit unintended locations.
+- After renames/refactors, grep the entire repo for old name to catch stale references (including docs, help text, inline strings – not just code). Before broad find-replace, verify all match sites – short tokens hit unintended locations.
 - After merging/deduplicating lists, verify each exact item – don't summarize as families or wildcards.
 - Before proposing new tools/aliases, grep existing config to avoid duplicating what's already there.
 - Verify platform capabilities before designing around them – don't assume features exist at system boundaries.
@@ -22,7 +22,7 @@
 - Flag performance when it matters – hot paths, large datasets, repeated calls. Don't optimize prematurely.
 - Shell startup (.zshrc, etc.): never source commands that hit the network. Auth/token refreshes → on-demand or lazy.
 - Go: default to unexported (lowercase). Only export when cross-package usage is confirmed.
-- CLI tools: when building or improving a CLI, consult `.agents/references/cli-guidelines.md` (distilled from https://clig.dev/). Key defaults: flags over positional args, `--json`/`--quiet`/`--no-color`, stderr for messages, TTY detection, confirm before destructive ops, exit 0/non-zero.
+- CLI tools: when building or improving a CLI, MUST read `.agents/references/cli-guidelines.md` before writing code (distilled from https://clig.dev/). Key defaults: flags over positional args, `--json`/`--quiet`/`--no-color`, stderr for messages, TTY detection, confirm before destructive ops, exit 0/non-zero.
 
 ## Agent
 
@@ -42,6 +42,7 @@
 - When source-of-truth artifacts change significantly, rebuild downstream from the new truth. Don't patch old artifacts around updated ones.
 - Before entering plan mode on a branch with uncommitted changes, check `git diff --stat` – the plan may already be implemented.
 - Before adding files/config to a codebase path, verify the path is stable – check for pending migrations or renames that would move the target.
+- In worktrees: verify edit target matches the worktree. `ag` worktree sessions should edit within the worktree, not the main repo checkout.
 - Multi-file tasks (3+ files, distinct context per step): delegate each logical step to a Task subagent with focused context. Inline is fine for <3 files or heavily shared context.
 - Test-only subagent runs: explicitly say "Do NOT modify any source files." Build-fix agents will otherwise revert your changes to satisfy the compiler.
 - Permission denial in autonomous mode: don't retry the same operation. Identify what was blocked, explain what permission it needs, and offer the manual command or suggest user run it interactively. Continue with remaining work that doesn't require the blocked permission.
@@ -86,8 +87,9 @@ Stacked PRs use Graphite (`gt`), not raw git:
 
 **Retroactive (at checkpoint):** If changes are already mixed, attempt to untangle. If too intertwined, ship as one PR and flag it.
 
-Stack order: foundational changes first. Dependent features stack on top. Each PR targets the branch below it (or main for first).
+Stack order: foundational changes first. Renames/refactors go in the first PR – never mid-stack (causes conflict cascades on every downstream branch). Dependent features stack on top. Each PR targets the branch below it (or main for first).
 Each stacked PR must be independently correct at its point in the stack – if a fix belongs in an earlier PR, amend there and restack rather than patching at the tip.
+Rebasing stacked PRs: rebase each branch onto its parent PR branch, not main, until the parent merges. Use `git rebase --onto <target> <old-base>` to isolate just the branch's own commits.
 
 ### Retro
 Auto-trigger – don't wait to be asked:
