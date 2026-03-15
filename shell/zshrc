@@ -231,6 +231,30 @@ _wt_main_root() {
   fi
 }
 
+# Kill any tmux sessions whose working directory is inside a path (layer-agnostic)
+_wt_kill_sessions_in() {
+  local target="$1" sess sess_path
+  while read -r sess; do
+    sess_path=$(tmux display-message -t "$sess" -p '#{pane_current_path}' 2>/dev/null) || continue
+    [[ "$sess_path" == "$target"* ]] && tmux kill-session -t "$sess" 2>/dev/null
+  done < <(tmux list-sessions -F '#{session_name}' 2>/dev/null)
+}
+
+# Remove a worktree by path, killing sessions and cleaning up the branch
+_wt_remove() {
+  local wt_path="$1" root="${2:-}"
+  _wt_kill_sessions_in "$wt_path"
+  local branch
+  branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null) || true
+  if git worktree remove "$wt_path" --force 2>/dev/null; then
+    [[ -n "$branch" && "$branch" != "HEAD" && -n "$root" ]] && git -C "$root" branch -d "$branch" 2>/dev/null || true
+    echo "  removed $(basename "$wt_path")"
+  else
+    echo "  failed: $(basename "$wt_path")" >&2
+    return 1
+  fi
+}
+
 wt() {
   case "${1:-}" in
     -h|--help)
@@ -240,22 +264,26 @@ wt() {
       echo "  wt <PR-URL>        go to PR branch from URL"
       echo "  wt                 fzf picker – switch between worktrees"
       echo "  wt list            show all worktrees (plain text)"
-      echo "  wt -d <name>       delete worktree (kills ag session if running)"
-      echo "  wt clean           remove merged/orphan worktrees"
+      echo "  wt -d <name>       delete worktree"
+      echo "  wt clean           remove worktrees with merged PRs"
+      echo "  wt clean --all     delete ALL non-main worktrees"
       return ;;
     -d)
       [[ -z "${2:-}" ]] && { echo "usage: wt -d <name>" >&2; return 1; }
-      local repo wt_path
-      repo=$(basename "$(_wt_main_root 2>/dev/null)")
-      wt_path="$(_wt_main_root)/../${repo}-wt-${2}"
-      if [[ -d "$wt_path" ]] && [[ -n "$(git -C "$wt_path" status --porcelain 2>/dev/null)" ]]; then
+      local root repo wt_path
+      root=$(_wt_main_root 2>/dev/null) || { echo "error: not in a git repo" >&2; return 1; }
+      repo=$(basename "$root")
+      wt_path="${root}/../${repo}-wt-${2}"
+      if [[ ! -d "$wt_path" ]]; then
+        echo "error: no worktree '$2'" >&2; return 1
+      fi
+      if [[ -n "$(git -C "$wt_path" status --porcelain 2>/dev/null)" ]]; then
         echo "warning: worktree '$2' has uncommitted changes" >&2
         [[ -t 0 ]] || { echo "use --force or run interactively" >&2; return 1; }
         read -r "reply?remove anyway? [y/N] "
         [[ ! "$reply" =~ ^[Yy] ]] && return 1
       fi
-      tmux kill-session -t "ag-${repo}-${2}" 2>/dev/null
-      git worktree remove "$wt_path" 2>/dev/null && echo "removed worktree '$2'" || echo "error: could not remove '$2'" >&2
+      _wt_remove "$wt_path" "$root"
       return ;;
     "")
       local trees
@@ -272,7 +300,57 @@ wt() {
       git worktree list 2>/dev/null || echo "not in a git repo" >&2
       return ;;
     clean)
-      ag clean
+      local root force_flag=false clean_all=false
+      root=$(_wt_main_root 2>/dev/null) || { echo "error: not in a git repo" >&2; return 1; }
+      shift
+      for arg in "$@"; do
+        case "$arg" in
+          --all) clean_all=true ;;
+          --force|-f) force_flag=true ;;
+        esac
+      done
+      local wt_paths=()
+      while read -r wt_path; do
+        [[ "$wt_path" == "$root" ]] && continue
+        wt_paths+=("$wt_path")
+      done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
+      if [[ ${#wt_paths[@]} -eq 0 ]]; then
+        echo "no worktrees to clean"
+        return 0
+      fi
+      local to_remove=() branch merged
+      if [[ "$clean_all" == true ]]; then
+        to_remove=("${wt_paths[@]}")
+      else
+        # select worktrees whose PR is merged
+        echo "checking worktrees..."
+        for wt_path in "${wt_paths[@]}"; do
+          branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null) || continue
+          [[ -z "$branch" || "$branch" == "HEAD" ]] && continue
+          merged=$(gh pr list --head "$branch" --state merged --no-interactive --json number --jq '.[0].number // empty' 2>/dev/null || true)
+          if [[ -n "$merged" ]]; then
+            echo "  $(basename "$wt_path") ($branch) – PR #$merged merged"
+            to_remove+=("$wt_path")
+          fi
+        done
+      fi
+      if [[ ${#to_remove[@]} -eq 0 ]]; then
+        echo "nothing to clean"
+        return 0
+      fi
+      if [[ "$clean_all" == true ]]; then
+        echo "will remove ${#to_remove[@]} worktree(s):"
+        for p in "${to_remove[@]}"; do echo "  $(basename "$p")"; done
+      fi
+      if [[ "$force_flag" != true ]]; then
+        [[ -t 0 ]] || { echo "use --force or run interactively" >&2; return 1; }
+        read -r "reply?remove ${#to_remove[@]} worktree(s)? [y/N] "
+        [[ ! "$reply" =~ ^[Yy] ]] && return 0
+      fi
+      for wt_path in "${to_remove[@]}"; do
+        _wt_remove "$wt_path" "$root"
+      done
+      git worktree prune 2>/dev/null
       return ;;
     *)
       local dest

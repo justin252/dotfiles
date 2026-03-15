@@ -23,6 +23,7 @@ ag - agent session manager
   ag status                 cross-repo unified view
   ag kill <name>            kill session
   ag clean                  dead sessions + merged worktrees
+  ag clean --all            kill all sessions + remove all worktrees + state
   ag clean --no-input       same, skip confirmation (also: --force)
   AG_NO_INPUT=1 ag ...      skip all prompts (for scripts/orchestrator)
 EOF
@@ -278,6 +279,7 @@ case "${1:-}" in
     ;;
   clean)
     force=false
+    clean_all=false
     [[ "$no_input" == true ]] && force=true
     for arg in "${@:2}"; do
       case "$arg" in
@@ -285,12 +287,64 @@ case "${1:-}" in
           echo "ag clean – comprehensive cleanup of agent resources"
           echo "  kills dead sessions, removes merged worktrees,"
           echo "  finds orphan worktrees/sessions, cleans state files"
+          echo "  --all               nuclear: kill all sessions + worktrees + state"
           echo "  --force/--no-input  skip confirmation prompts"
           exit 0 ;;
+        --all) clean_all=true ;;
         --force|-f|--no-input) force=true ;;
       esac
     done
 
+    if [[ "$clean_all" == true ]]; then
+      # nuclear: kill all ag sessions, remove all worktrees, clean all state
+      ag_sessions=$(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^ag-' || true)
+      sess_count=0
+      [[ -n "$ag_sessions" ]] && sess_count=$(echo "$ag_sessions" | wc -l | tr -d ' ')
+      state_count=0
+      if [[ -d "$HOME/.agents/state" ]]; then
+        state_count=$(find "$HOME/.agents/state" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
+      fi
+      echo "ag clean --all:"
+      echo "  $sess_count ag session(s)"
+      echo "  state dirs: $state_count"
+      # show worktree count (delegate to wt for the actual list)
+      if [[ "$force" != true ]]; then
+        [[ -t 0 ]] || { echo "use --force or run interactively" >&2; exit 1; }
+        read -r -p "remove everything? [y/N] " reply
+        [[ ! "$reply" =~ ^[Yy] ]] && exit 0
+      fi
+      # 1. kill all ag sessions
+      if [[ -n "$ag_sessions" ]]; then
+        while read -r sess; do
+          tmux kill-session -t "$sess" 2>/dev/null
+          echo "  killed $sess"
+        done <<< "$ag_sessions"
+      fi
+      # 2. remove all worktrees (delegate to wt clean --all --force)
+      # wt is a shell function; source the zshrc approach via inline logic
+      if main_repo_root &>/dev/null; then
+        root=$(main_repo_root)
+        while read -r wt_path; do
+          [[ "$wt_path" == "$root" ]] && continue
+          branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null) || true
+          if git worktree remove "$wt_path" --force 2>/dev/null; then
+            [[ -n "$branch" && "$branch" != "HEAD" ]] && git -C "$root" branch -d "$branch" 2>/dev/null || true
+            echo "  removed $(basename "$wt_path")"
+          else
+            echo "  failed: $(basename "$wt_path")" >&2
+          fi
+        done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
+        git worktree prune 2>/dev/null
+      fi
+      # 3. clean all state files
+      if [[ -d "$HOME/.agents/state" ]]; then
+        rm -rf "$HOME/.agents/state"/*/
+        echo "  cleaned state files"
+      fi
+      exit 0
+    fi
+
+    # standard cleanup: categorized
     to_remove=()
 
     # 1. dead sessions (agent exited, sitting at shell prompt)
@@ -360,7 +414,6 @@ case "${1:-}" in
       while read -r wt_path; do
         [[ "$wt_path" == "$root" ]] && continue
         wt_name=$(basename "$wt_path")
-        # extract slug from worktree name: <repo>-wt-<slug>
         wt_slug="${wt_name#*-wt-}"
         expected_sess="ag-${repo}-${wt_slug}"
         if ! tmux has-session -t "$expected_sess" 2>/dev/null; then
@@ -384,7 +437,6 @@ case "${1:-}" in
           if ! tmux has-session -t "$expected_sess" 2>/dev/null; then
             echo "  $state_name"
             found_stale=true
-            # auto-remove state files (low risk, regenerated)
             rm -rf "$state_dir"
           fi
         done
@@ -407,11 +459,9 @@ case "${1:-}" in
             wt_name=$(basename "$wt_path")
             wt_slug="${wt_name#*-wt-}"
             sess_name="ag-${repo}-${wt_slug}"
-            # get actual branch name before killing session (tmux env has it)
             branch=$(_ag_branch "$sess_name" "$wt_path")
             tmux kill-session -t "$sess_name" 2>/dev/null
             if git worktree remove "$wt_path" --force 2>/dev/null; then
-              # clean up the branch using actual name (not slug)
               if [[ -n "$branch" && "$branch" != "HEAD" ]]; then
                 git -C "$root" branch -d "$branch" 2>/dev/null || true
               fi
