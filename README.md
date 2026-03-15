@@ -75,7 +75,7 @@ tools/ag-preview             # fzf preview for ag picker (PR info, plan/review p
 tools/wt-resolve             # Worktree resolver: branch/PR# → worktree path (find existing or create)
 tools/ag-status-line         # tmux status bar: agent state indicators (polled every 5s)
 tools/artifacts              # Unified artifact browser: ~/.agents/artifacts/ (frontmatter-aware, typed actions)
-tools/review-output          # Create/update output.md and run agent review ($AGENT_REVIEWER)
+tools/review                 # Codex code review: review [PR] --json (async, writes review.md)
 tools/sync-codex-config      # Set Codex CLI autonomy defaults (workspace-write + never ask)
 tools/reset-dot              # Rebuild dotfiles-managed symlinks/copies/config scaffolding
 tools/rebase-wip             # Stash current work, fetch/rebase, then restore work
@@ -108,7 +108,7 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `refresh-skills` – rebuild `~/.agents/skills` from dotfiles sources, then re-sync Claude symlinks, re-copy Cursor skills, and generate Gemini slash commands with real SKILL.md descriptions (run after editing skills, or via `pull-dot`)
 - `sync-codex-config` – sync top-level Codex autonomy defaults without replacing auth, trust, or profile-specific settings
 - `reset-dot` – rebuild the managed dotfiles layer after migrations or drift while preserving local-only state; leaves a real `~/tools` directory alone
-- `review-output` – create/update `output.md` and run agent review into `review.md` for the current topic. Respects `$AGENT_REVIEWER` (codex only for now). Use `--background` for checkpoint-style async review
+- `review` – Codex code review for any PR or branch. `review` auto-detects current branch's PR, `review 123` targets a specific PR, falls back to branch diff against main. Always async; writes `review.md` to auto-discovered topic dir (`~/.agents/artifacts/<branch>/`), notifies on completion. `--json` for machine output, `--topic` to override auto-discovery.
 - `rebase-wip` – stash local edits, fetch/rebase onto the target branch, then reapply the stash. Useful when dotfiles change mid-task
 - `artifacts` (`a`) – unified artifact browser: `~/.agents/artifacts/` with frontmatter-aware picker. Actions: edit, view, execute, propose, review, claude, gemini, plan, cursor. `artifacts <query>` pre-filters.
 - `sesh` – session notes browser: `~/.agents/sessions/` (curated .md summaries for context handoff). `sesh <query>` pre-filters.

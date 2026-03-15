@@ -1,0 +1,249 @@
+#!/usr/bin/env bash
+# review – run Codex review on a PR or branch. Always async.
+set -euo pipefail
+
+ARTIFACTS_ROOT="${ARTIFACTS_ROOT:-$HOME/.agents/artifacts}"
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+SCRIPT_DIR="$(cd -P "$(dirname "$SCRIPT_PATH")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+MODEL_INSTRUCTIONS="$REPO_ROOT/.codex/review-instructions.md"
+
+usage() {
+  cat <<'EOF'
+review – Codex code review for any PR or branch
+
+Usage:
+  review [PR]          PR number, URL, or omit to auto-detect
+  review --json        machine output to stdout
+  review -h
+
+Examples:
+  review               review current branch (PR or diff against main)
+  review 123           review PR #123
+  review --json        structured output for scripts
+EOF
+}
+
+pr_arg=""
+topic_override=""
+json_output=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)   usage; exit 0 ;;
+    --json)      json_output=true; shift ;;
+    --topic)     topic_override="${2:-}"; [[ -n "$topic_override" ]] || { echo "missing value for --topic" >&2; exit 1; }; shift 2 ;;
+    -*)          echo "unknown flag: $1" >&2; usage >&2; exit 1 ;;
+    *)           [[ -z "$pr_arg" ]] || { echo "unexpected arg: $1" >&2; exit 1; }; pr_arg="$1"; shift ;;
+  esac
+done
+
+# --- prerequisites ---
+
+reviewer="${AGENT_REVIEWER:-codex}"
+if [[ "$reviewer" != "codex" ]]; then
+  echo "unsupported AGENT_REVIEWER: $reviewer (only codex)" >&2; exit 1
+fi
+command -v codex >/dev/null 2>&1 || { echo "codex not found on PATH" >&2; exit 1; }
+[[ -f "$MODEL_INSTRUCTIONS" ]] || { echo "missing: $MODEL_INSTRUCTIONS" >&2; exit 1; }
+
+# --- resolve repo ---
+
+target_repo=""
+if git rev-parse --show-toplevel >/dev/null 2>&1; then
+  target_repo="$(git rev-parse --show-toplevel)"
+fi
+[[ -n "$target_repo" ]] || { echo "not in a git repo" >&2; exit 1; }
+repo_name="$(basename "$target_repo")"
+
+# --- resolve PR / branch / base ---
+
+branch=""
+base_branch=""
+pr_url=""
+pr_number=""
+pr_title=""
+
+resolve_pr() {
+  local pr_json
+  pr_json=$(cd "$target_repo" && gh pr view "$1" --json number,title,url,headRefName,baseRefName 2>/dev/null) || return 1
+  pr_number=$(echo "$pr_json" | jq -r '.number')
+  pr_title=$(echo "$pr_json" | jq -r '.title')
+  pr_url=$(echo "$pr_json" | jq -r '.url')
+  branch=$(echo "$pr_json" | jq -r '.headRefName')
+  base_branch=$(echo "$pr_json" | jq -r '.baseRefName')
+}
+
+if [[ -n "$pr_arg" ]]; then
+  # explicit PR number or URL
+  resolve_pr "$pr_arg" || { echo "could not resolve PR: $pr_arg" >&2; exit 1; }
+  echo "reviewing PR #$pr_number: $pr_title" >&2
+else
+  # try current branch's PR
+  branch=$(git -C "$target_repo" branch --show-current 2>/dev/null || true)
+  if [[ -n "$branch" ]] && resolve_pr "$branch" 2>/dev/null; then
+    echo "reviewing PR #$pr_number: $pr_title" >&2
+  elif [[ -n "$branch" && "$branch" != "main" && "$branch" != "master" ]]; then
+    # no PR, but on a feature branch – diff against main
+    base_branch=$(git -C "$target_repo" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||' || true)
+    [[ -n "$base_branch" ]] || base_branch="main"
+    echo "reviewing branch $branch (diff against $base_branch)" >&2
+  else
+    echo "nothing to review: on main with no PR" >&2
+    echo "  review <PR>    review a specific PR" >&2
+    echo "  switch to a feature branch and retry" >&2
+    exit 1
+  fi
+fi
+
+[[ -n "$base_branch" ]] || base_branch="main"
+echo "  branch: $branch" >&2
+echo "  base: $base_branch" >&2
+
+# --- resolve topic ---
+
+resolve_topic() {
+  local slug="$1"
+  if [[ -d "$ARTIFACTS_ROOT/$slug" ]]; then
+    echo "$ARTIFACTS_ROOT/$slug"
+  else
+    return 1
+  fi
+}
+
+topic_dir=""
+if [[ -n "$topic_override" ]]; then
+  if [[ -d "$topic_override" ]]; then
+    topic_dir="$(cd "$topic_override" && pwd)"
+  elif [[ -d "$ARTIFACTS_ROOT/$topic_override" ]]; then
+    topic_dir="$ARTIFACTS_ROOT/$topic_override"
+  else
+    echo "topic not found: $topic_override" >&2; exit 1
+  fi
+else
+  # auto-discover: strip type prefix (feat/foo → foo) and try as topic slug
+  topic_slug="${branch##*/}"  # feat/review-cli → review-cli
+  topic_dir=$(resolve_topic "$topic_slug" 2>/dev/null) || true
+  # also try full branch name (for branches without type prefix)
+  if [[ -z "$topic_dir" ]]; then
+    topic_dir=$(resolve_topic "$branch" 2>/dev/null) || true
+  fi
+fi
+
+# auto-create topic dir if none found
+if [[ -z "$topic_dir" ]]; then
+  topic_dir="$ARTIFACTS_ROOT/$topic_slug"
+  mkdir -p "$topic_dir"
+  echo "  topic: $topic_dir (created)" >&2
+else
+  echo "  topic: $topic_dir" >&2
+fi
+
+topic="$(basename "$topic_dir")"
+output_path="$topic_dir/output.md"
+review_path="$topic_dir/review.md"
+log_path="$topic_dir/review-run.log"
+
+# --- scaffold output.md ---
+
+today="$(date +%F)"
+plan_path="$topic_dir/plan.md"
+plan_ref=""; [[ -f "$plan_path" ]] && plan_ref="$plan_path"
+
+if [[ ! -f "$output_path" ]]; then
+  cat >"$output_path" <<EOF
+---
+topic: $topic
+repo: $repo_name
+status: active
+created: $today
+updated: $today
+chain: plan.md → **output.md**
+---
+# Output: ${pr_title:-$topic}
+
+## Links
+- Plan: ${plan_ref:-pending}
+- Branch: $branch
+- PR: ${pr_url:-pending}
+- Review: $review_path
+EOF
+fi
+
+# --- build prompt ---
+
+existing_review=""
+[[ -f "$review_path" ]] && existing_review="$(cat "$review_path")"
+
+prompt_file="$(mktemp)"
+
+cat >"$prompt_file" <<EOF
+Review the code changes for "$topic".
+
+Context:
+- Repo: $repo_name ($target_repo)
+- Branch: $branch
+- Base: $base_branch
+- PR: ${pr_url:-none}
+- Plan: ${plan_ref:-none}
+
+Instructions:
+- Review the repository diff against "$base_branch".
+- Use the plan artifact (if present) to understand intent.
+- Return the full review artifact in the exact markdown shape from the model instructions file.
+- Preserve useful existing resolution history when appropriate.
+
+Existing review artifact:
+$existing_review
+EOF
+
+# --- run codex async ---
+
+echo "  review: $review_path" >&2
+echo "  log: $log_path" >&2
+
+(
+  codex_out="$(mktemp)"
+  trap 'rm -f "$codex_out" "$prompt_file"' EXIT
+
+  codex -C "$target_repo" exec review \
+    --base "$base_branch" \
+    -c "model_reasoning_effort=\"high\"" \
+    -c "model_instructions_file=\"$MODEL_INSTRUCTIONS\"" \
+    -o "$codex_out" \
+    - <"$prompt_file"
+
+  if [[ -s "$codex_out" ]]; then
+    mv "$codex_out" "$review_path"
+    echo "review complete: $review_path" >&2
+  else
+    echo "codex produced no output" >&2
+  fi
+
+  # notify
+  tput bel 2>/dev/null || true
+  tmux display-message "review done: $topic" 2>/dev/null || true
+  if command -v terminal-notifier >/dev/null 2>&1; then
+    terminal-notifier \
+      -title "review: $topic" \
+      -message "Review complete" \
+      -activate com.googlecode.iterm2 \
+      -sound default 2>/dev/null || true
+  fi
+) >"$log_path" 2>&1 &
+
+echo "review started (pid $!)" >&2
+
+# --- json output ---
+
+if [[ "$json_output" == true ]]; then
+  jq -n \
+    --arg topic_dir "$topic_dir" \
+    --arg review_path "$review_path" \
+    --arg output_path "$output_path" \
+    --arg pr_url "${pr_url:-}" \
+    --arg branch "$branch" \
+    --arg base "$base_branch" \
+    --arg log_path "$log_path" \
+    '{topic_dir:$topic_dir, review_path:$review_path, output_path:$output_path, pr_url:$pr_url, branch:$branch, base:$base, log_path:$log_path}'
+fi

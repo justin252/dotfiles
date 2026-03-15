@@ -175,8 +175,8 @@ ag auth-fix -m "/execute from ~/.agents/artifacts/auth/plan.md"
 ### Review the current output
 
 ```bash
-review-output ~/.agents/artifacts/auth
-# or from artifacts:
+review                                  # auto-detect PR or branch diff
+review 123                              # review specific PR
 artifacts                               # pick output/review → review action
 ```
 

@@ -164,20 +164,7 @@ case "$action" in
       cd "$topic_dir" && claude "/propose $topic"
     fi ;;
   review)
-    repo_arg=()
-    if git rev-parse --show-toplevel >/dev/null 2>&1; then
-      repo_arg=(--repo "$(git rev-parse --show-toplevel)")
-    fi
-    if [[ "$doc_type" == "output" || "$doc_type" == "review" ]]; then
-      slug="$(basename "$full" .md)"
-      if [[ "$slug" == "output" || "$slug" == "review" ]]; then
-        review-output "$topic_dir" "${repo_arg[@]}"
-      else
-        review-output "$topic_dir" "${repo_arg[@]}" --output "$slug"
-      fi
-    else
-      review-output "$topic_dir" "${repo_arg[@]}"
-    fi ;;
+    review --topic "$topic_dir" ;;
   claude)
     if [[ -d "$topic_dir" && "$topic_dir" != "$ARTIFACTS_ROOT" ]]; then
       echo "Launching Claude Code: $topic"

@@ -32,7 +32,7 @@ Self-contained workflow -- execute steps fully, don't inject extra confirmation 
    ```
 
 8. **Win check**: does this session clear the promo-packet bar? Categories: cross-team unblock, DX improvement, arch decision, measurable perf win, reliability/incident. If yes, draft entry, confirm, log to `~/.agents/wins.md`
-9. **Async review**: if the topic has `output.md` or a current output entry in `plan.md`, launch `review-output <topic>` in the background after push/PR. Surface the log path and review artifact path; do not block on completion in v1.
+9. **Async review**: if the topic has `output.md` or a current output entry in `plan.md`, launch `review --topic <topic>` after push/PR. Surface the log path and review artifact path.
 10. **Retro**: run /retro (mandatory epilogue, not a confirmation gate – always execute)
 
 **`checkpoint amend`** = amend last commit + force push + update PR body + async review handoff + retro.
