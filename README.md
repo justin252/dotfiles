@@ -68,9 +68,10 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 .claude/agents/              # CC subagent definitions (executor, researcher)
 .claude/settings.json        # Claude Code permissions (dontAsk allow list)
 shell/zshrc                  # Universal shell config (aliases, functions, env)
-shell/tmux.conf              # tmux config (C-a prefix, vim nav, cross-platform clipboard)
+shell/tmux.conf              # tmux config (C-a prefix, vim nav, agent status bar)
 tools/                       # CLI scripts on PATH (symlinked to ~/tools)
-tools/ag                     # Agent session manager (tmux-backed: launch, list, attach, kill)
+tools/ag                     # Agent session manager (tmux-backed: launch, status, kill, clean)
+tools/ag-status-line         # tmux status bar: agent state indicators (polled every 5s)
 tools/doc                    # Unified doc browser: ~/.agents/docs/ (frontmatter-aware, typed actions)
 tools/review-output          # Create/update output.md and run agent review ($AGENT_REVIEWER)
 tools/sync-codex-config      # Set Codex CLI autonomy defaults (workspace-write + never ask)
@@ -99,8 +100,8 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `~/.config/karabiner/karabiner.json` is copied from this repo (Karabiner breaks symlinks)
 - `pull-dot` pulls, refreshes shared skills + Codex defaults, and re-sources zshrc
 - `reset-dot` repairs dotfiles-managed state and re-sources zshrc
-- `sz` re-sources zshrc after edits
-- `ag` – agent session manager: one command for parallel agent work. `ag <name>` auto-creates worktree + launches agent (defaults to Claude; use `--gemini` or `--codex` to switch). `ag -m MSG` with initial task. `ag` fzf dashboard across all repos. `ag status` cross-repo unified view. `ag --cursor` for cursor + agent. `ag clean` sweeps dead sessions + merged worktrees.
+- `sz` re-sources zshrc + tmux.conf after edits
+- `ag` – agent session manager: one command for parallel agent work. `ag <name>` auto-creates worktree + launches agent (defaults to Claude; use `--gemini` or `--codex` to switch). `ag <name> -m MSG` launches in background with guided output (doesn't attach). `ag` fzf dashboard across all repos. `ag status` cross-repo unified view (`--json` for scripts). `ag kill <name>` kill session. `ag --cursor` for cursor + agent. `ag clean` sweeps dead sessions + merged worktrees (`--force`/`--no-input` skips prompt). `AG_NO_INPUT=1` for scripting. Name = branch = status bar label everywhere.
 - `wt` – git worktree plumbing (create/list/switch/delete). Mostly used through `ag`; direct use for worktree-only ops.
 - `refresh-skills` – rebuild `~/.agents/skills` from dotfiles sources, then re-sync Claude symlinks, re-copy Cursor skills, and generate Gemini slash commands with real SKILL.md descriptions (run after editing skills, or via `pull-dot`)
 - `sync-codex-config` – sync top-level Codex autonomy defaults without replacing auth, trust, or profile-specific settings
