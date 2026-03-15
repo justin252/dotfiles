@@ -215,9 +215,10 @@ echo "  log: $log_path" >&2
 
   if [[ -s "$codex_out" ]]; then
     mv "$codex_out" "$review_path"
-    echo "review complete: $review_path" >&2
+    echo "review complete: $review_path"
   else
-    echo "codex produced no output" >&2
+    echo "codex produced no output"
+    exit 1
   fi
 
   # notify
