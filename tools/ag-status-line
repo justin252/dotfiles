@@ -10,10 +10,11 @@ active_count=0
 idle_parts=""
 
 while read -r sess; do
-  # extract slug: ag-<repo>-<slug> → slug
-  # strip "ag-" prefix, then strip "<repo>-" prefix
-  tmp="${sess#ag-}"
-  slug="${tmp#*-}"
+  # extract slug from tmux env (reliable), fallback to name parsing
+  slug=$(tmux show-environment -t "$sess" AG_SLUG 2>/dev/null | sed 's/^AG_SLUG=//') || true
+  if [[ -z "$slug" ]]; then
+    tmp="${sess#ag-}"; slug="${tmp#*-}"
+  fi
 
   pane_cmd=$(tmux display-message -t "$sess" -p '#{pane_current_command}' 2>/dev/null || echo "")
   if [[ "$pane_cmd" == "zsh" || "$pane_cmd" == "bash" || -z "$pane_cmd" ]]; then
