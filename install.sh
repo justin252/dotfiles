@@ -70,6 +70,9 @@ done
 # Shared source of truth
 ln -sfn "$DOTFILES/.agents/references" ~/.agents/references
 ln -sf "$DOTFILES/.agents/AGENTS.md" ~/.agents/AGENTS.md
+mkdir -p ~/.gemini
+ln -sf "$DOTFILES/.gemini/GEMINI.md" ~/.gemini/GEMINI.md
+[[ -L ~/GEMINI.md ]] && rm -f ~/GEMINI.md
 
 # Shared skill sync: rebuild ~/.agents/skills, then sync Claude/Cursor views from it.
 ln -sfn "$DOTFILES/.claude/agents" ~/.claude/agents
@@ -104,7 +107,7 @@ if [[ "$OSTYPE" == darwin* ]]; then
 fi
 
 # Seed local-only files (never synced via git)
-mkdir -p ~/.agents/docs
+mkdir -p ~/.agents/docs ~/.agents/sessions
 if [[ ! -f ~/.agents/INBOX.md ]]; then
   cat > ~/.agents/INBOX.md <<'EOF'
 ## Refined
@@ -122,6 +125,7 @@ git config --global pull.rebase true
 echo "Done. Symlinked:"
 echo "  ~/tools → $DOTFILES/tools"
 echo "  ~/.agents/AGENTS.md → $DOTFILES/.agents/AGENTS.md"
+echo "  ~/.gemini/GEMINI.md → $DOTFILES/.gemini/GEMINI.md (@imports AGENTS.md)"
 echo "  ~/.agents/skills/*/ → $DOTFILES/.agents/skills/*/ (per-skill, mergeable)"
 echo "  ~/.agents/references/ → $DOTFILES/.agents/references/"
 echo "  ~/.claude/CLAUDE.md → $DOTFILES/.claude/CLAUDE.md"
