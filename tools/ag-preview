@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# ag-preview – fzf preview for ag picker
+# Called with {1} from fzf (the slug or session name)
+set -euo pipefail
+
+slug="$1"
+
+# find the tmux session: try exact match first, then ag-*-<slug>
+if tmux has-session -t "$slug" 2>/dev/null; then
+  sess="$slug"
+else
+  sess=$(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep -F -- "-${slug}" | head -1 || true)
+fi
+
+if [[ -z "$sess" ]]; then
+  echo "$slug"
+  echo "(no active session)"
+  exit 0
+fi
+
+# non-ag session: just show path
+if [[ "$sess" != ag-* ]]; then
+  path=$(tmux display-message -t "$sess" -p '#{pane_current_path}' 2>/dev/null || echo "unknown")
+  echo "$sess"
+  echo "path: $path"
+  exit 0
+fi
+
+# extract repo from session name: ag-<repo>-<slug>
+tmp="${sess#ag-}"
+repo="${tmp%%-*}"
+
+# get worktree path, branch, state
+wt_path=$(tmux display-message -t "$sess" -p '#{pane_current_path}' 2>/dev/null || echo "")
+branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "-")
+pane_cmd=$(tmux display-message -t "$sess" -p '#{pane_current_command}' 2>/dev/null || echo "")
+if [[ "$pane_cmd" == "zsh" || "$pane_cmd" == "bash" || -z "$pane_cmd" ]]; then
+  state="idle"
+else
+  state="active"
+fi
+
+echo "$slug ($state)"
+echo "repo: $repo"
+echo "branch: $branch"
+echo ""
+
+# PR info
+pr_json=$(gh pr list --head "$branch" --no-interactive --json number,state,title,url --jq '.[0] // empty' 2>/dev/null || true)
+if [[ -n "$pr_json" ]]; then
+  pr_num=$(echo "$pr_json" | jq -r '.number')
+  pr_state=$(echo "$pr_json" | jq -r '.state' | tr '[:upper:]' '[:lower:]')
+  pr_title=$(echo "$pr_json" | jq -r '.title')
+  pr_url=$(echo "$pr_json" | jq -r '.url')
+  echo "PR #${pr_num} (${pr_state}) – ${pr_title}"
+  echo "  $pr_url"
+else
+  echo "no PR"
+fi
+
+echo ""
+
+# plan + review docs (match by slug name)
+plan=""
+if [[ -f "$HOME/.agents/docs/$slug/plan.md" ]]; then
+  plan="$HOME/.agents/docs/$slug/plan.md"
+fi
+
+if [[ -n "$plan" ]]; then
+  topic_dir=$(dirname "$plan")
+  echo "plan: $plan"
+  [[ -f "$topic_dir/review.md" ]] && echo "review: $topic_dir/review.md"
+  [[ -f "$topic_dir/output.md" ]] && echo "output: $topic_dir/output.md"
+  [[ -f "$topic_dir/design.md" ]] && echo "design: $topic_dir/design.md"
+else
+  echo "plan: -"
+fi
