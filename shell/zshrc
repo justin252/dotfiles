@@ -203,7 +203,7 @@ alias dot="cd ~/dotfiles"
 alias docs="cd ~/.agents/docs"
 alias pen="cd ~/code/penny"
 tools() { cd "${TOOLS_PATH:-$HOME/tools}"; }
-alias sz="source ~/.zshrc"
+alias sz='source ~/.zshrc && tmux source-file ~/.tmux.conf 2>/dev/null; true'
 unalias pull-dot 2>/dev/null
 function pull-dot {
   git -C ~/dotfiles fetch origin main && git -C ~/dotfiles rebase --autostash origin/main
@@ -283,7 +283,7 @@ wt() {
         echo "warning: origin/HEAD not set, assuming '$default_branch'" >&2
       fi
       git fetch origin "$default_branch" --quiet 2>&1 || { echo "error: git fetch failed" >&2; return 1; }
-      git worktree add "$dest" -b "wt/$1" "origin/$default_branch" || return 1
+      git worktree add "$dest" -b "$1" "origin/$default_branch" || return 1
       cd "$dest"
       echo "worktree '$1' at $dest (from origin/$default_branch)"
       echo "  ag $1              # launch autonomous agent (preferred)"

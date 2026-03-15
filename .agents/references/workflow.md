@@ -22,7 +22,9 @@ Each layer is independent. Skip any and the rest works:
 
 ### Layer 0: Infrastructure
 
-- **tmux.conf** – C-a prefix, vim nav, minimal status bar. Symlinked via install.sh.
+- **tmux.conf** – C-a prefix, vim nav, status bar with agent indicators. Symlinked via install.sh.
+  - Status bar right: `ag: <active-count>● <idle-names>○ | <path>`
+  - `C-a a` – popup agent dashboard (`ag status`)
 - **install.sh** – idempotent setup. Installs fzf, tmux, rtk. Symlinks shell, agent, claude configs. Seeds local files.
 
 ### Layer 1: Transport
@@ -49,14 +51,26 @@ Each layer is independent. Skip any and the rest works:
 
 - **ag** – agent session manager (stage 6-7 orchestrator)
   - `ag <name>` – auto-create worktree + launch claude
-  - `ag <name> -m MSG` – launch with initial task
+  - `ag <name> -m MSG` – launch with initial task (skips create confirmation)
   - `ag <name> --cursor` – cursor + claude in worktree
+  - `ag <name> --gemini|--codex|--claude` – choose agent
   - `ag` – fzf dashboard (all sessions, all repos)
-  - `ag status` – cross-repo unified view (sessions, branches, PR state)
-  - `ag -k <name>` – kill session
-  - `ag clean` – dead sessions + merged worktrees
-  - Session naming: `ag-<repo>-<name>` (dashes, shell-friendly)
+  - `ag status` – cross-repo unified view (parallel gh calls)
+  - `ag kill <name>` – kill session
+  - `ag clean` – dead sessions + merged worktrees (`--force` skips prompt)
   - Mental model: `cc` = you drive (current dir). `ag` = parallel work (worktree, tmux-managed)
+  - **Naming convention**: one name flows everywhere:
+    ```
+    ag fix-status-bar
+      branch:   fix-status-bar           (no wt/ prefix)
+      session:  ag-<repo>-fix-status-bar (plumbing, rarely seen)
+      worktree: <repo>-wt-fix-status-bar (plumbing, rarely seen)
+      status:   fix-status-bar●          (what you see in tmux)
+    ```
+    Use descriptive hyphenated names. At /checkpoint, rename branch to `feat/...` or `fix/...` for the PR.
+- **ag-status-line** – polled by tmux every 5s, shows agent state indicators in status bar
+  - `●` green = active (agent process running)
+  - `○` yellow = idle (at shell prompt; needs attention or finished)
 
 ### Layer 4: Skills
 
@@ -162,38 +176,51 @@ Three layers feed each other:
 ~/.agents/sessions/             curated session summaries
 ```
 
+## Autonomous Agent Lifecycle
+
+```
+1. PLAN       /propose or plan mode → docs/<topic>/plan.md
+2. LAUNCH     ag fix-auth -m "/execute from ~/.agents/docs/auth/plan.md"
+3. WORK       agent executes plan autonomously (fix-auth● in status bar)
+4. SHIP       agent runs /checkpoint → PR created, retro captured
+5. MONITOR    fix-auth○ in status bar → Ctrl-a a to jump in
+6. CLEANUP    ag clean → sweep dead sessions + merged worktrees
+```
+
+No human intervention between steps 2-4. Agent follows plan.md, ships via /checkpoint.
+
+### tmux shortcuts
+
+| Key | Action |
+|---|---|
+| status bar | passive: `2● fix-auth○` (auto, 5s poll) |
+| `Ctrl-a a` | jump to agent session (fzf picker) |
+| `Ctrl-a s` | list ALL tmux sessions |
+| `Ctrl-a r` | reload tmux config |
+
 ## Common Workflows
 
 ### Execute from a plan
 
 ```bash
 doc                                     # pick a plan → execute action → ag launches
-# or manually:
 ag auth-fix -m "/execute from ~/.agents/docs/auth/plan.md"
-```
-
-### Review the current output
-
-```bash
-review-output ~/.agents/docs/auth
-# or from doc:
-doc                                     # pick output/review → review action
 ```
 
 ### Parallel tasks
 
 ```bash
-ag task-a -m "fix the auth bug"         # auto-creates worktree, autonomous
-ag task-b -m "add logging middleware"    # second agent, parallel
-ag status                               # monitor all
-ag                                      # fzf to attach to any agent
+ag fix-auth -m "fix token refresh"      # agent 1
+ag add-logs -m "add request logging"    # agent 2
+# status bar: 2● (both working) → fix-auth○ (one done)
+# Ctrl-a a to jump to any agent
 ag clean                                # after merge: cleanup
 ```
 
-### Cursor + claude
+### Review output
 
 ```bash
-ag feature-x --cursor                   # opens cursor + autonomous claude in worktree
+review-output ~/.agents/docs/auth       # or via doc browser
 ```
 
 ### Quick local fix
@@ -215,8 +242,9 @@ ag                              # agents still there
 ```
 Manual commands           Triggered by skills/higher layers
 ─────────────────         ─────────────────────────────────
-ag -k <name>              wt -d (auto-kills ag session)
+ag kill <name>            wt -d (auto-kills ag session)
 ag clean                  /checkpoint (offers ag clean after PR merge)
+ag clean --force          non-interactive cleanup (scripts, CI)
 wt -d <name>              gm (already prunes merged branches)
 gclean                    tmux auto-destroys sessions when shell exits
 ```
