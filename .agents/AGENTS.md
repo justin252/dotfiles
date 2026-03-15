@@ -151,14 +151,19 @@ In all modes:
 
 - Title: conventional commit format, under 70 chars
 - Title: describe the capability/behavior change, not the file diff
-- Body: lead with why and what it enables. Explain the design/system – not line-by-line diff tables
+- PRs are accomplishment records – what the system can now do, not a line-by-line diff of file changes
+- Use visuals: tables (before/after, feature matrix), command examples, ASCII diagrams to show system state
 - Body structure:
   ```
   ## Motivation
-  <why this change, link to issue if applicable>
+  <why this change – the problem or need, link to issue if applicable>
 
-  ## Summary
-  - <what changed and why>
+  ## What this does
+  <capabilities enabled, workflows changed – the "so what">
+  <tables, before/after, command examples, diagrams where helpful>
+
+  ## Design decisions
+  <key choices, tradeoffs, gotchas – skip for trivial PRs>
 
   ## Test plan
   - [ ] <how to verify>
