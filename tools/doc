@@ -131,7 +131,7 @@ if [[ "$doc_type" == "output" || "$doc_type" == "review" || -f "$topic_dir/outpu
   actions+=("review")
 fi
 
-actions+=("claude" "cursor")
+actions+=("claude" "cursor" "gemini" "plan")
 
 action=$(printf '%s\n' "${actions[@]}" | \
   fzf --prompt="action> " --header="$topic – $(basename "$full")") || exit 0
@@ -185,6 +185,23 @@ case "$action" in
     else
       echo "Launching Claude Code: $(basename "$full")"
       claude "load $full"
+    fi ;;
+  gemini)
+    if [[ -d "$topic_dir" && "$topic_dir" != "$DOCS_ROOT" ]]; then
+      echo "Launching Gemini: $topic"
+      cd "$topic_dir" && gemini "load $topic ($topic_dir/)"
+    else
+      echo "Launching Gemini: $(basename "$full")"
+      gemini "load $full"
+    fi ;;
+  plan)
+    planner="${AGENT_PLANNER:-claude}"
+    if [[ -d "$topic_dir" && "$topic_dir" != "$DOCS_ROOT" ]]; then
+      echo "Launching $planner (Plan Mode): $topic"
+      cd "$topic_dir" && "$planner" "load $topic ($topic_dir/)"
+    else
+      echo "Launching $planner (Plan Mode): $(basename "$full")"
+      "$planner" "load $full"
     fi ;;
   cursor)
     if [[ -d "$topic_dir" && "$topic_dir" != "$DOCS_ROOT" ]]; then

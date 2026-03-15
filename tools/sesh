@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# sesh - browse Claude Code session summaries (~/.claude/sessions/)
+# sesh - browse agent session summaries
 # Condensed .md notes for humans to read and to pass context to new sessions.
 # Default: .md summaries only. --all includes JSON transcripts.
 
-SESSIONS_ROOT="$HOME/.claude/sessions"
+CLAUDE_SESSIONS="$HOME/.claude/sessions"
+GEMINI_SESSIONS="$HOME/.codex/sessions"
 
 if ! command -v fzf &>/dev/null; then
   echo "fzf required but not found" >&2
   exit 1
 fi
 
-mkdir -p "$SESSIONS_ROOT"
+mkdir -p "$CLAUDE_SESSIONS" "$GEMINI_SESSIONS"
 
 # Parse flags
 show_all=false
@@ -26,28 +27,42 @@ done
 
 # ANSI color codes
 YELLOW=$'\033[33m'
+BLUE=$'\033[34m'
 DIM=$'\033[2m'
 RESET=$'\033[0m'
 
 entries=""
 
-# Always show .md summaries
+# Claude Sessions (.md)
 while IFS= read -r file; do
-  rel="${file#"$SESSIONS_ROOT"/}"
-  entries+="${YELLOW}[sesh]${RESET} $rel"$'\t'"$file"$'\n'
-done < <(find "$SESSIONS_ROOT" -maxdepth 1 -type f -name '*.md' | sort)
+  [[ -f "$file" ]] || continue
+  rel="${file#"$CLAUDE_SESSIONS"/}"
+  entries+="${YELLOW}[claude]${RESET} $rel"$'\t'"$file"$'\n'
+done < <(find "$CLAUDE_SESSIONS" -maxdepth 1 -type f -name '*.md' | sort)
+
+# Gemini Sessions (.md)
+while IFS= read -r file; do
+  [[ -f "$file" ]] || continue
+  rel="${file#"$GEMINI_SESSIONS"/}"
+  entries+="${BLUE}[gemini]${RESET} $rel"$'\t'"$file"$'\n'
+done < <(find "$GEMINI_SESSIONS" -maxdepth 1 -type f -name '*.md' | sort)
 
 # Optionally show JSON transcripts
 if [[ "$show_all" == true ]]; then
   while IFS= read -r file; do
-    rel="${file#"$SESSIONS_ROOT"/}"
-    entries+="${DIM}[json]${RESET} $rel"$'\t'"$file"$'\n'
-  done < <(find "$SESSIONS_ROOT" -maxdepth 1 -type f -name '*.json' | sort)
+    [[ -f "$file" ]] || continue
+    rel="${file#"$CLAUDE_SESSIONS"/}"
+    entries+="${DIM}[claude-json]${RESET} $rel"$'\t'"$file"$'\n'
+  done < <(find "$CLAUDE_SESSIONS" -maxdepth 1 -type f -name '*.json' | sort)
+  while IFS= read -r file; do
+    [[ -f "$file" ]] || continue
+    rel="${file#"$GEMINI_SESSIONS"/}"
+    entries+="${DIM}[gemini-json]${RESET} $rel"$'\t'"$file"$'\n'
+  done < <(find "$GEMINI_SESSIONS" -maxdepth 1 -type f -name '*.json' | sort)
 fi
 
 if [[ -z "$entries" ]]; then
-  echo "No sessions found in $SESSIONS_ROOT" >&2
-  echo "Use 'save sesh' in a Claude Code session to create summaries." >&2
+  echo "No sessions found." >&2
   exit 1
 fi
 
@@ -69,7 +84,7 @@ selection=$(printf '%s' "$entries" | fzf "${fzf_args[@]}") || exit 0
 full=$(echo "$selection" | cut -f2)
 fname=$(basename "$full")
 
-actions=("view" "claude" "edit")
+actions=("view" "claude" "gemini" "edit")
 
 action=$(printf '%s\n' "${actions[@]}" | \
   fzf --prompt="action> " --header="$fname") || exit 0
@@ -84,6 +99,10 @@ case "$action" in
   claude)
     echo "Launching Claude Code: ${fname%.md}"
     claude "load ${fname%.md} ($full)" ;;
+  gemini)
+    echo "Launching Gemini: ${fname%.md}"
+    gemini "load ${fname%.md} ($full)" ;;
   edit)
     ${EDITOR:-vim} "$full" ;;
 esac
+

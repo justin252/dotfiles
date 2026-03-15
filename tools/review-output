@@ -74,12 +74,18 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "$topic_arg" ]] || { usage >&2; exit 1; }
-command -v codex >/dev/null 2>&1 || { echo "codex not found on PATH" >&2; exit 1; }
-[[ -f "$MODEL_INSTRUCTIONS" ]] || { echo "missing review instructions: $MODEL_INSTRUCTIONS" >&2; exit 1; }
-codex exec review --help >/dev/null 2>&1 || {
-  echo "installed codex CLI does not support 'codex exec review'" >&2
-  exit 1
-}
+reviewer="${AGENT_REVIEWER:-codex}"
+
+if [[ "$reviewer" == "codex" ]]; then
+  command -v codex >/dev/null 2>&1 || { echo "codex not found on PATH" >&2; exit 1; }
+  [[ -f "$MODEL_INSTRUCTIONS" ]] || { echo "missing review instructions: $MODEL_INSTRUCTIONS" >&2; exit 1; }
+  codex exec review --help >/dev/null 2>&1 || {
+    echo "installed codex CLI does not support 'codex exec review'" >&2
+    exit 1
+  }
+elif [[ "$reviewer" == "gemini" ]]; then
+  command -v gemini >/dev/null 2>&1 || { echo "gemini not found on PATH" >&2; exit 1; }
+fi
 
 resolve_topic_dir() {
   local value="$1"
@@ -222,15 +228,28 @@ EOF
 
 [[ -n "$target_repo" ]] || { echo "no target repo found; run from the repo being reviewed or pass --repo" >&2; exit 1; }
 
-codex -C "$target_repo" exec review \
-  --base "$base_branch" \
-  -c "model_reasoning_effort=\"high\"" \
-  -c "model_instructions_file=\"$MODEL_INSTRUCTIONS\"" \
-  -o "$last_message_file" \
-  - <"$prompt_file"
+if [[ "$reviewer" == "codex" ]]; then
+  codex -C "$target_repo" exec review \
+    --base "$base_branch" \
+    -c "model_reasoning_effort=\"high\"" \
+    -c "model_instructions_file=\"$MODEL_INSTRUCTIONS\"" \
+    -o "$last_message_file" \
+    - <"$prompt_file"
+elif [[ "$reviewer" == "gemini" ]]; then
+  # Call Gemini to execute the review skill, reading the prompt from stdin
+  # Adjust the CLI flag as needed if Gemini expects --dir instead of -C
+  cd "$target_repo" && gemini exec review \
+    --base "$base_branch" \
+    -c "model_instructions_file=\"$MODEL_INSTRUCTIONS\"" \
+    -o "$last_message_file" \
+    - <"$prompt_file"
+else
+  echo "Unsupported AGENT_REVIEWER: $reviewer" >&2
+  exit 1
+fi
 
 [[ -s "$last_message_file" ]] || {
-  echo "codex produced no review output" >&2
+  echo "$reviewer produced no review output" >&2
   exit 1
 }
 

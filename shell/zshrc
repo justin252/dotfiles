@@ -150,6 +150,11 @@ alias gpr="gh pr view --web"
 alias sizeof="du -sh"
 alias ducks="du -cksh * | sort -rh | head -20"
 
+# ─── Agent Roles ──────────────────────────────────────────────
+export AGENT_EXECUTOR="claude"
+export AGENT_PLANNER="claude"
+export AGENT_REVIEWER="codex"
+
 # ─── Claude ───────────────────────────────────────────────────
 # Plan (read-only research, probes design)
 alias ccplan="claude --permission-mode plan"
@@ -180,6 +185,12 @@ openplan() {
   command -v cursor &>/dev/null || { echo "cursor not installed" >&2; return 1; }
   cursor "$(ls -t ~/.claude/plans/*.md 2>/dev/null | head -1)"
 }
+
+# ─── Gemini ───────────────────────────────────────────────────
+alias gem="gemini"
+alias gemy="gemini" # Auto-approve equivalent if supported
+alias gemplan="gemini --plan" # Plan mode equivalent if supported
+
 
 # ─── Shell ────────────────────────────────────────────────────
 alias dot="cd ~/dotfiles"
@@ -262,3 +273,7 @@ fi
 [[ -f ~/.zshrc.work ]] && source ~/.zshrc.work
 [[ -f ~/.zshrc.personal ]] && source ~/.zshrc.personal
 true
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion

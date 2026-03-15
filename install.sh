@@ -70,6 +70,7 @@ done
 # Shared source of truth
 ln -sfn "$DOTFILES/.agents/references" ~/.agents/references
 ln -sf "$DOTFILES/.agents/AGENTS.md" ~/.agents/AGENTS.md
+ln -sf "$DOTFILES/.agents/AGENTS.md" ~/GEMINI.md
 
 # Shared skill sync: rebuild ~/.agents/skills, then sync Claude/Cursor views from it.
 ln -sfn "$DOTFILES/.claude/agents" ~/.claude/agents
@@ -122,6 +123,7 @@ git config --global pull.rebase true
 echo "Done. Symlinked:"
 echo "  ~/tools → $DOTFILES/tools"
 echo "  ~/.agents/AGENTS.md → $DOTFILES/.agents/AGENTS.md"
+echo "  ~/GEMINI.md → $DOTFILES/.agents/AGENTS.md (Gemini global fallback)"
 echo "  ~/.agents/skills/*/ → $DOTFILES/.agents/skills/*/ (per-skill, mergeable)"
 echo "  ~/.agents/references/ → $DOTFILES/.agents/references/"
 echo "  ~/.claude/CLAUDE.md → $DOTFILES/.claude/CLAUDE.md"
