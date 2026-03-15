@@ -26,13 +26,18 @@ if [[ "$sess" != ag-* ]]; then
   exit 0
 fi
 
-# extract repo from session name: ag-<repo>-<slug>
-tmp="${sess#ag-}"
-repo="${tmp%%-*}"
+# extract repo and branch from tmux env (reliable), fallback to parsing
+repo=$(tmux show-environment -t "$sess" AG_REPO 2>/dev/null | sed 's/^AG_REPO=//') || true
+if [[ -z "$repo" ]]; then
+  tmp="${sess#ag-}"; repo="${tmp%%-*}"
+fi
 
 # get worktree path, branch, state
 wt_path=$(tmux display-message -t "$sess" -p '#{pane_current_path}' 2>/dev/null || echo "")
-branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "-")
+branch=$(tmux show-environment -t "$sess" AG_BRANCH 2>/dev/null | sed 's/^AG_BRANCH=//') || true
+if [[ -z "$branch" ]]; then
+  branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "-")
+fi
 pane_cmd=$(tmux display-message -t "$sess" -p '#{pane_current_command}' 2>/dev/null || echo "")
 if [[ "$pane_cmd" == "zsh" || "$pane_cmd" == "bash" || -z "$pane_cmd" ]]; then
   state="idle"
