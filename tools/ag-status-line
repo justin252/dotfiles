@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# ag-status-line – polled by tmux status-right every 5s
+# Shows compact agent session indicators: name● (active) name○ (idle)
+set -euo pipefail
+
+sessions=$(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^ag-' || true)
+[[ -z "$sessions" ]] && exit 0
+
+active_count=0
+idle_parts=""
+
+while read -r sess; do
+  # extract slug: ag-<repo>-<slug> → slug
+  # strip "ag-" prefix, then strip "<repo>-" prefix
+  tmp="${sess#ag-}"
+  slug="${tmp#*-}"
+
+  pane_cmd=$(tmux display-message -t "$sess" -p '#{pane_current_command}' 2>/dev/null || echo "")
+  if [[ "$pane_cmd" == "zsh" || "$pane_cmd" == "bash" || -z "$pane_cmd" ]]; then
+    idle_parts+=" #[fg=yellow]${slug}○"
+  else
+    active_count=$((active_count + 1))
+  fi
+done <<< "$sessions"
+
+# build output: show active count, then idle names (idle = needs attention)
+out=""
+if [[ $active_count -gt 0 ]]; then
+  out+="#[fg=green]${active_count}●"
+fi
+out+="${idle_parts}"
+
+if [[ -n "$out" ]]; then
+  echo "#[fg=blue]ag: ${out} #[fg=default]| "
+fi

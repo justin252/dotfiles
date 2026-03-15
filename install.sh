@@ -107,7 +107,7 @@ if [[ "$OSTYPE" == darwin* ]]; then
 fi
 
 # Seed local-only files (never synced via git)
-mkdir -p ~/.agents/docs ~/.agents/sessions
+mkdir -p ~/.agents/docs ~/.agents/sessions ~/.agents/state
 if [[ ! -f ~/.agents/INBOX.md ]]; then
   cat > ~/.agents/INBOX.md <<'EOF'
 ## Refined
