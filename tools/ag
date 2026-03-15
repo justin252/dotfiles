@@ -6,9 +6,12 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 ag - agent session manager
-  ag <name>                 launch claude in worktree (auto-creates)
+  ag <name>                 launch $AGENT_EXECUTOR (default claude) in worktree
   ag <name> -m MSG          launch with initial task
-  ag <name> --cursor        cursor + claude in worktree
+  ag <name> --cursor        cursor + agent in worktree
+  ag <name> --claude        force using claude
+  ag <name> --gemini        force using gemini
+  ag <name> --codex         force using codex
   ag                        dashboard – all sessions, all repos (fzf)
   ag status                 cross-repo unified view
   ag -k <name>              kill session
@@ -165,18 +168,23 @@ case "${1:-}" in
     # launch: ag <name> [flags]
     name="$1"; shift
 
-    cmd="claude"
+    cmd="${AGENT_EXECUTOR:-claude}"
     open_cursor=false
     prompt=""
 
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --cursor) open_cursor=true; shift ;;
+        --gemini) cmd="gemini"; shift ;;
+        --claude) cmd="claude"; shift ;;
+        --codex)  cmd="codex"; shift ;;
         -m)       [[ -z "${2:-}" ]] && { echo "usage: ag <name> -m MSG" >&2; exit 1; }
                   prompt="$2"; shift 2 ;;
         *)        shift ;;
       esac
     done
+
+    command -v "$cmd" >/dev/null 2>&1 || { echo "$cmd not found on PATH" >&2; exit 1; }
 
     worktree=$(resolve_worktree "$name") || exit 1
     local_repo=$(repo_name)

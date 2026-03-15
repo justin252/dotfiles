@@ -159,7 +159,7 @@ Three layers feed each other:
 ~/.agents/docs/<topic>/         long-lived docs: problem, design, plan, output, review, reference
 ~/.agents/INBOX.md              short-term capture (local, never synced)
 ~/.agents/wins.md               promo-packet items
-~/.claude/sessions/             session notes
+~/.agents/sessions/             curated session summaries
 ```
 
 ## Common Workflows

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# sesh - browse Claude Code session summaries (~/.claude/sessions/)
-# Condensed .md notes for humans to read and to pass context to new sessions.
-# Default: .md summaries only. --all includes JSON transcripts.
+# sesh - browse curated session summaries (~/.agents/sessions/)
+# Curated .md notes for context handoff to new agent sessions.
+# Save side: from any agent, "save session" writes .md here.
+# Default: .md summaries only. --all includes raw JSON transcripts.
 
-SESSIONS_ROOT="$HOME/.claude/sessions"
+SESSIONS_ROOT="$HOME/.agents/sessions"
 
 if ! command -v fzf &>/dev/null; then
   echo "fzf required but not found" >&2
@@ -31,8 +32,9 @@ RESET=$'\033[0m'
 
 entries=""
 
-# Always show .md summaries
+# Curated session summaries (.md)
 while IFS= read -r file; do
+  [[ -f "$file" ]] || continue
   rel="${file#"$SESSIONS_ROOT"/}"
   entries+="${YELLOW}[sesh]${RESET} $rel"$'\t'"$file"$'\n'
 done < <(find "$SESSIONS_ROOT" -maxdepth 1 -type f -name '*.md' | sort)
@@ -40,6 +42,7 @@ done < <(find "$SESSIONS_ROOT" -maxdepth 1 -type f -name '*.md' | sort)
 # Optionally show JSON transcripts
 if [[ "$show_all" == true ]]; then
   while IFS= read -r file; do
+    [[ -f "$file" ]] || continue
     rel="${file#"$SESSIONS_ROOT"/}"
     entries+="${DIM}[json]${RESET} $rel"$'\t'"$file"$'\n'
   done < <(find "$SESSIONS_ROOT" -maxdepth 1 -type f -name '*.json' | sort)
@@ -47,7 +50,6 @@ fi
 
 if [[ -z "$entries" ]]; then
   echo "No sessions found in $SESSIONS_ROOT" >&2
-  echo "Use 'save sesh' in a Claude Code session to create summaries." >&2
   exit 1
 fi
 
@@ -69,7 +71,7 @@ selection=$(printf '%s' "$entries" | fzf "${fzf_args[@]}") || exit 0
 full=$(echo "$selection" | cut -f2)
 fname=$(basename "$full")
 
-actions=("view" "claude" "edit")
+actions=("view" "claude" "gemini" "edit")
 
 action=$(printf '%s\n' "${actions[@]}" | \
   fzf --prompt="action> " --header="$fname") || exit 0
@@ -84,6 +86,9 @@ case "$action" in
   claude)
     echo "Launching Claude Code: ${fname%.md}"
     claude "load ${fname%.md} ($full)" ;;
+  gemini)
+    echo "Launching Gemini: ${fname%.md}"
+    gemini "load ${fname%.md} ($full)" ;;
   edit)
     ${EDITOR:-vim} "$full" ;;
 esac

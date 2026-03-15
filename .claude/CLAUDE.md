@@ -25,7 +25,7 @@ See AGENTS.md § Memory for the model.
 
 Claude Code additions:
 - Auto-memory (`~/.claude/projects/*/memory/`): per-project, Claude manages. AGENTS.md wins on conflict.
-- `load <query>` also searches `~/.claude/sessions/` (Claude Code addition to shared `load` behavior).
+- `load <query>` also searches `~/.agents/sessions/` (curated session summaries for context handoff).
 
 ## Setup
 
