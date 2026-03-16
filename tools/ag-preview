@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # ag-preview – fzf preview for ag picker
 # Called with {1} from fzf (the slug or session name)
+# category: agent
 set -euo pipefail
 
 slug="$1"

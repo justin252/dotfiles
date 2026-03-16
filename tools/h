@@ -1,4 +1,6 @@
 #!/usr/bin/env zsh
+# h – shell alias helper
+# category: browse
 set -euo pipefail
 export LC_ALL=C
 

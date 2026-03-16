@@ -3,6 +3,7 @@ set -euo pipefail
 
 # artifacts - browse agent artifacts (problem → design → plan → output → review → reference)
 # Sources: ~/.agents/artifacts/<topic>/ with YAML frontmatter
+# category: browse
 
 usage() {
   cat <<'EOF'

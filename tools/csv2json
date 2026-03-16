@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# category: convert
 """Convert CSV to JSON array of objects."""
 
 import csv

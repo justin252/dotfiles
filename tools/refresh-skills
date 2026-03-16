@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # refresh-skills - rebuild shared skills, sync Claude symlinks, and copy Cursor skills
 # Codex reads ~/.agents/skills directly in this setup.
+# category: config
 set -euo pipefail
 
 DOTFILES="${DOTFILES:-$HOME/dotfiles}"
