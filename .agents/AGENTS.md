@@ -37,7 +37,7 @@
 - Hang detection: run potentially-slow commands in background. Poll output – if no new output for 15s (with verbose/debug flags) or 30s (without), assume hung. Kill, retry with timeout, or fall back.
 - Exit loops if no progress toward verifiable goal. Never loop 3+ times on same failure – stop, note pattern, ask.
 - Ask before guessing paths/values – don't assume from directory listings.
-- Saved artifacts (drafts, research, proposals) → `~/.agents/artifacts/<topic-folder>/` with descriptive slug filenames. Not repo `docs/`, not `~/.cursor/plans/`. Exception: project design docs that belong with the repo stay in-repo (e.g. `docs/design/`).
+- Saved artifacts (drafts, research, proposals) → `~/.agents/artifacts/<topic-folder>/` with descriptive slug filenames. Not `~/.cursor/plans/`. Mature designs can graduate to `.agents/docs/` (repo-synced).
 - Before creating files/dirs, confirm destination with user – especially when "save locally" or "keep it local" is ambiguous between repo, dotfiles, and `~/.agents/artifacts/`.
 - Flag over/under-prompting: if user is over-specifying something obvious, say so. If under-specifying is causing rework, flag that too. When flagging, log the pattern to INBOX.md so /triage can promote it to a default (AGENTS.md rule, alias, or skill).
 - For review/planning sessions, present 1–2 decisions at a time, not a full menu.
@@ -194,17 +194,22 @@ Model: session → INBOX.md (short-term) → triage → AGENTS.md (long-term)
 - Skill vs instruction: single command + context → AGENTS.md instruction. Multi-step, branching logic, or cross-repo → skill.
 - When updating a skill or its reference example, diff conventions against the artifact to catch drift.
 
-Artifacts:
+Artifacts (local, working):
 - `~/.agents/artifacts/<topic>/` = all long-lived artifacts. Flat by topic, frontmatter for metadata. Local-only (`.gitignore`).
 - Core artifacts: problem.md (why), design.md (how), plan.md (what/when), reference.md (learnings).
 - Delivery artifacts: output.md (what shipped), review.md (review loop for an output). Multi-output topics can use `outputs/<slug>.md` and `reviews/<slug>.md`.
 - Pipeline: problem → design → plan → output → review → checkpoint. Each artifact type except reference can use ## Open for feedback loop.
 - Templates: `~/.agents/conventions/artifact-templates.md`. Agents consult when creating artifacts.
-- `load <topic>` → search `~/.agents/artifacts/` and `~/.agents/sessions/`. Partial match; ambiguous → show options. Read all artifact types, summarize status + next steps.
+- `load <topic>` → search `~/.agents/artifacts/`, `~/.agents/docs/`, and `~/.agents/sessions/`. Partial match; ambiguous → show options. Read all artifact types, summarize status + next steps.
 - `~/.agents/conventions/workflow.md` – comprehensive workflow reference. Read on demand: `@~/.agents/conventions/workflow.md`.
 
+Docs (persisted, synced):
+- `~/.agents/docs/<slug>.md` = persisted reference docs. Synced via dotfiles repo (`.agents/docs/`).
+- Mature artifacts (designs, system descriptions) graduate here when they should survive across machines.
+- Updated by human or at checkpoint when design evolves significantly.
+
 Composability:
-- Pipeline: /propose persists to artifacts/, /execute tracks progress in plan.md, outputs carry concrete delivery state, /checkpoint ships and can trigger review.
+- Pipeline: /propose persists to artifacts/, /execute tracks progress in plan.md, outputs carry concrete delivery state, /checkpoint ships and can trigger review. Mature artifacts graduate to docs/ at checkpoint.
 - Transitions + skill→doc mapping: see `~/.agents/conventions/workflow.md` § Composability.
 
 Capture:
@@ -230,7 +235,7 @@ Overlays are symlinked by their respective install scripts. Personal zshrc ends 
 ### install.sh
 
 Idempotent. Safe to re-run anytime. What it does:
-- Symlinks: `~/.zshrc`, `~/tools`, `~/.agents/AGENTS.md`, `~/.agents/skills/*/`, `~/.agents/conventions/`, `~/.claude/CLAUDE.md`, `~/.claude/settings.json`, `~/.claude/agents/`
+- Symlinks: `~/.zshrc`, `~/tools`, `~/.agents/AGENTS.md`, `~/.agents/skills/*/`, `~/.agents/conventions/`, `~/.agents/docs/`, `~/.claude/CLAUDE.md`, `~/.claude/settings.json`, `~/.claude/agents/`
 - Copies skills to `~/.cursor/skills/` (Cursor doesn't follow symlinks)
 - Seeds local-only files: `~/.agents/INBOX.md`, `~/.agents/wins.md`, `~/.agents/artifacts/`
 - Installs fzf if missing (brew on macOS, binary download on Linux)
