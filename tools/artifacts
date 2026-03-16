@@ -51,18 +51,20 @@ color_for_type() {
   esac
 }
 
-# Parse frontmatter via ruby (macOS stdlib, zero install)
-# Returns: topic repo component status
-parse_frontmatter() {
+# Batch-parse frontmatter via single ruby invocation (macOS stdlib, zero install)
+# Outputs: path \t topic \t repo \t component \t status  (one line per file)
+batch_frontmatter() {
   ruby -ryaml -rdate -e '
-    content = File.read(ARGV[0])
-    if content =~ /\A---\n(.*?\n)---/m
-      fm = YAML.safe_load($1, permitted_classes: [Date]) || {}
-      puts [fm["topic"], fm["repo"], fm["component"], fm["status"]].map { |v| v.to_s }.join("\t")
-    else
-      puts "\t\t\t"
+    ARGV.each do |path|
+      content = File.read(path) rescue ""
+      if content =~ /\A---\n(.*?\n)---/m
+        fm = YAML.safe_load($1, permitted_classes: [Date]) || {}
+        puts [path, fm["topic"], fm["repo"], fm["component"], fm["status"]].map(&:to_s).join("\t")
+      else
+        puts "#{path}\t\t\t\t"
+      end
     end
-  ' "$1" 2>/dev/null || printf '\t\t\t'
+  ' "$@" 2>/dev/null
 }
 
 # Build entries list
@@ -70,7 +72,19 @@ parse_frontmatter() {
 entries=""
 
 if [[ -d "$ARTIFACTS_ROOT" ]]; then
-  while IFS= read -r file; do
+  # Collect all .md files
+  md_files=()
+  while IFS= read -r f; do
+    md_files+=("$f")
+  done < <(find "$ARTIFACTS_ROOT" -type f -name '*.md' | sort)
+
+  # Single Ruby process for all frontmatter
+  fm_output=""
+  if [[ ${#md_files[@]} -gt 0 ]]; then
+    fm_output=$(batch_frontmatter "${md_files[@]}")
+  fi
+
+  for file in "${md_files[@]}"; do
     fname=$(basename "$file" .md)
     topic_dir=$(dirname "$file")
     topic_name=$(basename "$topic_dir")
@@ -89,8 +103,13 @@ if [[ -d "$ARTIFACTS_ROOT" ]]; then
     fi
     color=$(color_for_type "$doc_type")
 
-    # Parse frontmatter
-    IFS=$'\t' read -r fm_topic fm_repo fm_component fm_status <<< "$(parse_frontmatter "$file")"
+    # Look up cached frontmatter
+    fm_line=$(grep -F "$file" <<< "$fm_output" | head -1)
+    if [[ -n "$fm_line" ]]; then
+      IFS=$'\t' read -r _path fm_topic fm_repo fm_component fm_status <<< "$fm_line"
+    else
+      fm_topic="" fm_repo="" fm_component="" fm_status=""
+    fi
 
     # Use frontmatter values or defaults
     repo="${fm_repo:-}"
@@ -105,7 +124,7 @@ if [[ -d "$ARTIFACTS_ROOT" ]]; then
     [[ -n "$status" ]] && display+="  ${DIM}${status}${RESET}"
 
     entries+="${display}"$'\t'"${file}"$'\t'"${doc_type}"$'\t'"${topic_dir}"$'\t'"${topic_name}"$'\t'"${repo}"$'\t'"${component}"$'\t'"${status}"$'\n'
-  done < <(find "$ARTIFACTS_ROOT" -type f -name '*.md' | sort)
+  done
 fi
 
 if [[ -z "$entries" ]]; then
