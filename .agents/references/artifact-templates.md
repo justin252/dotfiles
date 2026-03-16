@@ -1,6 +1,6 @@
-# Doc Templates
+# Artifact Templates
 
-Agents consult these when creating docs in `~/.agents/docs/<topic>/`.
+Agents consult these when creating artifacts in `~/.agents/artifacts/<topic>/`.
 
 ## Frontmatter schema
 
@@ -123,7 +123,7 @@ No pipeline, no ## Open. Just knowledge.
 
 ## Delivery artifacts
 
-These sit alongside the core docs in `~/.agents/docs/<topic>/`.
+These sit alongside the core artifacts in `~/.agents/artifacts/<topic>/`.
 
 ### output.md – the reviewable delivery unit
 

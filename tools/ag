@@ -608,7 +608,7 @@ case "${1:-}" in
 
     if [[ -n "$prompt" ]]; then
       # plan discovery: check for matching plan.md by agent name
-      plan_file="$HOME/.agents/docs/$name/plan.md"
+      plan_file="$HOME/.agents/artifacts/$name/plan.md"
       if [[ -f "$plan_file" ]]; then
         prompt="Context: plan at $plan_file — $prompt"
         echo "  plan: $plan_file" >&2

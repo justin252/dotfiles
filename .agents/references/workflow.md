@@ -62,7 +62,7 @@ Each layer is independent. Skip any and the rest works:
 
 - `/execute` – execute phased plans
 - `/checkpoint` – build, test, ship PRs, commit, push, trigger async review, retro
-- `/propose` – create/continue problem → design → plan pipeline in ~/.agents/docs/
+- `/propose` – create/continue problem → design → plan pipeline in ~/.agents/artifacts/
 - `/review` – review PR or diff
 - `/retro` – capture friction to INBOX.md
 
@@ -85,7 +85,7 @@ Two repos:
 ```
 dotfiles repo → install.sh → symlinks (zshrc, tmux.conf, agents, skills, claude)
                             → copies (karabiner, cursor skills)
-                            → seeds (INBOX.md, wins.md, ~/.agents/docs/)
+                            → seeds (INBOX.md, wins.md, ~/.agents/artifacts/)
 ```
 
 `pull-dot` – pull both repos, refresh shared skills, sync Codex defaults, re-source zshrc.
@@ -116,14 +116,14 @@ reference.md (learnings, not actionable)
 
 Most topics use one `output.md` and one `review.md`. Multi-output topics can add `outputs/<slug>.md` and `reviews/<slug>.md` when a plan truly spans multiple reviewable deliverables.
 
-Each lives in `~/.agents/docs/<topic>/` with YAML frontmatter (topic, repo, component, status).
-Templates: `~/.agents/references/doc-templates.md`.
+Each lives in `~/.agents/artifacts/<topic>/` with YAML frontmatter (topic, repo, component, status).
+Templates: `~/.agents/references/artifact-templates.md`.
 
 ### Composability
 
 Three layers feed each other:
 - **Plan mode** = thinking (ephemeral, conversation-scoped)
-- **docs/<topic>/** = writing it down (persisted artifacts)
+- **artifacts/<topic>/** = writing it down (persisted artifacts)
 - **/execute** = executing (tracked progress in plan.md, output.md, review.md)
 
 | From | To | What happens |
@@ -152,11 +152,11 @@ Three layers feed each other:
 ~/dotfiles-work/                work dotfiles repo
 ~/dotfiles/shell/zshrc          universal shell config
 ~/dotfiles/shell/tmux.conf      tmux config
-~/dotfiles/tools/               tools on PATH (ag, h, doc, sesh, etc.)
+~/dotfiles/tools/               tools on PATH (ag, h, artifacts, sesh, etc.)
 ~/dotfiles/.agents/AGENTS.md    agent instructions (source of truth)
 ~/dotfiles/.agents/references/  reference docs (this file, cli-guidelines, etc.)
 ~/dotfiles/.agents/skills/      shared skill definitions
-~/.agents/docs/<topic>/         long-lived docs: problem, design, plan, output, review, reference
+~/.agents/artifacts/<topic>/    long-lived artifacts: problem, design, plan, output, review, reference
 ~/.agents/INBOX.md              short-term capture (local, never synced)
 ~/.agents/wins.md               promo-packet items
 ~/.agents/sessions/             curated session summaries
@@ -167,17 +167,17 @@ Three layers feed each other:
 ### Execute from a plan
 
 ```bash
-doc                                     # pick a plan → execute action → ag launches
+artifacts                               # pick a plan → execute action → ag launches
 # or manually:
-ag auth-fix -m "/execute from ~/.agents/docs/auth/plan.md"
+ag auth-fix -m "/execute from ~/.agents/artifacts/auth/plan.md"
 ```
 
 ### Review the current output
 
 ```bash
-review-output ~/.agents/docs/auth
-# or from doc:
-doc                                     # pick output/review → review action
+review-output ~/.agents/artifacts/auth
+# or from artifacts:
+artifacts                               # pick output/review → review action
 ```
 
 ### Parallel tasks

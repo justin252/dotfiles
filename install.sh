@@ -107,7 +107,14 @@ if [[ "$OSTYPE" == darwin* ]]; then
 fi
 
 # Seed local-only files (never synced via git)
-mkdir -p ~/.agents/docs ~/.agents/sessions ~/.agents/state
+# Migrate docs → artifacts (one-time)
+if [[ -d ~/.agents/docs && ! -d ~/.agents/artifacts ]]; then
+  mv ~/.agents/docs ~/.agents/artifacts
+  echo "Migrated ~/.agents/docs → ~/.agents/artifacts"
+elif [[ -d ~/.agents/docs && -d ~/.agents/artifacts ]]; then
+  echo "Warning: both ~/.agents/docs and ~/.agents/artifacts exist; merge manually" >&2
+fi
+mkdir -p ~/.agents/artifacts ~/.agents/sessions ~/.agents/state
 if [[ ! -f ~/.agents/INBOX.md ]]; then
   cat > ~/.agents/INBOX.md <<'EOF'
 ## Refined
