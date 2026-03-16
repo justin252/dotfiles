@@ -56,6 +56,7 @@
 - When plan references another PR/branch, diff its changes against current branch before shipping.
 - Permission denial in autonomous mode: don't retry the same operation. Identify what was blocked, explain what permission it needs, and offer the manual command or suggest user run it interactively. Continue with remaining work that doesn't require the blocked permission.
 - Autonomous session end: summarize completed work + remaining items. Send terminal notification so user knows the run finished.
+- Background agents (`AG_BACKGROUND=1`): never block on clarification. If stuck after 3 turns with no progress, write `~/.agents/artifacts/<topic>/stuck.md` (what's blocked, what was tried) and exit.
 
 ### Interruption routing
 
@@ -81,7 +82,7 @@ Default to higher blast radius when uncertain. The cost of context-switching is 
 ## Workflow
 
 Branch naming: `<type>/<slug>` (e.g. `feat/add-grep-tool`). All changes to main require a PR.
-Checkpoint is the only release path – route through /checkpoint skill. After completing a task or set of changes, offer to checkpoint automatically. Never offer bare commit+push.
+Checkpoint is the only release path – route through /checkpoint skill. After completing a task or set of changes, always run /checkpoint. Never bare commit+push.
 
 ### Splitting changes
 Prefer splitting logically independent changes (refactor, bug fix, feature) into stacked PRs.

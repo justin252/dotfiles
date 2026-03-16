@@ -608,6 +608,9 @@ case "${1:-}" in
     _ag_set_env "$session" "$name" "$local_repo" "$name"
 
     if [[ -n "$prompt" ]]; then
+      # background agents get AG_BACKGROUND=1 so they know not to block on input
+      tmux set-environment -t "$session" AG_BACKGROUND 1
+
       # plan discovery: check for matching plan.md by agent name
       plan_file="$HOME/.agents/artifacts/$name/plan.md"
       if [[ -f "$plan_file" ]]; then
