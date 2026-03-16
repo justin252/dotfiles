@@ -36,15 +36,8 @@ while IFS= read -r tool; do
   cat_line=$(grep '^# category:' "$tool" 2>/dev/null | head -1)
   category="${cat_line#*: }"
   [[ -z "$category" ]] && category="other"
-  # Extract one-liner: use --help if tool handles it, else header comment
-  if grep -q '\-\-help' "$tool" 2>/dev/null; then
-    desc=$("$tool" --help 2>/dev/null | head -1 || true)
-  else
-    desc=""
-  fi
-  if [[ -z "$desc" ]]; then
-    desc=$(grep '^#' "$tool" 2>/dev/null | grep -v '^#!\|^# category:' | head -1 | sed 's/^# *//')
-  fi
+  # Extract one-liner from header comment (--help available in preview pane)
+  desc=$(grep '^#' "$tool" 2>/dev/null | grep -v '^#!\|^# category:' | head -1 | sed 's/^# *//')
   # Strip "tool-name – " prefix
   desc="${desc#*– }"
   desc="${desc#*- }"

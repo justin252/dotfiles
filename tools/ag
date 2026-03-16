@@ -171,11 +171,9 @@ RUNEOF
     }
 
     _run_file_mtime() {
-      if [[ "$OSTYPE" == darwin* ]]; then
-        stat -f '%m' "$1" 2>/dev/null || echo 0
-      else
-        stat -c '%Y' "$1" 2>/dev/null || echo 0
-      fi
+      stat -c '%Y' "$1" 2>/dev/null && return
+      stat -f '%m' "$1" 2>/dev/null && return
+      echo 0
     }
 
     _run_plan_title() {
@@ -241,34 +239,39 @@ RUNEOF
 
     _run_collect_plans() {
       local artifacts_only="$1"
-      local cutoff_ts lines=""
+      local cutoff_ts raw=""
       cutoff_ts=$(( $(date +%s) - 14 * 86400 ))
 
-      # always: artifact plans
+      # Phase 1: cheap – just mtime + path + source (one stat per file)
       for p in "$HOME/.agents/artifacts"/*/plan.md; do
         [[ -f "$p" ]] || continue
-        lines+="$(_run_build_line "$p" "art")"$'\n'
+        local mt; mt=$(_run_file_mtime "$p")
+        raw+="${mt}"$'\t'"${p}"$'\t'"art"$'\n'
       done
 
       if [[ "$artifacts_only" != true ]]; then
-        # cursor plans (last 14 days)
         for p in "$HOME/.cursor/plans"/*.plan.md; do
           [[ -f "$p" ]] || continue
           local mt; mt=$(_run_file_mtime "$p")
           (( mt < cutoff_ts )) && continue
-          lines+="$(_run_build_line "$p" "cursor")"$'\n'
+          raw+="${mt}"$'\t'"${p}"$'\t'"cursor"$'\n'
         done
 
-        # claude plans (last 14 days, including saved/)
         for p in "$HOME/.claude/plans"/*.md "$HOME/.claude/plans/saved"/*.md; do
           [[ -f "$p" ]] || continue
           local mt; mt=$(_run_file_mtime "$p")
           (( mt < cutoff_ts )) && continue
-          lines+="$(_run_build_line "$p" "claude")"$'\n'
+          raw+="${mt}"$'\t'"${p}"$'\t'"claude"$'\n'
         done
       fi
 
-      # sort by mtime descending (first field), then strip mtime column
+      # Phase 2: top 30 by mtime, then expensive display build
+      local lines=""
+      while IFS=$'\t' read -r _mt path src; do
+        [[ -z "$path" ]] && continue
+        lines+="$(_run_build_line "$path" "$src")"$'\n'
+      done < <(printf '%s' "$raw" | sort -t$'\t' -k1 -rn | head -30)
+
       printf '%s' "$lines" | sort -t$'\t' -k1 -rn | cut -f2-
     }
 
@@ -358,7 +361,7 @@ RUNEOF
         --delimiter=$'\t' \
         --with-nth=1.. \
         --preview='
-          slug={1}; src=$(echo {4} | tr -d "[] ")
+          slug={1}; src=$(echo {3} | tr -d "[] ")
           slug=$(echo "$slug" | sed "s/^ *//;s/ *$//")
           if [ "$src" = "art" ]; then
             cat "$HOME/.agents/artifacts/$slug/plan.md" 2>/dev/null
@@ -370,7 +373,7 @@ RUNEOF
         ' \
         --preview-window=right:50% \
         --bind="ctrl-e:execute(
-          slug={1}; src=\$(echo {4} | tr -d '[] ')
+          slug={1}; src=\$(echo {3} | tr -d '[] ')
           slug=\$(echo \"\$slug\" | sed 's/^ *//;s/ *\$//')
           if [ \"\$src\" = 'art' ]; then
             \${EDITOR:-vim} \"\$HOME/.agents/artifacts/\$slug/plan.md\"
@@ -385,7 +388,7 @@ RUNEOF
       ) || exit 0
 
       picked_slug=$(echo "$pick" | awk -F'\t' '{print $1}' | sed 's/^ *//;s/ *$//')
-      picked_src=$(echo "$pick" | awk -F'\t' '{print $4}' | tr -d '[] ')
+      picked_src=$(echo "$pick" | awk -F'\t' '{print $3}' | tr -d '[] ')
 
       case "$picked_src" in
         art)
