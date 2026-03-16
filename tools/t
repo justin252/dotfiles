@@ -70,11 +70,17 @@ while IFS=$'\t' read -r cat name desc; do
   formatted+=$(printf '  %-20s %s' "$name" "$desc")$'\n'
 done < <(printf '%s' "$entries" | sort -t$'\t' -k1,1 -k2,2)
 
-# fzf with preview = full --help
-printf '%s' "$formatted" | fzf \
+# fzf with preview = full --help; enter runs the tool
+selected=$(printf '%s' "$formatted" | fzf \
   --prompt="tools> " \
   --ansi \
   --no-sort \
+  --no-multi \
+  --nth=2.. \
   --preview='tool=$(echo {} | awk "{print \$1}"); [[ -z "$tool" || "$tool" == "──" ]] && exit 0; ~/tools/$tool --help 2>/dev/null || head -20 ~/tools/$tool' \
   --preview-window=right:50%:wrap \
-  ${1:+--query="$1"} || true
+  ${1:+--query="$1"} || true)
+
+tool=$(echo "$selected" | awk '{print $1}')
+[[ -z "$tool" || "$tool" == "──" ]] && exit 0
+exec "$TOOLS_DIR/$tool"
