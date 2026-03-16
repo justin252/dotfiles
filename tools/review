@@ -85,9 +85,12 @@ fi
 
 # --- prerequisites ---
 
-reviewer="${AGENT_REVIEWER:-codex}"
-if [[ "$reviewer" != "codex" ]]; then
-  echo "unsupported AGENT_REVIEWER: $reviewer (only codex)" >&2; exit 1
+reviewer="${AG_REVIEWER:-codex:gpt-5.4}"
+reviewer_cmd="${reviewer%%:*}"
+reviewer_model="${reviewer#*:}"
+[[ "$reviewer_cmd" == "$reviewer_model" ]] && reviewer_model=""
+if [[ "$reviewer_cmd" != "codex" ]]; then
+  echo "unsupported AG_REVIEWER executor: $reviewer_cmd (only codex)" >&2; exit 1
 fi
 command -v codex >/dev/null 2>&1 || { echo "codex not found on PATH" >&2; exit 1; }
 [[ -f "$MODEL_INSTRUCTIONS" ]] || { echo "missing: $MODEL_INSTRUCTIONS" >&2; exit 1; }
@@ -294,6 +297,7 @@ echo "  log: $log_path" >&2
   codex -C "$target_repo" exec review \
     --base "$base_branch" \
     --title "${pr_title:-$topic}" \
+    ${reviewer_model:+-m "$reviewer_model"} \
     -c "model_reasoning_effort=\"high\"" \
     -c "model_instructions_file=\"$runtime_instructions\"" \
     -o "$codex_out" </dev/null

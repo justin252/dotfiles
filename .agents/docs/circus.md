@@ -61,31 +61,28 @@ ag run auth                               # discovers plan.md, full pipeline
 
 You come back to: a PR ready for teammate review, `review.md`, INBOX entries from every phase, `output.md` linking everything.
 
-### Configuration (post-PR #109)
+### Configuration
 
-Pipeline behavior is configurable at two levels:
+Per-stage executor/model via `AG_*` env vars in `shell/zshrc`. Format: `executor:model`.
 
-**Plan frontmatter** (defaults, travel with the plan):
-```yaml
----
-agent: codex              # executor: claude | codex | gemini
-skip: [review, retro]     # skip stages: review, retro, fix
----
+```bash
+# ─── Agent Stages (executor:model) ───────────────────────────
+# Claude: --model (opus, sonnet, haiku)
+# Codex: -m (gpt-5.4, gpt-5.3-codex, gpt-5.3-codex-spark)
+export AG_EXECUTOR="claude:opus"           # 🦊 execute
+export AG_SHIPPER="claude:sonnet"          # 🦅 ship
+export AG_REVIEWER="codex:gpt-5.4"        # 🦉 review
+export AG_LEARNER="claude:haiku"           # 🐘 retro
 ```
 
-**CLI flags** (override frontmatter):
+**CLI flags** (override env):
 ```bash
 ag run auth --codex --skip review    # executor + stage skipping
 ```
 
-**Env vars** (global defaults):
-```bash
-AGENT_EXECUTOR="claude"    # default executor for ag, ag run
-AGENT_REVIEWER="codex"     # review stage always uses this
-AGENT_PLANNER="claude"     # exported but not yet wired
-```
+Priority: CLI flag > stage env var > default (`claude`).
 
-Priority: CLI flag > plan frontmatter > env var.
+`ag run` exports all `AG_*` vars into the tmux session + derives `CLAUDE_CODE_SUBAGENT_MODEL` from `AG_LEARNER` for Task delegation.
 
 ### Status reporting
 
@@ -218,36 +215,24 @@ Pipeline flow: **Claude designs** (🐙) → **Codex builds** (🦊) → **Claud
 
 | Mechanism | Scope | Status |
 |-----------|-------|--------|
-| `agent:` in plan.md frontmatter | executor per pipeline | working (PR #109) |
-| `ag run --claude/--codex/--gemini` | executor override | working |
-| `AGENT_EXECUTOR` env var | default executor | working |
-| `AGENT_REVIEWER` env var | review executor | working (hardcoded to codex) |
-| Claude Code Task `model` param | subagent model (sonnet/opus/haiku) | working (skills don't use it yet) |
-| Codex CLI `-m, --model` flag | model within codex | exists, not wired into tools |
-| `AGENT_PLANNER` env var | planner executor | exported, not referenced anywhere |
+| `AG_EXECUTOR` env var | executor:model for execute stage | working |
+| `AG_SHIPPER` env var | executor:model for ship stage | working |
+| `AG_REVIEWER` env var | executor:model for review stage | working |
+| `AG_LEARNER` env var | executor:model for retro stage | working |
+| `ag run --claude/--codex` | executor override | working |
+| `CLAUDE_CODE_SUBAGENT_MODEL` | subagent model (auto-derived from AG_LEARNER) | working |
+| `agent:` in plan.md frontmatter | executor per pipeline | working (legacy) |
+| `tools/ag-run-stages` | multi-executor stage orchestrator | built, not yet wired into ag run |
 
-**Default path today**: `ag run <topic>` uses Claude Code (Opus) for the entire pipeline, Codex for review. Switching Fox to Codex: `ag run <topic> --codex` or set `agent: codex` in plan.md frontmatter. This switches ALL stages to Codex except review (always Codex).
+**Default path today**: `ag run <topic>` uses Claude Code (Opus) for the single-agent `/run` pipeline. Per-stage models are set via `AG_*` env vars. `ag-run-stages` enables sequential multi-executor stages.
 
 ### Extension points (not yet built)
 
-**Per-stage executor** – extend plan frontmatter and `/run` skill:
-```yaml
----
-stages:
-  execute: codex       # 🦊 Fox
-  ship: claude         # 🦅 Eagle
-  review: codex        # 🦉 Owl (already default)
----
-```
-This is the highest-value extension. It enables the full two-tool split where Claude designs + ships and Codex implements. `/run` would read the `stages` map and invoke the right executor per stage.
+**Wire `ag-run-stages` into `ag run`** – when stage env vars differ across executors, `ag run` delegates to `ag-run-stages` instead of launching a single `/run` session.
 
-**Model passthrough** – wire `-m` flag from `ag run` through to executors:
-```bash
-ag run auth --codex --model o3    # pass -m o3 to codex CLI
-```
-Lower priority. Within Claude Code, the Task tool's `model` param already handles subagent model selection. For Codex, the default model is usually the right one.
+**`ag status --remote`** – live SSH query for cross-machine status visibility.
 
-**Wire AGENT_PLANNER** – `/propose` reads this env var to select executor for design sessions. Currently unused.
+**State file sync** – rsync `~/.agents/state/` from workspace on `pull-dot` or `ag status`.
 
 ### What matters more than model choice
 
@@ -271,3 +256,9 @@ Stage 6.5 (today): ag run <topic>. Full pipeline, learning everywhere.
 Stage 7 (🦁):      Dispatch fans out ag run. 🦫 keeps PRs healthy.
 Stage 7+ (full):   You only design and approve.
 ```
+
+---
+
+## Active Plans
+
+- **[Model config + workspace support](~/.agents/artifacts/circus/plan.md)** – per-stage executor selection, workspace routing fixes, cross-executor orchestrator. Three tiers: model hints (now), pipeline config (Tier 2), `ag-run-stages` (Tier 3).
