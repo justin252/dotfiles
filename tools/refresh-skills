@@ -30,7 +30,9 @@ esac
 prune_broken_links() {
   local dir="$1"
   [[ -d "$dir" ]] || return 0
-  find "$dir" -maxdepth 1 -type l ! -exec test -e {} \; -delete 2>/dev/null || true
+  find "$dir" -maxdepth 1 -type l 2>/dev/null | while read -r link; do
+    [[ -e "$link" ]] || rm -f "$link"
+  done
 }
 
 add_unique_name() {

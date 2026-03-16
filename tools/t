@@ -30,21 +30,26 @@ fi
 # Build entries: category \t name \t description
 entries=""
 while IFS= read -r tool; do
+  [[ -x "$tool" ]] || continue
   name=$(basename "$tool")
   # Extract category from comment
   cat_line=$(grep '^# category:' "$tool" 2>/dev/null | head -1)
   category="${cat_line#*: }"
   [[ -z "$category" ]] && category="other"
-  # Extract one-liner from --help or header comment
-  desc=$("$tool" --help 2>/dev/null | head -1 || true)
+  # Extract one-liner: use --help if tool handles it, else header comment
+  if grep -q '\-\-help' "$tool" 2>/dev/null; then
+    desc=$("$tool" --help 2>/dev/null | head -1 || true)
+  else
+    desc=""
+  fi
   if [[ -z "$desc" ]]; then
-    desc=$(grep '^#' "$tool" 2>/dev/null | grep -v '^#!' | head -1 | sed 's/^# *//')
+    desc=$(grep '^#' "$tool" 2>/dev/null | grep -v '^#!\|^# category:' | head -1 | sed 's/^# *//')
   fi
   # Strip "tool-name – " prefix
   desc="${desc#*– }"
   desc="${desc#*- }"
   entries+="${category}"$'\t'"${name}"$'\t'"${desc}"$'\n'
-done < <(find "$TOOLS_DIR" -maxdepth 1 -type f -perm +111 2>/dev/null | sort)
+done < <(find "$TOOLS_DIR" -maxdepth 1 -type f 2>/dev/null | sort)
 
 if [[ -z "$entries" ]]; then
   echo "No tools found in $TOOLS_DIR" >&2

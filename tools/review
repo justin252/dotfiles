@@ -253,7 +253,7 @@ cat "$MODEL_INSTRUCTIONS" > "$runtime_instructions"
   for artifact in problem.md design.md plan.md output.md review.md; do
     artifact_path="$topic_dir/$artifact"
     if [[ -f "$artifact_path" ]]; then
-      size=$(wc -c < "$artifact_path")
+      size=$(wc -c < "$artifact_path" | tr -d ' ')
       echo "### $artifact (${size} bytes)"
       echo '```'
       head -c "$MAX_ARTIFACT_BYTES" "$artifact_path"
@@ -318,6 +318,8 @@ echo "  log: $log_path" >&2
       -message "Review complete" \
       -activate com.googlecode.iterm2 \
       -sound default 2>/dev/null || true
+  elif command -v notify-send >/dev/null 2>&1; then
+    notify-send "review: $topic" "Review complete" 2>/dev/null || true
   fi
 ) >"$log_path" 2>&1 &
 
