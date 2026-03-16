@@ -5,6 +5,8 @@ description: "🦅 Build, test, split/ship PRs, commit, push, async review hando
 
 Self-contained workflow -- execute steps fully, don't inject extra confirmation gates.
 
+**Bazel server lock**: When another agent is building on the same workspace, Bazel waits 30-120s for the server lock. This is normal queue behavior, not a hang. Do not kill and retry.
+
 ## Steps
 
 0. **Branch guard**: if `git branch --show-current` is main or master, abort: "create a feature branch first – all changes to main require a PR"
