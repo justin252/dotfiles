@@ -21,6 +21,15 @@ Tell user after: create `~/.zshrc.work` / `~/.zshrc.personal` for machine-specif
 - PRs: open as ready (not draft) – overrides global `--draft` default
 - Git: use plain git (not Graphite) – `git checkout -b`, `git push`, `gh pr create`
 
+## Testing
+
+Before committing changes to shell scripts or tools, always run:
+- `bash -n <file>` or `zsh -n <file>` on each modified script
+- `zsh -c 'source ~/.zshrc && echo OK'` if shell config changed
+- `zsh -c 'source ~/.zshrc; source ~/.zshrc'` if aliases/functions changed (catches conflicts)
+- Live-test any new tool behavior (flags, env vars, subcommands)
+- `HOME="$(mktemp -d)" bash install.sh` for install.sh changes
+
 ## Contribution rules
 
 - `install.sh`: clean-machine-first; `mkdir -p` before `find`/loops; optional integrations should warn, not brick setup; only delete clearly managed paths
