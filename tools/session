@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# sesh - browse curated session summaries (~/.agents/sessions/)
+# session - browse curated session summaries (~/.agents/sessions/)
 # Curated .md notes for context handoff to new agent sessions.
 # Save side: from any agent, "save session" writes .md here.
 # Default: .md summaries only. --all includes raw JSON transcripts.
@@ -36,7 +36,7 @@ entries=""
 while IFS= read -r file; do
   [[ -f "$file" ]] || continue
   rel="${file#"$SESSIONS_ROOT"/}"
-  entries+="${YELLOW}[sesh]${RESET} $rel"$'\t'"$file"$'\n'
+  entries+="${YELLOW}[session]${RESET} $rel"$'\t'"$file"$'\n'
 done < <(find "$SESSIONS_ROOT" -maxdepth 1 -type f -name '*.md' | sort)
 
 # Optionally show JSON transcripts
@@ -56,7 +56,7 @@ fi
 preview_cmd="bat --style=plain --color=always {2} 2>/dev/null || cat {2}"
 
 fzf_args=(
-  --prompt="sesh> "
+  --prompt="session> "
   --ansi
   --delimiter=$'\t'
   --with-nth=1
