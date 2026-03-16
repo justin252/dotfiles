@@ -11,9 +11,10 @@ no_input=false
 usage() {
   cat <<'EOF'
 ag - agent session manager
-  ag run <topic>            🦁 full pipeline: plan.md -> PR (auto-detect everything)
-  ag run <topic> --codex    use codex instead of claude
-  ag run <topic> --dry-run  preview what would happen
+  ag run                    🦁 pick a plan (fzf) and run full pipeline
+  ag run <plan>             smart resolve: slug, path, or partial match
+  ag run -a                 pick from artifacts only
+  ag run <plan> --skip review   skip pipeline stages
   ag <name>                 launch $AGENT_EXECUTOR (default claude) in worktree
   ag <name> -m MSG          launch with initial task
   ag <name> --cursor        cursor + agent in worktree
@@ -98,75 +99,363 @@ case "${1:-}" in
 ag run – 🦁 full pipeline from plan.md to PR
 
 Usage:
-  ag run <topic>             auto-detect plan, branch, worktree
-  ag run ./path/plan.md      run from explicit plan file
+  ag run                     pick a plan (fzf) – all sources, sorted by last modified
+  ag run -a                  pick from artifacts only
+  ag run <plan>              smart resolve: slug, path, or partial match
+  ag run <plan> --skip review --skip retro
 
 Flags:
-  --codex, --claude, --gemini   override agent (default: $AGENT_EXECUTOR or claude)
+  -a, --artifacts               show only artifact plans in picker
+  --codex, --claude, --gemini   override agent (default: plan frontmatter > $AGENT_EXECUTOR > claude)
+  --skip <stage>                skip pipeline stage (review, retro, fix). repeatable.
   --dry-run                     show what would happen, don't launch
   --json                        machine-readable output
 
 Examples:
+  ag run                      interactive plan picker (all sources)
+  ag run -a                   artifacts only
   ag run auth                 finds ~/.agents/artifacts/auth/plan.md
   ag run auth --codex         use codex instead of claude
-  ag run --dry-run auth       preview without launching
+  ag run auth --skip review   skip review stage
+  ag run ./plan.md            explicit plan file
 RUNEOF
       exit 0
     fi
 
-    run_cmd="${AGENT_EXECUTOR:-claude}"
+    run_cmd=""
     run_dry=false
     run_json=false
     run_input=""
+    run_skip=()
+    run_artifacts_only=false
 
-    # parse flags (order-independent)
+    _skip_next=false
     for arg in "${@:2}"; do
+      if [[ "$_skip_next" == true ]]; then
+        case "$arg" in
+          review|retro|fix) run_skip+=("$arg") ;;
+          *) echo "invalid --skip stage: $arg (valid: review, retro, fix)" >&2; exit 1 ;;
+        esac
+        _skip_next=false
+        continue
+      fi
       case "$arg" in
-        --codex)   run_cmd="codex" ;;
-        --claude)  run_cmd="claude" ;;
-        --gemini)  run_cmd="gemini" ;;
-        --dry-run) run_dry=true ;;
-        --json)    run_json=true ;;
-        -*)        echo "unknown flag: $arg" >&2; exit 1 ;;
-        *)         [[ -z "$run_input" ]] && run_input="$arg" || { echo "unexpected arg: $arg" >&2; exit 1; } ;;
+        --codex)       run_cmd="codex" ;;
+        --claude)      run_cmd="claude" ;;
+        --gemini)      run_cmd="gemini" ;;
+        --dry-run)     run_dry=true ;;
+        --json)        run_json=true ;;
+        --skip)        _skip_next=true ;;
+        --skip=*)      _sv="${arg#--skip=}"
+                       case "$_sv" in
+                         review|retro|fix) run_skip+=("$_sv") ;;
+                         *) echo "invalid --skip stage: $_sv (valid: review, retro, fix)" >&2; exit 1 ;;
+                       esac ;;
+        -a|--artifacts) run_artifacts_only=true ;;
+        -*)            echo "unknown flag: $arg" >&2; exit 1 ;;
+        *)             [[ -z "$run_input" ]] && run_input="$arg" || { echo "unexpected arg: $arg" >&2; exit 1; } ;;
       esac
     done
-    [[ -z "$run_input" ]] && { echo "usage: ag run <topic|plan-path>" >&2; exit 1; }
-    command -v "$run_cmd" >/dev/null 2>&1 || { echo "$run_cmd not found on PATH" >&2; exit 1; }
 
-    # resolve plan path: explicit file or topic slug
+    # --- helpers ---
+
+    _run_relative_time() {
+      local mod_ts="$1"
+      local now_ts; now_ts=$(date +%s)
+      local diff_s=$((now_ts - mod_ts))
+      if (( diff_s < 60 )); then echo "now"
+      elif (( diff_s < 3600 )); then echo "$((diff_s / 60))m ago"
+      elif (( diff_s < 86400 )); then echo "$((diff_s / 3600))h ago"
+      else echo "$((diff_s / 86400))d ago"
+      fi
+    }
+
+    _run_file_mtime() {
+      if [[ "$OSTYPE" == darwin* ]]; then
+        stat -f '%m' "$1" 2>/dev/null || echo 0
+      else
+        stat -c '%Y' "$1" 2>/dev/null || echo 0
+      fi
+    }
+
+    _run_plan_title() {
+      local f="$1"
+      local title
+      title=$(sed -n '/^---$/,/^---$/{ /^name:/{ s/^name: *//; p; q; } }' "$f" 2>/dev/null)
+      [[ -n "$title" ]] && { echo "$title"; return; }
+      title=$(grep -m1 '^# ' "$f" 2>/dev/null | sed 's/^# //')
+      [[ -n "$title" ]] && { echo "$title"; return; }
+      echo "-"
+    }
+
+    _run_build_line() {
+      local plan_path="$1" source_tag="$2"
+      local topic_dir slug title total done artifacts mod_ts mod_rel status
+
+      topic_dir=$(dirname "$plan_path")
+      slug=$(basename "$topic_dir")
+      # for cursor/claude plans, use filename as slug
+      if [[ "$source_tag" != "art" ]]; then
+        slug=$(basename "$plan_path" .md)
+        slug="${slug%.plan}"
+      fi
+      # truncate long slugs
+      if [[ ${#slug} -gt 24 ]]; then
+        slug="${slug:0:21}..."
+      fi
+
+      title=$(_run_plan_title "$plan_path")
+      if [[ ${#title} -gt 32 ]]; then
+        title="${title:0:29}..."
+      fi
+
+      if [[ "$source_tag" == "art" ]]; then
+        total=$(grep -cE '^\s*- \[[ x]\]' "$plan_path" 2>/dev/null || echo 0)
+        done=$(grep -cE '^\s*- \[x\]' "$plan_path" 2>/dev/null || echo 0)
+        artifacts=$(find "$topic_dir" -maxdepth 1 -name '*.md' ! -name plan.md 2>/dev/null | wc -l | tr -d ' ')
+        local phase_file="$HOME/.agents/state/$slug/phase"
+        if [[ -f "$phase_file" ]]; then
+          local phase; phase=$(cat "$phase_file" 2>/dev/null)
+          case "$phase" in
+            executing) status="🦊 run" ;;
+            shipping)  status="🦅 ship" ;;
+            reviewing) status="🦉 rev" ;;
+            fixing)    status="🔧 fix" ;;
+            learning)  status="🐘 learn" ;;
+            done)      status="✅ done" ;;
+            *)         status="ready" ;;
+          esac
+        else
+          status="ready"
+        fi
+      else
+        total="-"; done="-"; artifacts="-"; status="-"
+      fi
+
+      mod_ts=$(_run_file_mtime "$plan_path")
+      mod_rel=$(_run_relative_time "$mod_ts")
+
+      printf "%s\t%-24s\t%-32s\t[%-6s]\t%s/%s\t%s art\t%s\n" \
+        "$mod_ts" "$slug" "$title" "$source_tag" "$done" "$total" "$artifacts" "$mod_rel"
+    }
+
+    _run_collect_plans() {
+      local artifacts_only="$1"
+      local cutoff_ts lines=""
+      cutoff_ts=$(( $(date +%s) - 14 * 86400 ))
+
+      # always: artifact plans
+      for p in "$HOME/.agents/artifacts"/*/plan.md; do
+        [[ -f "$p" ]] || continue
+        lines+="$(_run_build_line "$p" "art")"$'\n'
+      done
+
+      if [[ "$artifacts_only" != true ]]; then
+        # cursor plans (last 14 days)
+        for p in "$HOME/.cursor/plans"/*.plan.md; do
+          [[ -f "$p" ]] || continue
+          local mt; mt=$(_run_file_mtime "$p")
+          (( mt < cutoff_ts )) && continue
+          lines+="$(_run_build_line "$p" "cursor")"$'\n'
+        done
+
+        # claude plans (last 14 days, including saved/)
+        for p in "$HOME/.claude/plans"/*.md "$HOME/.claude/plans/saved"/*.md; do
+          [[ -f "$p" ]] || continue
+          local mt; mt=$(_run_file_mtime "$p")
+          (( mt < cutoff_ts )) && continue
+          lines+="$(_run_build_line "$p" "claude")"$'\n'
+        done
+      fi
+
+      # sort by mtime descending (first field), then strip mtime column
+      printf '%s' "$lines" | sort -t$'\t' -k1 -rn | cut -f2-
+    }
+
+    # --- plan resolution ---
+
+    _run_resolve_plan() {
+      local input="$1"
+      run_plan=""
+      run_topic=""
+
+      # 1. explicit file path
+      if [[ -f "$input" ]]; then
+        run_plan="$(cd "$(dirname "$input")" && pwd)/$(basename "$input")"
+        local pdir; pdir=$(basename "$(dirname "$run_plan")")
+        if [[ "$pdir" == "plans" || "$pdir" == "saved" ]]; then
+          run_topic=$(basename "$run_plan" .md)
+          run_topic="${run_topic%.plan}"
+        else
+          run_topic="$pdir"
+        fi
+        return 0
+      fi
+
+      # 2. exact artifact slug
+      if [[ -f "$HOME/.agents/artifacts/$input/plan.md" ]]; then
+        run_topic="$input"
+        run_plan="$HOME/.agents/artifacts/$run_topic/plan.md"
+        return 0
+      fi
+
+      # 3. partial match across artifacts
+      local matches=()
+      for d in "$HOME/.agents/artifacts"/*/plan.md; do
+        [[ -f "$d" ]] || continue
+        local s; s=$(basename "$(dirname "$d")")
+        [[ "$s" == *"$input"* ]] && matches+=("$d")
+      done
+
+      if [[ ${#matches[@]} -eq 1 ]]; then
+        run_plan="${matches[0]}"
+        run_topic=$(basename "$(dirname "$run_plan")")
+        return 0
+      elif [[ ${#matches[@]} -gt 1 ]]; then
+        if command -v fzf &>/dev/null; then
+          local lines=""
+          for m in "${matches[@]}"; do
+            lines+="$(_run_build_line "$m" "art")"$'\n'
+          done
+          local pick
+          pick=$(printf '%s' "$lines" | sort -t$'\t' -k1 -rn | cut -f2- | fzf \
+            --prompt="run> " --query="$input" \
+            --header="multiple matches" \
+            --preview="cat \$HOME/.agents/artifacts/{1}/plan.md" \
+            | awk '{print $1}') || exit 0
+          run_topic="$pick"
+          run_plan="$HOME/.agents/artifacts/$pick/plan.md"
+          return 0
+        fi
+        echo "error: multiple plans match '$input':" >&2
+        for m in "${matches[@]}"; do
+          echo "  $(basename "$(dirname "$m")")" >&2
+        done
+        exit 1
+      fi
+
+      echo "error: no plan found for '$input'" >&2
+      echo "  try: ag run          (interactive picker)" >&2
+      echo "  or:  ag run ./path   (explicit file)" >&2
+      exit 1
+    }
+
     run_plan=""
     run_topic=""
-    if [[ -f "$run_input" ]]; then
-      run_plan="$(cd "$(dirname "$run_input")" && pwd)/$(basename "$run_input")"
-      run_topic="$(basename "$(dirname "$run_plan")")"
-    elif [[ -f "$HOME/.agents/artifacts/$run_input/plan.md" ]]; then
-      run_topic="$run_input"
-      run_plan="$HOME/.agents/artifacts/$run_topic/plan.md"
+
+    if [[ -z "$run_input" ]]; then
+      # interactive fzf picker
+      if ! command -v fzf &>/dev/null; then
+        echo "usage: ag run <plan> (install fzf for interactive picker)" >&2; exit 1
+      fi
+      plan_lines=$(_run_collect_plans "$run_artifacts_only")
+      if [[ -z "$plan_lines" ]]; then
+        echo "no plans found" >&2; exit 1
+      fi
+      pick=$(echo "$plan_lines" | fzf \
+        --prompt="run> " \
+        --header="enter: launch  ctrl-e: edit  |  SLUG  TITLE  [SOURCE]  TASKS  ART  MODIFIED" \
+        --delimiter=$'\t' \
+        --with-nth=1.. \
+        --preview='
+          slug={1}; src=$(echo {4} | tr -d "[] ")
+          slug=$(echo "$slug" | sed "s/^ *//;s/ *$//")
+          if [ "$src" = "art" ]; then
+            cat "$HOME/.agents/artifacts/$slug/plan.md" 2>/dev/null
+          elif [ "$src" = "cursor" ]; then
+            cat "$HOME/.cursor/plans/${slug}.plan.md" 2>/dev/null
+          elif [ "$src" = "claude" ]; then
+            cat "$HOME/.claude/plans/${slug}.md" 2>/dev/null || cat "$HOME/.claude/plans/saved/${slug}.md" 2>/dev/null
+          fi
+        ' \
+        --preview-window=right:50% \
+        --bind="ctrl-e:execute(
+          slug={1}; src=\$(echo {4} | tr -d '[] ')
+          slug=\$(echo \"\$slug\" | sed 's/^ *//;s/ *\$//')
+          if [ \"\$src\" = 'art' ]; then
+            \${EDITOR:-vim} \"\$HOME/.agents/artifacts/\$slug/plan.md\"
+          elif [ \"\$src\" = 'cursor' ]; then
+            \${EDITOR:-vim} \"\$HOME/.cursor/plans/\${slug}.plan.md\"
+          elif [ \"\$src\" = 'claude' ]; then
+            f=\"\$HOME/.claude/plans/\${slug}.md\"
+            [ -f \"\$f\" ] || f=\"\$HOME/.claude/plans/saved/\${slug}.md\"
+            \${EDITOR:-vim} \"\$f\"
+          fi
+        )" \
+      ) || exit 0
+
+      picked_slug=$(echo "$pick" | awk -F'\t' '{print $1}' | sed 's/^ *//;s/ *$//')
+      picked_src=$(echo "$pick" | awk -F'\t' '{print $4}' | tr -d '[] ')
+
+      case "$picked_src" in
+        art)
+          run_topic="$picked_slug"
+          run_plan="$HOME/.agents/artifacts/$picked_slug/plan.md"
+          ;;
+        cursor)
+          run_plan="$HOME/.cursor/plans/${picked_slug}.plan.md"
+          run_topic="$picked_slug"
+          ;;
+        claude)
+          run_plan="$HOME/.claude/plans/${picked_slug}.md"
+          [[ -f "$run_plan" ]] || run_plan="$HOME/.claude/plans/saved/${picked_slug}.md"
+          run_topic="$picked_slug"
+          ;;
+      esac
     else
-      echo "error: no plan found for '$run_input'" >&2
-      echo "  expected: ~/.agents/artifacts/$run_input/plan.md" >&2
-      echo "  or pass an explicit plan path: ag run ./plan.md" >&2
-      exit 1
+      _run_resolve_plan "$run_input"
+    fi
+
+    # read plan frontmatter for agent preference (CLI flag wins)
+    if [[ -z "$run_cmd" && -f "$run_plan" ]]; then
+      fm_agent=$(sed -n '/^---$/,/^---$/{ /^agent:/{ s/^agent: *//; p; q; } }' "$run_plan" 2>/dev/null || true)
+      [[ -n "$fm_agent" ]] && run_cmd="$fm_agent"
+    fi
+    [[ -z "$run_cmd" ]] && run_cmd="${AGENT_EXECUTOR:-claude}"
+    command -v "$run_cmd" >/dev/null 2>&1 || { echo "$run_cmd not found on PATH" >&2; exit 1; }
+
+    # merge skip stages: CLI --skip + plan frontmatter
+    fm_skip=$(sed -n '/^---$/,/^---$/{ /^skip:/{ s/^skip: *\[//; s/\].*//; s/,/ /g; p; q; } }' "$run_plan" 2>/dev/null || true)
+    for s in $fm_skip; do
+      s=$(echo "$s" | tr -d ' ')
+      _found=false
+      for existing in "${run_skip[@]:-}"; do
+        [[ "$existing" == "$s" ]] && _found=true
+      done
+      [[ "$_found" == false ]] && run_skip+=("$s")
+    done
+    skip_str=""
+    if [[ ${#run_skip[@]} -gt 0 ]]; then
+      skip_str=$(IFS=,; echo "${run_skip[*]}")
+    fi
+
+    # count linked artifacts (artifact plans only)
+    topic_dir=$(dirname "$run_plan")
+    artifact_count=0
+    if [[ "$topic_dir" == *"/artifacts/"* ]]; then
+      artifact_count=$(find "$topic_dir" -maxdepth 1 -name '*.md' ! -name plan.md 2>/dev/null | wc -l | tr -d ' ')
     fi
 
     local_repo=$(repo_name)
     session="ag-${local_repo}-${run_topic}"
 
-    # --dry-run: show what would happen
+    # --dry-run
     if [[ "$run_dry" == true ]]; then
       if [[ "$run_json" == true ]]; then
         jq -n \
           --arg topic "$run_topic" --arg plan "$run_plan" \
           --arg agent "$run_cmd" --arg session "$session" \
-          --arg repo "$local_repo" \
-          '{topic:$topic, plan:$plan, agent:$agent, session:$session, repo:$repo}'
+          --arg repo "$local_repo" --arg skip "$skip_str" \
+          --argjson artifacts "$artifact_count" \
+          '{topic:$topic, plan:$plan, agent:$agent, session:$session, repo:$repo, skip:$skip, artifacts:$artifacts}'
       else
         echo "🎪 ag run (dry-run): $run_topic" >&2
         echo "  📋 plan: $run_plan" >&2
         echo "  🌿 branch: $run_topic" >&2
         echo "  💻 session: $session" >&2
         echo "  🤖 agent: $run_cmd" >&2
+        [[ -n "$skip_str" ]] && echo "  ⏭  skip: $skip_str" >&2
+        (( artifact_count > 0 )) && echo "  📎 artifacts: $artifact_count linked" >&2
       fi
       exit 0
     fi
@@ -189,6 +478,7 @@ RUNEOF
     fi
     _ag_set_env "$session" "$run_topic" "$local_repo" "$run_topic"
     tmux set-environment -t "$session" AG_BACKGROUND 1
+    [[ -n "$skip_str" ]] && tmux set-environment -t "$session" AG_SKIP_STAGES "$skip_str"
 
     # create state dir for phase tracking
     mkdir -p "$HOME/.agents/state/$run_topic"
@@ -201,18 +491,20 @@ RUNEOF
     echo "  🌿 branch: $run_topic" >&2
     echo "  💻 session: $session" >&2
     echo "  🤖 agent: $run_cmd" >&2
+    [[ -n "$skip_str" ]] && echo "  ⏭  skip: $skip_str" >&2
+    (( artifact_count > 0 )) && echo "  📎 artifacts: $artifact_count linked" >&2
     echo "" >&2
     echo "  ag $run_topic    attach to session" >&2
     echo "  ag status        see all agents" >&2
     echo "  ag               pick from list" >&2
 
-    # --json: structured output for orchestrators
     if [[ "$run_json" == true ]]; then
       jq -n \
         --arg topic "$run_topic" --arg plan "$run_plan" \
         --arg agent "$run_cmd" --arg session "$session" \
         --arg repo "$local_repo" --arg worktree "$worktree" \
-        '{topic:$topic, plan:$plan, agent:$agent, session:$session, repo:$repo, worktree:$worktree}'
+        --arg skip "$skip_str" --argjson artifacts "$artifact_count" \
+        '{topic:$topic, plan:$plan, agent:$agent, session:$session, repo:$repo, worktree:$worktree, skip:$skip, artifacts:$artifacts}'
     fi
     ;;
   pr)
@@ -375,14 +667,17 @@ RUNEOF
         state="active"
       fi
       slug=$(_ag_slug "$sess")
-      # overlay /run phase state if available
+      # overlay /run phase state + task progress if available
       phase_file="$HOME/.agents/state/$slug/phase"
+      tasks_file="$HOME/.agents/state/$slug/tasks"
+      tasks_info=""
       if [[ -f "$phase_file" ]]; then
         phase=$(cat "$phase_file" 2>/dev/null)
         [[ -n "$phase" && "$phase" != "done" ]] && state="$phase"
         [[ "$phase" == "done" ]] && state="done"
       fi
-      echo "$sess $branch $state $slug" >> "$tmpdir/sessions"
+      [[ -f "$tasks_file" ]] && tasks_info=$(cat "$tasks_file" 2>/dev/null)
+      echo "$sess $branch $state $slug $tasks_info" >> "$tmpdir/sessions"
       if [[ "$branch" != "-" ]]; then
         (gh pr list --head "$branch" --no-interactive --json state --jq '.[0].state // "-"' 2>/dev/null || echo "-") > "$tmpdir/pr-${sess}" &
       else
@@ -395,19 +690,18 @@ RUNEOF
     if [[ "$json" == true ]]; then
       echo "["
       first=true
-      while read -r sess branch state slug; do
+      while read -r sess branch state slug tasks_info; do
         pr_state=$(cat "$tmpdir/pr-${sess}" 2>/dev/null || echo "-")
         $first || echo ","
-        printf '  {"name":"%s","session":"%s","branch":"%s","state":"%s","pr":"%s"}' \
-          "$slug" "$sess" "$branch" "$state" "$pr_state"
+        printf '  {"name":"%s","session":"%s","branch":"%s","state":"%s","pr":"%s","tasks":"%s"}' \
+          "$slug" "$sess" "$branch" "$state" "$pr_state" "${tasks_info:-}"
         first=false
       done < "$tmpdir/sessions"
       echo ""
       echo "]"
     else
-      while read -r sess branch state slug; do
+      while read -r sess branch state slug tasks_info; do
         pr_state=$(cat "$tmpdir/pr-${sess}" 2>/dev/null || echo "-")
-        # add phase emoji for pipeline states
         case "$state" in
           executing) display_state="🦊 executing" ;;
           shipping)  display_state="🦅 shipping" ;;
@@ -419,7 +713,8 @@ RUNEOF
           idle)      display_state="○ idle" ;;
           *)         display_state="$state" ;;
         esac
-        printf "%-20s %-14s %-20s %s\n" "$slug" "$display_state" "$branch" "$pr_state"
+        [[ -n "$tasks_info" ]] && display_state="$display_state ($tasks_info)"
+        printf "%-20s %-18s %-20s %s\n" "$slug" "$display_state" "$branch" "$pr_state"
       done < "$tmpdir/sessions"
     fi
     ;;
