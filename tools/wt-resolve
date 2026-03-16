@@ -5,6 +5,25 @@
 # Used by: wt() shell function, ag script
 set -euo pipefail
 
+usage() {
+  cat <<'EOF'
+wt-resolve – resolve a ref to a worktree path
+
+Usage:
+  wt-resolve <branch|PR#|PR-URL>
+
+Examples:
+  wt-resolve feat/auth        Find or create worktree for branch
+  wt-resolve 90               Resolve PR #90 to worktree
+  wt-resolve https://github.com/org/repo/pull/90
+
+Environment:
+  WT_CREATE_MODE=new    Create new branch off main (default: fetch remote)
+EOF
+}
+
+case "${1:-}" in -h|--help) usage; exit 0 ;; esac
+
 _main_repo_root() {
   local toplevel common
   toplevel=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
@@ -17,7 +36,7 @@ _main_repo_root() {
 }
 
 ref="${1:-}"
-[[ -z "$ref" ]] && { echo "usage: wt-resolve <branch|PR#|PR-URL>" >&2; exit 1; }
+[[ -z "$ref" ]] && { usage >&2; exit 1; }
 
 # --hierarchical mode: when creating new worktree for a name that doesn't exist
 # on remote, branch off default branch (used by ag for new work)
