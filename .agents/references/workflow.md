@@ -152,7 +152,7 @@ Three layers feed each other:
 ~/dotfiles-work/                work dotfiles repo
 ~/dotfiles/shell/zshrc          universal shell config
 ~/dotfiles/shell/tmux.conf      tmux config
-~/dotfiles/tools/               tools on PATH (ag, h, artifacts, sesh, etc.)
+~/dotfiles/tools/               tools on PATH (ag, h, artifacts, session, etc.)
 ~/dotfiles/.agents/AGENTS.md    agent instructions (source of truth)
 ~/dotfiles/.agents/references/  reference docs (this file, cli-guidelines, etc.)
 ~/dotfiles/.agents/skills/      shared skill definitions
