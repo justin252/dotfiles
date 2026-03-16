@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # review – run Codex review on a PR or branch. Always async.
+# category: review
 set -euo pipefail
 
 ARTIFACTS_ROOT="${ARTIFACTS_ROOT:-$HOME/.agents/artifacts}"

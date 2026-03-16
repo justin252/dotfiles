@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # ag - agent session manager (stage 6-7 orchestrator)
 # One command for parallel agent work: auto-creates worktrees, launches claude.
+# category: agent
 set -euo pipefail
 
 # --no-input / AG_NO_INPUT: skip all interactive prompts

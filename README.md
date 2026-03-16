@@ -80,6 +80,7 @@ tools/sync-codex-config      # Set Codex CLI autonomy defaults (workspace-write 
 tools/reset-dot              # Rebuild dotfiles-managed symlinks/copies/config scaffolding
 tools/rebase-wip             # Stash current work, fetch/rebase, then restore work
 tools/session                # Session notes browser: ~/.agents/sessions/ (curated .md)
+tools/t                      # Tools browser: fzf picker for all tools with --help preview
 tools/refresh-skills         # Rebuild shared skills, sync Claude/Gemini/Cursor adapters
 karabiner/karabiner.json     # Karabiner-Elements config (Joy-Con L → Claude Code controls)
 karabiner/joycon-karabiner.md # Joy-Con mapping spec
@@ -112,6 +113,7 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `rebase-wip` – stash local edits, fetch/rebase onto the target branch, then reapply the stash. Useful when dotfiles change mid-task
 - `artifacts` (`a`) – unified artifact browser: `~/.agents/artifacts/` with frontmatter-aware picker. Actions: edit, view, execute, propose, review, claude, gemini, plan, cursor. `artifacts <query>` pre-filters.
 - `session` (`s`) – session notes browser: `~/.agents/sessions/` (curated .md summaries for context handoff). `session <query>` pre-filters.
+- `t` – tools browser: fzf picker for all `~/tools/` scripts, grouped by category, with `--help` preview. `t <query>` pre-filters.
 
 ## Contributing
 

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 # session - browse curated session summaries (~/.agents/sessions/)
+# category: browse
 # Curated .md notes for context handoff to new agent sessions.
 # Save side: from any agent, "save session" writes .md here.
 # Default: .md summaries only. --all includes raw JSON transcripts.
