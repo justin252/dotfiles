@@ -71,6 +71,7 @@ done
 
 # Shared source of truth
 ln -sfn "$DOTFILES/.agents/conventions" ~/.agents/conventions
+ln -sfn "$DOTFILES/.agents/docs" ~/.agents/docs
 ln -sf "$DOTFILES/.agents/AGENTS.md" ~/.agents/AGENTS.md
 mkdir -p ~/.gemini
 ln -sf "$DOTFILES/.gemini/GEMINI.md" ~/.gemini/GEMINI.md
@@ -109,11 +110,12 @@ if [[ "$OSTYPE" == darwin* ]]; then
 fi
 
 # Seed local-only files (never synced via git)
-# Migrate docs → artifacts (one-time)
-if [[ -d ~/.agents/docs && ! -d ~/.agents/artifacts ]]; then
+# Migrate old docs → artifacts (one-time, pre-docs-tier)
+# Skip if ~/.agents/docs is already a symlink (new docs tier from dotfiles repo)
+if [[ ! -L ~/.agents/docs && -d ~/.agents/docs && ! -d ~/.agents/artifacts ]]; then
   mv ~/.agents/docs ~/.agents/artifacts
   echo "Migrated ~/.agents/docs → ~/.agents/artifacts"
-elif [[ -d ~/.agents/docs && -d ~/.agents/artifacts ]]; then
+elif [[ ! -L ~/.agents/docs && -d ~/.agents/docs && -d ~/.agents/artifacts ]]; then
   echo "Warning: both ~/.agents/docs and ~/.agents/artifacts exist; merge manually" >&2
 fi
 mkdir -p ~/.agents/artifacts ~/.agents/sessions ~/.agents/state
@@ -137,6 +139,7 @@ echo "  ~/.agents/AGENTS.md → $DOTFILES/.agents/AGENTS.md"
 echo "  ~/.gemini/GEMINI.md → $DOTFILES/.gemini/GEMINI.md (@imports AGENTS.md)"
 echo "  ~/.agents/skills/*/ → $DOTFILES/.agents/skills/*/ (per-skill, mergeable)"
 echo "  ~/.agents/conventions/ → $DOTFILES/.agents/conventions/"
+echo "  ~/.agents/docs/ → $DOTFILES/.agents/docs/"
 echo "  ~/.claude/CLAUDE.md → $DOTFILES/.claude/CLAUDE.md"
 echo "  ~/.claude/settings.json → $DOTFILES/.claude/settings.json"
 echo "  ~/.claude/agents/ → $DOTFILES/.claude/agents/"
