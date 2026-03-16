@@ -13,32 +13,74 @@ usage() {
 review – Codex code review for any PR or branch
 
 Usage:
-  review [PR]          PR number, URL, or omit to auto-detect
-  review --topic T     override topic dir (slug or absolute path)
-  review --json        machine output to stdout
+  review [PR]              PR number, URL, or omit to auto-detect
+  review --status [TOPIC]  check review status (all or per-topic)
+  review --topic T         override topic dir (slug or absolute path)
+  review --json            machine output to stdout
   review -h
 
 Examples:
-  review               review current branch (PR or diff against main)
-  review 123           review PR #123
-  review --topic auth  write review to ~/.agents/artifacts/auth/
-  review --json        structured output for scripts
+  review                   review current branch (PR or diff against main)
+  review 123               review PR #123
+  review --status          all reviews
+  review --status --json   machine output for orchestrator
+  review --json            structured output for scripts
 EOF
 }
 
 pr_arg=""
 topic_override=""
 json_output=false
+status_mode=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -h|--help)   usage; exit 0 ;;
     --json)      json_output=true; shift ;;
+    --status)    status_mode=true; shift ;;
     --topic)     topic_override="${2:-}"; [[ -n "$topic_override" ]] || { echo "missing value for --topic" >&2; exit 1; }; shift 2 ;;
     -*)          echo "unknown flag: $1" >&2; usage >&2; exit 1 ;;
     *)           [[ -z "$pr_arg" ]] || { echo "unexpected arg: $1" >&2; exit 1; }; pr_arg="$1"; shift ;;
   esac
 done
+
+# --- status mode (early exit, no repo/PR needed) ---
+
+if [[ "$status_mode" == true ]]; then
+  status_filter="${pr_arg:-}"
+  results=()
+  for state_file in "$ARTIFACTS_ROOT"/*/review-state.json; do
+    [[ -f "$state_file" ]] || continue
+    topic_name=$(basename "$(dirname "$state_file")")
+    [[ -n "$status_filter" && "$topic_name" != *"$status_filter"* ]] && continue
+
+    # self-heal: check pid liveness for running reviews
+    state=$(jq -r '.status' "$state_file")
+    pid=$(jq -r '.pid' "$state_file")
+    if [[ "$state" == "running" ]] && ! kill -0 "$pid" 2>/dev/null; then
+      jq '.status = "failed" | .finished = "stale"' "$state_file" > "$state_file.tmp" && mv "$state_file.tmp" "$state_file"
+    fi
+    results+=("$state_file")
+  done
+
+  if [[ ${#results[@]} -eq 0 ]]; then
+    if [[ "$json_output" == true ]]; then echo "[]"; else echo "no reviews found" >&2; fi
+    exit 0
+  fi
+
+  if [[ "$json_output" == true ]]; then
+    jq -s '.' "${results[@]}"
+  else
+    printf "%-20s %-8s %-30s %s\n" "TOPIC" "STATUS" "BRANCH" "STARTED"
+    for f in "${results[@]}"; do
+      jq -r '[.topic, .status, .branch, .started] | @tsv' "$f" \
+        | while IFS=$'\t' read -r t s b st; do
+            printf "%-20s %-8s %-30s %s\n" "$t" "$s" "$b" "$st"
+          done
+    done
+  fi
+  exit 0
+fi
 
 # --- prerequisites ---
 
@@ -145,6 +187,19 @@ topic="$(basename "$topic_dir")"
 output_path="$topic_dir/output.md"
 review_path="$topic_dir/review.md"
 log_path="$topic_dir/review-run.log"
+state_path="$topic_dir/review-state.json"
+
+# --- duplicate-launch guard ---
+
+if [[ -f "$state_path" ]]; then
+  existing_status=$(jq -r '.status' "$state_path" 2>/dev/null || echo "")
+  existing_pid=$(jq -r '.pid' "$state_path" 2>/dev/null || echo "0")
+  if [[ "$existing_status" == "running" ]] && kill -0 "$existing_pid" 2>/dev/null; then
+    echo "review already running for $topic (pid $existing_pid)" >&2
+    echo "  review --status $topic" >&2
+    exit 1
+  fi
+fi
 
 # --- scaffold output.md ---
 
@@ -215,7 +270,15 @@ echo "  log: $log_path" >&2
 
 (
   codex_out="$(mktemp)"
-  trap 'rm -f "$codex_out" "$runtime_instructions"' EXIT
+  _cleanup() {
+    local exit_code=$?
+    rm -f "$codex_out" "$runtime_instructions"
+    if [[ $exit_code -ne 0 && -f "$state_path" ]]; then
+      jq --arg f "$(date -u +%FT%TZ)" '.status = "failed" | .finished = $f' "$state_path" > "$state_path.tmp" \
+        && mv "$state_path.tmp" "$state_path" 2>/dev/null || true
+    fi
+  }
+  trap _cleanup EXIT
 
   # log context for observability
   echo "=== review invocation ==="
@@ -237,6 +300,9 @@ echo "  log: $log_path" >&2
   if [[ -s "$codex_out" ]]; then
     mv "$codex_out" "$review_path"
     echo "review complete: $review_path"
+    # update state: done
+    jq --arg f "$(date -u +%FT%TZ)" '.status = "done" | .finished = $f' "$state_path" > "$state_path.tmp" \
+      && mv "$state_path.tmp" "$state_path"
   else
     echo "codex produced no output"
     exit 1
@@ -254,6 +320,20 @@ echo "  log: $log_path" >&2
   fi
 ) >"$log_path" 2>&1 &
 
+# parent writes initial state with correct background pid
+jq -n \
+  --arg status "running" \
+  --argjson pid "$!" \
+  --arg started "$(date -u +%FT%TZ)" \
+  --arg topic "$topic" \
+  --arg branch "$branch" \
+  --arg base "$base_branch" \
+  --arg pr_url "${pr_url:-}" \
+  --arg log_path "$log_path" \
+  --arg review_path "$review_path" \
+  '{status:$status, pid:$pid, started:$started, topic:$topic, branch:$branch, base:$base, pr_url:$pr_url, log_path:$log_path, review_path:$review_path}' \
+  > "$state_path"
+
 echo "review started (pid $!)" >&2
 echo "  tail -f $log_path" >&2
 
@@ -264,9 +344,10 @@ if [[ "$json_output" == true ]]; then
     --arg topic_dir "$topic_dir" \
     --arg review_path "$review_path" \
     --arg output_path "$output_path" \
+    --arg state_path "$state_path" \
     --arg pr_url "${pr_url:-}" \
     --arg branch "$branch" \
     --arg base "$base_branch" \
     --arg log_path "$log_path" \
-    '{topic_dir:$topic_dir, review_path:$review_path, output_path:$output_path, pr_url:$pr_url, branch:$branch, base:$base, log_path:$log_path}'
+    '{topic_dir:$topic_dir, review_path:$review_path, output_path:$output_path, state_path:$state_path, pr_url:$pr_url, branch:$branch, base:$base, log_path:$log_path}'
 fi
