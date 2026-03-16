@@ -1,0 +1,353 @@
+#!/usr/bin/env bash
+# review – run Codex review on a PR or branch. Always async.
+set -euo pipefail
+
+ARTIFACTS_ROOT="${ARTIFACTS_ROOT:-$HOME/.agents/artifacts}"
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+SCRIPT_DIR="$(cd -P "$(dirname "$SCRIPT_PATH")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+MODEL_INSTRUCTIONS="$REPO_ROOT/.codex/review-instructions.md"
+
+usage() {
+  cat <<'EOF'
+review – Codex code review for any PR or branch
+
+Usage:
+  review [PR]              PR number, URL, or omit to auto-detect
+  review --status [TOPIC]  check review status (all or per-topic)
+  review --topic T         override topic dir (slug or absolute path)
+  review --json            machine output to stdout
+  review -h
+
+Examples:
+  review                   review current branch (PR or diff against main)
+  review 123               review PR #123
+  review --status          all reviews
+  review --status --json   machine output for orchestrator
+  review --json            structured output for scripts
+EOF
+}
+
+pr_arg=""
+topic_override=""
+json_output=false
+status_mode=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)   usage; exit 0 ;;
+    --json)      json_output=true; shift ;;
+    --status)    status_mode=true; shift ;;
+    --topic)     topic_override="${2:-}"; [[ -n "$topic_override" ]] || { echo "missing value for --topic" >&2; exit 1; }; shift 2 ;;
+    -*)          echo "unknown flag: $1" >&2; usage >&2; exit 1 ;;
+    *)           [[ -z "$pr_arg" ]] || { echo "unexpected arg: $1" >&2; exit 1; }; pr_arg="$1"; shift ;;
+  esac
+done
+
+# --- status mode (early exit, no repo/PR needed) ---
+
+if [[ "$status_mode" == true ]]; then
+  status_filter="${pr_arg:-}"
+  results=()
+  for state_file in "$ARTIFACTS_ROOT"/*/review-state.json; do
+    [[ -f "$state_file" ]] || continue
+    topic_name=$(basename "$(dirname "$state_file")")
+    [[ -n "$status_filter" && "$topic_name" != *"$status_filter"* ]] && continue
+
+    # self-heal: check pid liveness for running reviews
+    state=$(jq -r '.status' "$state_file")
+    pid=$(jq -r '.pid' "$state_file")
+    if [[ "$state" == "running" ]] && ! kill -0 "$pid" 2>/dev/null; then
+      jq '.status = "failed" | .finished = "stale"' "$state_file" > "$state_file.tmp" && mv "$state_file.tmp" "$state_file"
+    fi
+    results+=("$state_file")
+  done
+
+  if [[ ${#results[@]} -eq 0 ]]; then
+    if [[ "$json_output" == true ]]; then echo "[]"; else echo "no reviews found" >&2; fi
+    exit 0
+  fi
+
+  if [[ "$json_output" == true ]]; then
+    jq -s '.' "${results[@]}"
+  else
+    printf "%-20s %-8s %-30s %s\n" "TOPIC" "STATUS" "BRANCH" "STARTED"
+    for f in "${results[@]}"; do
+      jq -r '[.topic, .status, .branch, .started] | @tsv' "$f" \
+        | while IFS=$'\t' read -r t s b st; do
+            printf "%-20s %-8s %-30s %s\n" "$t" "$s" "$b" "$st"
+          done
+    done
+  fi
+  exit 0
+fi
+
+# --- prerequisites ---
+
+reviewer="${AGENT_REVIEWER:-codex}"
+if [[ "$reviewer" != "codex" ]]; then
+  echo "unsupported AGENT_REVIEWER: $reviewer (only codex)" >&2; exit 1
+fi
+command -v codex >/dev/null 2>&1 || { echo "codex not found on PATH" >&2; exit 1; }
+[[ -f "$MODEL_INSTRUCTIONS" ]] || { echo "missing: $MODEL_INSTRUCTIONS" >&2; exit 1; }
+
+# --- resolve repo ---
+
+target_repo=""
+if git rev-parse --show-toplevel >/dev/null 2>&1; then
+  target_repo="$(git rev-parse --show-toplevel)"
+fi
+[[ -n "$target_repo" ]] || { echo "not in a git repo" >&2; exit 1; }
+repo_name="$(basename "$target_repo")"
+
+# --- resolve PR / branch / base ---
+
+branch=""
+base_branch=""
+pr_url=""
+pr_number=""
+pr_title=""
+
+resolve_pr() {
+  local pr_json
+  pr_json=$(cd "$target_repo" && gh pr view "$1" --json number,title,url,headRefName,baseRefName 2>/dev/null) || return 1
+  pr_number=$(echo "$pr_json" | jq -r '.number')
+  pr_title=$(echo "$pr_json" | jq -r '.title')
+  pr_url=$(echo "$pr_json" | jq -r '.url')
+  branch=$(echo "$pr_json" | jq -r '.headRefName')
+  base_branch=$(echo "$pr_json" | jq -r '.baseRefName')
+}
+
+if [[ -n "$pr_arg" ]]; then
+  # explicit PR number or URL
+  resolve_pr "$pr_arg" || { echo "could not resolve PR: $pr_arg" >&2; exit 1; }
+  echo "reviewing PR #$pr_number: $pr_title" >&2
+else
+  # try current branch's PR
+  branch=$(git -C "$target_repo" branch --show-current 2>/dev/null || true)
+  if [[ -n "$branch" ]] && resolve_pr "$branch" 2>/dev/null; then
+    echo "reviewing PR #$pr_number: $pr_title" >&2
+  elif [[ -n "$branch" && "$branch" != "main" && "$branch" != "master" ]]; then
+    # no PR, but on a feature branch – diff against main
+    base_branch=$(git -C "$target_repo" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||' || true)
+    [[ -n "$base_branch" ]] || base_branch="main"
+    echo "reviewing branch $branch (diff against $base_branch)" >&2
+  else
+    echo "nothing to review: on main with no PR" >&2
+    echo "  review <PR>    review a specific PR" >&2
+    echo "  switch to a feature branch and retry" >&2
+    exit 1
+  fi
+fi
+
+[[ -n "$base_branch" ]] || base_branch="main"
+echo "  branch: $branch" >&2
+echo "  base: $base_branch" >&2
+
+# --- resolve topic ---
+
+resolve_topic() {
+  local slug="$1"
+  if [[ -d "$ARTIFACTS_ROOT/$slug" ]]; then
+    echo "$ARTIFACTS_ROOT/$slug"
+  else
+    return 1
+  fi
+}
+
+topic_dir=""
+if [[ -n "$topic_override" ]]; then
+  if [[ -d "$topic_override" ]]; then
+    topic_dir="$(cd "$topic_override" && pwd)"
+  elif [[ -d "$ARTIFACTS_ROOT/$topic_override" ]]; then
+    topic_dir="$ARTIFACTS_ROOT/$topic_override"
+  else
+    echo "topic not found: $topic_override" >&2; exit 1
+  fi
+else
+  # auto-discover: strip type prefix (feat/foo → foo) and try as topic slug
+  topic_slug="${branch##*/}"  # feat/review-cli → review-cli
+  topic_dir=$(resolve_topic "$topic_slug" 2>/dev/null) || true
+  # also try full branch name (for branches without type prefix)
+  if [[ -z "$topic_dir" ]]; then
+    topic_dir=$(resolve_topic "$branch" 2>/dev/null) || true
+  fi
+fi
+
+# auto-create topic dir if none found
+if [[ -z "$topic_dir" ]]; then
+  topic_dir="$ARTIFACTS_ROOT/$topic_slug"
+  mkdir -p "$topic_dir"
+  echo "  topic: $topic_dir (created)" >&2
+else
+  echo "  topic: $topic_dir" >&2
+fi
+
+topic="$(basename "$topic_dir")"
+output_path="$topic_dir/output.md"
+review_path="$topic_dir/review.md"
+log_path="$topic_dir/review-run.log"
+state_path="$topic_dir/review-state.json"
+
+# --- duplicate-launch guard ---
+
+if [[ -f "$state_path" ]]; then
+  existing_status=$(jq -r '.status' "$state_path" 2>/dev/null || echo "")
+  existing_pid=$(jq -r '.pid' "$state_path" 2>/dev/null || echo "0")
+  if [[ "$existing_status" == "running" ]] && kill -0 "$existing_pid" 2>/dev/null; then
+    echo "review already running for $topic (pid $existing_pid)" >&2
+    echo "  review --status $topic" >&2
+    exit 1
+  fi
+fi
+
+# --- scaffold output.md ---
+
+today="$(date +%F)"
+plan_path="$topic_dir/plan.md"
+plan_ref=""; [[ -f "$plan_path" ]] && plan_ref="$plan_path"
+
+if [[ ! -f "$output_path" ]]; then
+  cat >"$output_path" <<EOF
+---
+topic: $topic
+repo: $repo_name
+status: active
+created: $today
+updated: $today
+chain: plan.md → **output.md**
+---
+# Output: ${pr_title:-$topic}
+
+## Links
+- Plan: ${plan_ref:-pending}
+- Branch: $branch
+- PR: ${pr_url:-pending}
+- Review: $review_path
+EOF
+fi
+
+# --- build runtime instructions ---
+
+MAX_ARTIFACT_BYTES=4000
+runtime_instructions="$(mktemp)"
+
+# base: review template
+cat "$MODEL_INSTRUCTIONS" > "$runtime_instructions"
+
+# context: PR metadata + artifact excerpts
+{
+  echo ""
+  echo "---"
+  echo "## Review context"
+  echo ""
+  echo "- PR: ${pr_url:-none}"
+  echo "- Branch: $branch"
+  echo "- Base: $base_branch"
+  echo "- Repo: $repo_name"
+  echo "- Topic: $topic_dir"
+  echo ""
+
+  # include topic artifacts in priority order (bounded)
+  for artifact in problem.md design.md plan.md output.md review.md; do
+    artifact_path="$topic_dir/$artifact"
+    if [[ -f "$artifact_path" ]]; then
+      size=$(wc -c < "$artifact_path")
+      echo "### $artifact (${size} bytes)"
+      echo '```'
+      head -c "$MAX_ARTIFACT_BYTES" "$artifact_path"
+      (( size > MAX_ARTIFACT_BYTES )) && echo -e "\n... truncated at $MAX_ARTIFACT_BYTES bytes"
+      echo '```'
+      echo ""
+    fi
+  done
+} >> "$runtime_instructions"
+
+# --- run codex async ---
+
+echo "  review: $review_path" >&2
+echo "  log: $log_path" >&2
+
+(
+  codex_out="$(mktemp)"
+  _cleanup() {
+    local exit_code=$?
+    rm -f "$codex_out" "$runtime_instructions"
+    if [[ $exit_code -ne 0 && -f "$state_path" ]]; then
+      jq --arg f "$(date -u +%FT%TZ)" '.status = "failed" | .finished = $f' "$state_path" > "$state_path.tmp" \
+        && mv "$state_path.tmp" "$state_path" 2>/dev/null || true
+    fi
+  }
+  trap _cleanup EXIT
+
+  # log context for observability
+  echo "=== review invocation ==="
+  echo "pr: ${pr_url:-none}"
+  echo "branch: $branch"
+  echo "base: $base_branch"
+  echo "topic: $topic_dir"
+  echo "instructions: $runtime_instructions ($(wc -c < "$runtime_instructions") bytes)"
+  echo "==="
+  echo ""
+
+  codex -C "$target_repo" exec review \
+    --base "$base_branch" \
+    --title "${pr_title:-$topic}" \
+    -c "model_reasoning_effort=\"high\"" \
+    -c "model_instructions_file=\"$runtime_instructions\"" \
+    -o "$codex_out" </dev/null
+
+  if [[ -s "$codex_out" ]]; then
+    mv "$codex_out" "$review_path"
+    echo "review complete: $review_path"
+    # update state: done
+    jq --arg f "$(date -u +%FT%TZ)" '.status = "done" | .finished = $f' "$state_path" > "$state_path.tmp" \
+      && mv "$state_path.tmp" "$state_path"
+  else
+    echo "codex produced no output"
+    exit 1
+  fi
+
+  # notify
+  tput bel 2>/dev/null || true
+  tmux display-message "review done: $topic" 2>/dev/null || true
+  if command -v terminal-notifier >/dev/null 2>&1; then
+    terminal-notifier \
+      -title "review: $topic" \
+      -message "Review complete" \
+      -activate com.googlecode.iterm2 \
+      -sound default 2>/dev/null || true
+  fi
+) >"$log_path" 2>&1 &
+
+# parent writes initial state with correct background pid
+jq -n \
+  --arg status "running" \
+  --argjson pid "$!" \
+  --arg started "$(date -u +%FT%TZ)" \
+  --arg topic "$topic" \
+  --arg branch "$branch" \
+  --arg base "$base_branch" \
+  --arg pr_url "${pr_url:-}" \
+  --arg log_path "$log_path" \
+  --arg review_path "$review_path" \
+  '{status:$status, pid:$pid, started:$started, topic:$topic, branch:$branch, base:$base, pr_url:$pr_url, log_path:$log_path, review_path:$review_path}' \
+  > "$state_path"
+
+echo "review started (pid $!)" >&2
+echo "  tail -f $log_path" >&2
+
+# --- json output ---
+
+if [[ "$json_output" == true ]]; then
+  jq -n \
+    --arg topic_dir "$topic_dir" \
+    --arg review_path "$review_path" \
+    --arg output_path "$output_path" \
+    --arg state_path "$state_path" \
+    --arg pr_url "${pr_url:-}" \
+    --arg branch "$branch" \
+    --arg base "$base_branch" \
+    --arg log_path "$log_path" \
+    '{topic_dir:$topic_dir, review_path:$review_path, output_path:$output_path, state_path:$state_path, pr_url:$pr_url, branch:$branch, base:$base, log_path:$log_path}'
+fi
