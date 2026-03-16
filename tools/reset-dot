@@ -9,7 +9,7 @@ Usage:
   reset-dot
 
 Removes managed symlinks and re-runs install.sh (+ work install if present).
-Preserves local-only state: auth, ~/.agents/docs, INBOX.md, overlays.
+Preserves local-only state: auth, ~/.agents/artifacts, INBOX.md, overlays.
 EOF
 }
 

@@ -67,8 +67,8 @@ echo ""
 
 # plan + review docs (match by slug name)
 plan=""
-if [[ -f "$HOME/.agents/docs/$slug/plan.md" ]]; then
-  plan="$HOME/.agents/docs/$slug/plan.md"
+if [[ -f "$HOME/.agents/artifacts/$slug/plan.md" ]]; then
+  plan="$HOME/.agents/artifacts/$slug/plan.md"
 fi
 
 if [[ -n "$plan" ]]; then

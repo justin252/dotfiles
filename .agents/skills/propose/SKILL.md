@@ -1,18 +1,18 @@
 ---
 name: propose
-description: Create or continue the problem → design → plan pipeline at ~/.agents/docs/<topic>/. Use when the user says 'propose', 'design', 'rfc', or needs to think through a system before building it.
+description: Create or continue the problem → design → plan pipeline at ~/.agents/artifacts/<topic>/. Use when the user says 'propose', 'design', 'rfc', or needs to think through a system before building it.
 ---
 
 # /propose
 
-Research, then produce docs at `~/.agents/docs/<topic>/`. Context-aware – picks up where the pipeline left off.
+Research, then produce artifacts at `~/.agents/artifacts/<topic>/`. Context-aware – picks up where the pipeline left off.
 
 ## Bootstrap
 
 1. Read `~/.agents/AGENTS.md` for conventions
-2. Read `~/.agents/references/doc-templates.md` for doc format
+2. Read `~/.agents/references/artifact-templates.md` for doc format
 3. Determine topic from $ARGUMENTS or conversation context
-4. Create `~/.agents/docs/<topic>/` if missing
+4. Create `~/.agents/artifacts/<topic>/` if missing
 5. Check what exists and pick up there:
    - **Nothing**: start with problem.md
    - **problem.md**: read it, continue to design.md
@@ -37,7 +37,7 @@ Match verbosity to problem size:
 
 ## Doc Formats
 
-See `~/.agents/references/doc-templates.md` for canonical templates. Key points:
+See `~/.agents/references/artifact-templates.md` for canonical templates. Key points:
 
 - All docs use YAML frontmatter (topic, repo, component, status, created, updated, chain)
 - Each actionable type has ## Open for unresolved questions

@@ -11,7 +11,7 @@ Prove an idea works with minimal effort. Compounds three skills into one flow.
 
 ## Flow
 
-1. **Propose (light)**: create `~/.agents/docs/<topic>/problem.md` (lightweight – just Impact + Requirements). Skip design.md – the poc IS the design test. 2-3 minutes max.
+1. **Propose (light)**: create `~/.agents/artifacts/<topic>/problem.md` (lightweight – just Impact + Requirements). Skip design.md – the poc IS the design test. 2-3 minutes max.
 
 2. **Execute (phase 1 only)**: scaffold `plan.md` with a single phase – the shortest path to "it works." Autonomous mode. Explicitly allowed:
    - Hardcoded values, magic strings

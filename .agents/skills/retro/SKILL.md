@@ -32,7 +32,7 @@ Auto-trigger: don't wait to be asked. Run at checkpoint, session end, and before
 - Over/under-prompting patterns
 
 **## Open audit:**
-- Scan `~/.agents/docs/*/` for active docs with ## Open sections
+- Scan `~/.agents/artifacts/*/` for active artifacts with ## Open sections
 - Scan active `review.md` artifacts for `## Future learnings` that should move to `INBOX.md`
 - Flag unresolved items that were addressed this session but not checked off
 - Flag items that are now stale or no longer relevant
