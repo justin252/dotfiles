@@ -1,6 +1,6 @@
 ---
 name: propose
-description: Create or continue the problem → design → plan pipeline at ~/.agents/artifacts/<topic>/. Use when the user says 'propose', 'design', 'rfc', or needs to think through a system before building it.
+description: "🐙 Create or continue the problem → design → plan pipeline at ~/.agents/artifacts/<topic>/. Use when the user says 'propose', 'design', 'rfc', or needs to think through a system before building it."
 ---
 
 # /propose
