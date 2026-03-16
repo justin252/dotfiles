@@ -510,8 +510,8 @@ case "${1:-}" in
         --header="enter: attach | ctrl-o: open PR | ctrl-p: copy plan" \
         --preview='~/tools/ag-preview {1}' \
         --preview-window=right:50% \
-        --bind="ctrl-o:execute-silent(~/tools/ag-preview {1} | grep -o 'https://[^ ]*' | head -1 | xargs open 2>/dev/null)" \
-        --bind="ctrl-p:execute-silent(~/tools/ag-preview {1} | grep '^plan: ' | sed 's/^plan: //' | tr -d '\n' | pbcopy 2>/dev/null)" \
+        --bind="ctrl-o:execute-silent(url=\$(~/tools/ag-preview {1} | grep -o 'https://[^ ]*' | head -1); if command -v open >/dev/null; then open \"\$url\"; elif command -v xdg-open >/dev/null; then xdg-open \"\$url\"; fi)" \
+        --bind="ctrl-p:execute-silent(~/tools/ag-preview {1} | grep '^plan: ' | sed 's/^plan: //' | tr -d '\n' | if command -v pbcopy >/dev/null; then pbcopy; elif command -v xclip >/dev/null; then xclip -selection clipboard; fi)" \
         | awk '{print $1}') || exit 0
 
       # resolve: if it's an ag slug, convert back to session name

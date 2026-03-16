@@ -64,7 +64,9 @@ mkdir -p ~/.claude ~/.cursor ~/.agents ~/.agents/skills ~/.claude/skills
 
 # Clean broken symlinks in dirs we manage with per-item symlinks
 for d in ~/.agents/skills ~/.claude/skills; do
-  find "$d" -maxdepth 1 -type l ! -exec test -e {} \; -delete 2>/dev/null
+  find "$d" -maxdepth 1 -type l 2>/dev/null | while read -r link; do
+    [[ -e "$link" ]] || rm -f "$link"
+  done
 done
 
 # Shared source of truth
