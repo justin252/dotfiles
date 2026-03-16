@@ -201,7 +201,6 @@ alias cxr="codex resume"
 
 # ─── Shell ────────────────────────────────────────────────────
 alias dot="cd ~/dotfiles"
-alias artifacts="cd ~/.agents/artifacts"
 alias a=artifacts
 alias pen="cd ~/code/penny"
 tools() { cd "${TOOLS_PATH:-$HOME/tools}"; }
