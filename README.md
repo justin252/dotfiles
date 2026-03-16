@@ -79,7 +79,7 @@ tools/review                 # Codex code review: review [PR] --status --json (a
 tools/sync-codex-config      # Set Codex CLI autonomy defaults (workspace-write + never ask)
 tools/reset-dot              # Rebuild dotfiles-managed symlinks/copies/config scaffolding
 tools/rebase-wip             # Stash current work, fetch/rebase, then restore work
-tools/sesh                   # Session notes browser: ~/.agents/sessions/ (curated .md)
+tools/session                # Session notes browser: ~/.agents/sessions/ (curated .md)
 tools/refresh-skills         # Rebuild shared skills, sync Claude/Gemini/Cursor adapters
 karabiner/karabiner.json     # Karabiner-Elements config (Joy-Con L → Claude Code controls)
 karabiner/joycon-karabiner.md # Joy-Con mapping spec
@@ -111,7 +111,7 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `review` – Codex code review for any PR or branch. `review` auto-detects current branch's PR, `review 123` targets a specific PR, falls back to branch diff against main. Always async; writes `review.md` to auto-discovered topic dir (`~/.agents/artifacts/<branch-slug>/`, e.g. `feat/auth-flow` → `auth-flow`), notifies on completion. `--status` checks all reviews (table or `--json` array); self-heals stale pids. `--topic` to override auto-discovery.
 - `rebase-wip` – stash local edits, fetch/rebase onto the target branch, then reapply the stash. Useful when dotfiles change mid-task
 - `artifacts` (`a`) – unified artifact browser: `~/.agents/artifacts/` with frontmatter-aware picker. Actions: edit, view, execute, propose, review, claude, gemini, plan, cursor. `artifacts <query>` pre-filters.
-- `sesh` – session notes browser: `~/.agents/sessions/` (curated .md summaries for context handoff). `sesh <query>` pre-filters.
+- `session` (`s`) – session notes browser: `~/.agents/sessions/` (curated .md summaries for context handoff). `session <query>` pre-filters.
 
 ## Contributing
 
