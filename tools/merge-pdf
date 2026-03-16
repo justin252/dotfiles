@@ -8,9 +8,24 @@ import sys
 from pathlib import Path
 from pypdf import PdfWriter
 
+USAGE = """\
+merge-pdf – merge multiple PDFs into one
+
+Usage:
+  merge-pdf <output.pdf> <input1.pdf|dir> [input2...]
+
+Examples:
+  merge-pdf combined.pdf a.pdf b.pdf c.pdf
+  merge-pdf combined.pdf ./pdfs/              Merge all PDFs in directory"""
+
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        print(USAGE)
+        sys.exit(0)
+
     if len(sys.argv) < 3:
-        print("Usage: merge-pdf <output.pdf> <input1.pdf|dir> [input2...]", file=sys.stderr)
+        print(USAGE, file=sys.stderr)
         sys.exit(1)
 
     output = Path(sys.argv[1])

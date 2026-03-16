@@ -4,7 +4,24 @@ set -euo pipefail
 # artifacts - browse agent artifacts (problem → design → plan → output → review → reference)
 # Sources: ~/.agents/artifacts/<topic>/ with YAML frontmatter
 
+usage() {
+  cat <<'EOF'
+artifacts – browse agent artifacts (fzf)
+
+Usage:
+  artifacts [query]
+
+Options:
+  -h, --help    Show this help
+
+Sources: ~/.agents/artifacts/<topic>/ with YAML frontmatter.
+Actions: edit, view, execute, propose, review, claude, cursor, gemini, plan.
+EOF
+}
+
 ARTIFACTS_ROOT="${ARTIFACTS_ROOT:-$HOME/.agents/artifacts}"
+
+case "${1:-}" in -h|--help) usage; exit 0 ;; esac
 
 if ! command -v fzf &>/dev/null; then
   echo "fzf required but not found" >&2

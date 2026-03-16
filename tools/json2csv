@@ -18,9 +18,26 @@ def flatten_value(v):
     return v
 
 
+USAGE = """\
+json2csv – convert JSON to CSV (array of objects or dict-of-dicts)
+
+Usage:
+  json2csv <input.json|-> [output.csv]
+
+Examples:
+  json2csv data.json                Write data.csv
+  json2csv data.json output.csv     Explicit output path
+  json2csv - < data.json            Read stdin, write stdout
+  cat data.json | json2csv -        Pipe mode"""
+
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        print(USAGE)
+        sys.exit(0)
+
     if len(sys.argv) < 2:
-        print("Usage: json2csv <input.json> [output.csv]", file=sys.stderr)
+        print(USAGE, file=sys.stderr)
         sys.exit(1)
 
     input_arg = sys.argv[1]
