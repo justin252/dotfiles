@@ -1,6 +1,6 @@
 # Workflow Reference
 
-Comprehensive reference for the full development setup. Not auto-loaded; access via `@~/.agents/references/workflow.md` or `load workflow`.
+Comprehensive reference for the full development setup. Not auto-loaded; access via `@~/.agents/conventions/workflow.md` or `load workflow`.
 
 ## Composability Stack
 
@@ -117,7 +117,7 @@ reference.md (learnings, not actionable)
 Most topics use one `output.md` and one `review.md`. Multi-output topics can add `outputs/<slug>.md` and `reviews/<slug>.md` when a plan truly spans multiple reviewable deliverables.
 
 Each lives in `~/.agents/artifacts/<topic>/` with YAML frontmatter (topic, repo, component, status).
-Templates: `~/.agents/references/artifact-templates.md`.
+Templates: `~/.agents/conventions/artifact-templates.md`.
 
 ### Composability
 
@@ -154,7 +154,7 @@ Three layers feed each other:
 ~/dotfiles/shell/tmux.conf      tmux config
 ~/dotfiles/tools/               tools on PATH (ag, h, artifacts, session, etc.)
 ~/dotfiles/.agents/AGENTS.md    agent instructions (source of truth)
-~/dotfiles/.agents/references/  reference docs (this file, cli-guidelines, etc.)
+~/dotfiles/.agents/conventions/  reference docs (this file, cli-guidelines, etc.)
 ~/dotfiles/.agents/skills/      shared skill definitions
 ~/.agents/artifacts/<topic>/    long-lived artifacts: problem, design, plan, output, review, reference
 ~/.agents/INBOX.md              short-term capture (local, never synced)

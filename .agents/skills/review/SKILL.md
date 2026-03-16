@@ -1,16 +1,16 @@
 ---
 name: review
-description: Review a PR or diff for correctness, style, and domain-specific issues. Use when the user says 'review', 'review this PR', or pastes a diff/PR URL.
+description: "🦉 Review a PR or diff for correctness, style, and domain-specific issues. Use when the user says 'review', 'review this PR', or pastes a diff/PR URL."
 ---
 
 # /review
 
-Structured code review. Domain-aware via `~/.agents/references/`. For durable review artifacts, use `review` CLI which runs Codex and writes `review.md`.
+Structured code review. Domain-aware via `~/.agents/conventions/`. For durable review artifacts, use `review` CLI which runs Codex and writes `review.md`.
 
 ## Bootstrap
 
 1. Read `~/.agents/AGENTS.md` for conventions
-2. Load relevant references from `~/.agents/references/` (e.g., `cli-guidelines.md` for CLI changes)
+2. Load relevant conventions from `~/.agents/conventions/` (e.g., `cli-guidelines.md` for CLI, `shell-scripts.md` for shell scripts)
 3. Determine target: PR URL, branch diff, or staged changes
 
 ## Input
