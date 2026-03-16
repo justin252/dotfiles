@@ -70,7 +70,7 @@ for d in ~/.agents/skills ~/.claude/skills; do
 done
 
 # Shared source of truth
-ln -sfn "$DOTFILES/.agents/references" ~/.agents/references
+ln -sfn "$DOTFILES/.agents/conventions" ~/.agents/conventions
 ln -sf "$DOTFILES/.agents/AGENTS.md" ~/.agents/AGENTS.md
 mkdir -p ~/.gemini
 ln -sf "$DOTFILES/.gemini/GEMINI.md" ~/.gemini/GEMINI.md
@@ -136,7 +136,7 @@ echo "  ~/tools → $DOTFILES/tools"
 echo "  ~/.agents/AGENTS.md → $DOTFILES/.agents/AGENTS.md"
 echo "  ~/.gemini/GEMINI.md → $DOTFILES/.gemini/GEMINI.md (@imports AGENTS.md)"
 echo "  ~/.agents/skills/*/ → $DOTFILES/.agents/skills/*/ (per-skill, mergeable)"
-echo "  ~/.agents/references/ → $DOTFILES/.agents/references/"
+echo "  ~/.agents/conventions/ → $DOTFILES/.agents/conventions/"
 echo "  ~/.claude/CLAUDE.md → $DOTFILES/.claude/CLAUDE.md"
 echo "  ~/.claude/settings.json → $DOTFILES/.claude/settings.json"
 echo "  ~/.claude/agents/ → $DOTFILES/.claude/agents/"

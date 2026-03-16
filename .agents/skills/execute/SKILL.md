@@ -1,6 +1,6 @@
 ---
 name: execute
-description: Execute phased implementation plans. Creates or reads ~/.agents/artifacts/<topic>/plan.md, works through phases with testable checkpoints. Use when the user wants to implement something, execute a plan, build a feature, or says 'execute', 'build this', 'implement', 'exec'.
+description: "🦊 Execute phased implementation plans. Creates or reads ~/.agents/artifacts/<topic>/plan.md, works through phases with testable checkpoints. Use when the user wants to implement something, execute a plan, build a feature, or says 'execute', 'build this', 'implement', 'exec'."
 ---
 
 # /execute
@@ -25,7 +25,7 @@ Can also run inline in an existing claude session.
 
 ## Plan Doc Format
 
-See `~/.agents/references/artifact-templates.md` for the canonical template. Key structure:
+See `~/.agents/conventions/artifact-templates.md` for the canonical template. Key structure:
 
 ```markdown
 ---

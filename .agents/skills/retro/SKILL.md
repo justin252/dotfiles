@@ -1,6 +1,6 @@
 ---
 name: retro
-description: Capture friction and learnings to ~/.agents/INBOX.md. Run at checkpoint, session end, and before context-loss events.
+description: "🐘 Capture friction and learnings to ~/.agents/INBOX.md. Run at checkpoint, session end, and before context-loss events."
 ---
 
 Review this session and capture learnings to `~/.agents/INBOX.md`.

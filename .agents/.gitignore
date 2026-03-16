@@ -1,5 +1,6 @@
 # Local-only artifacts (seeded by install.sh, never synced)
 artifacts/
 sessions/
+state/
 INBOX.md
 wins.md
