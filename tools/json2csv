@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# category: convert
 """Convert JSON to CSV. Accepts array of objects or dict-of-dicts."""
 
 import csv

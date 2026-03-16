@@ -3,6 +3,7 @@
 # Input: branch name, PR number (#90 or 90), or PR URL
 # Output: worktree path on stdout (creates worktree if needed)
 # Used by: wt() shell function, ag script
+# category: agent
 set -euo pipefail
 
 usage() {
