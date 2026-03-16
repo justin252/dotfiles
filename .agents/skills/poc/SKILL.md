@@ -1,6 +1,6 @@
 ---
 name: poc
-description: "Prove an idea works – fast, minimal, with gaps documented. Compound skill: /propose (light) -> /execute (phase 1 only) -> /checkpoint. Requires ccy."
+description: "🧪 Prove an idea works – fast, minimal, with gaps documented. Compound skill: /propose (light) -> /execute (phase 1 only) -> /checkpoint. Requires ccy."
 ---
 
 # /poc
