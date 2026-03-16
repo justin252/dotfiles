@@ -49,6 +49,10 @@ chain: problem.md → design.md → **plan.md**
 - [ ] <unresolved questions>
 ```
 
+## Workspace Contention
+
+**Bazel server lock**: Bazel uses a single server per workspace. When another agent is building, you may see 30-120s waits for the lock. This is normal queue behavior, not a hang. Do not kill and retry.
+
 ## Execution
 
 For each phase:

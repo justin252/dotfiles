@@ -8,6 +8,10 @@ set -euo pipefail
 no_input=false
 [[ "${AG_NO_INPUT:-}" == "1" ]] && no_input=true
 
+# Parse AG_* stage vars (format: "executor:model" or just "executor")
+_ag_executor() { local v="${1:-claude}"; echo "${v%%:*}"; }
+_ag_model()    { local v="${1:-}"; local m="${v#*:}"; [[ "$m" == "$v" ]] && m=""; echo "$m"; }
+
 usage() {
   cat <<'EOF'
 ag - agent session manager
@@ -15,7 +19,7 @@ ag - agent session manager
   ag run <plan>             smart resolve: slug, path, or partial match
   ag run -a                 pick from artifacts only
   ag run <plan> --skip review   skip pipeline stages
-  ag <name>                 launch $AGENT_EXECUTOR (default claude) in worktree
+  ag <name>                 launch agent in worktree (executor from AG_EXECUTOR)
   ag <name> -m MSG          launch with initial task
   ag <name> --cursor        cursor + agent in worktree
   ag <name> --claude        force using claude
@@ -106,7 +110,7 @@ Usage:
 
 Flags:
   -a, --artifacts               show only artifact plans in picker
-  --codex, --claude, --gemini   override agent (default: plan frontmatter > $AGENT_EXECUTOR > claude)
+  --codex, --claude, --gemini   override agent (default: plan frontmatter > AG_EXECUTOR > claude)
   --skip <stage>                skip pipeline stage (review, retro, fix). repeatable.
   --dry-run                     show what would happen, don't launch
   --json                        machine-readable output
@@ -123,6 +127,7 @@ RUNEOF
     fi
 
     run_cmd=""
+    run_cli_override=false
     run_dry=false
     run_json=false
     run_input=""
@@ -140,9 +145,9 @@ RUNEOF
         continue
       fi
       case "$arg" in
-        --codex)       run_cmd="codex" ;;
-        --claude)      run_cmd="claude" ;;
-        --gemini)      run_cmd="gemini" ;;
+        --codex)       run_cmd="codex"; run_cli_override=true ;;
+        --claude)      run_cmd="claude"; run_cli_override=true ;;
+        --gemini)      run_cmd="gemini"; run_cli_override=true ;;
         --dry-run)     run_dry=true ;;
         --json)        run_json=true ;;
         --skip)        _skip_next=true ;;
@@ -414,7 +419,7 @@ RUNEOF
       fm_agent=$(sed -n '/^---$/,/^---$/{ /^agent:/{ s/^agent: *//; p; q; } }' "$run_plan" 2>/dev/null || true)
       [[ -n "$fm_agent" ]] && run_cmd="$fm_agent"
     fi
-    [[ -z "$run_cmd" ]] && run_cmd="${AGENT_EXECUTOR:-claude}"
+    [[ -z "$run_cmd" ]] && run_cmd="$(_ag_executor "${AG_EXECUTOR:-claude}")"
     command -v "$run_cmd" >/dev/null 2>&1 || { echo "$run_cmd not found on PATH" >&2; exit 1; }
 
     # merge skip stages: CLI --skip + plan frontmatter
@@ -442,21 +447,29 @@ RUNEOF
     local_repo=$(repo_name)
     session="ag-${local_repo}-${run_topic}"
 
+    # resolve model for display (CLI override clears model – use executor default)
+    if [[ "$run_cli_override" == true ]]; then
+      _display_model=""
+    else
+      _display_model="$(_ag_model "${AG_EXECUTOR:-claude}")"
+    fi
+
     # --dry-run
     if [[ "$run_dry" == true ]]; then
       if [[ "$run_json" == true ]]; then
         jq -n \
           --arg topic "$run_topic" --arg plan "$run_plan" \
-          --arg agent "$run_cmd" --arg session "$session" \
+          --arg agent "$run_cmd" --arg model "${_display_model:-default}" \
+          --arg session "$session" \
           --arg repo "$local_repo" --arg skip "$skip_str" \
           --argjson artifacts "$artifact_count" \
-          '{topic:$topic, plan:$plan, agent:$agent, session:$session, repo:$repo, skip:$skip, artifacts:$artifacts}'
+          '{topic:$topic, plan:$plan, agent:$agent, model:$model, session:$session, repo:$repo, skip:$skip, artifacts:$artifacts}'
       else
         echo "🎪 ag run (dry-run): $run_topic" >&2
         echo "  📋 plan: $run_plan" >&2
         echo "  🌿 branch: $run_topic" >&2
         echo "  💻 session: $session" >&2
-        echo "  🤖 agent: $run_cmd" >&2
+        echo "  🤖 agent: $run_cmd${_display_model:+ (model: $_display_model)}" >&2
         [[ -n "$skip_str" ]] && echo "  ⏭  skip: $skip_str" >&2
         (( artifact_count > 0 )) && echo "  📎 artifacts: $artifact_count linked" >&2
       fi
@@ -483,17 +496,30 @@ RUNEOF
     tmux set-environment -t "$session" AG_BACKGROUND 1
     [[ -n "$skip_str" ]] && tmux set-environment -t "$session" AG_SKIP_STAGES "$skip_str"
 
+    # pass AG_* stage config into session
+    for _v in AG_EXECUTOR AG_SHIPPER AG_REVIEWER AG_LEARNER; do
+      [[ -n "${!_v:-}" ]] && tmux set-environment -t "$session" "$_v" "${!_v}"
+    done
+    # derive subagent model from AG_LEARNER for Claude Code Task delegation
+    tmux set-environment -t "$session" CLAUDE_CODE_SUBAGENT_MODEL "$(_ag_model "${AG_LEARNER:-claude:haiku}")"
+
     # create state dir for phase tracking
     mkdir -p "$HOME/.agents/state/$run_topic"
     echo "starting" > "$HOME/.agents/state/$run_topic/phase"
 
-    # launch agent with /run
+    # launch agent with /run (pass model flag if set)
     run_prompt="/run $run_plan"
-    tmux send-keys -t "$session" "$run_cmd $(printf '%q' "$run_prompt")" Enter
+    run_model_flag=""
+    if [[ "$run_cli_override" == true ]]; then _rm=""; else _rm="$(_ag_model "${AG_EXECUTOR:-claude}")"; fi
+    [[ -n "$_rm" ]] && case "$run_cmd" in
+      claude) run_model_flag="--model $_rm" ;;
+      codex)  run_model_flag="-m $_rm" ;;
+    esac
+    tmux send-keys -t "$session" "$run_cmd $run_model_flag $(printf '%q' "$run_prompt")" Enter
 
     echo "  🌿 branch: $run_topic" >&2
     echo "  💻 session: $session" >&2
-    echo "  🤖 agent: $run_cmd" >&2
+    echo "  🤖 agent: $run_cmd${_display_model:+ (model: $_display_model)}" >&2
     [[ -n "$skip_str" ]] && echo "  ⏭  skip: $skip_str" >&2
     (( artifact_count > 0 )) && echo "  📎 artifacts: $artifact_count linked" >&2
     echo "" >&2
@@ -564,7 +590,7 @@ RUNEOF
     if [[ "$pr_review" == true ]]; then
       echo "reviewing PR #$pr_number: $pr_title"
       echo "  $pr_url"
-      cmd="${AGENT_EXECUTOR:-claude}"
+      cmd="$(_ag_executor "${AG_EXECUTOR:-claude}")"
       exec $cmd "Review this PR: $pr_title ($pr_url). Here is the diff: $(gh pr diff "$pr_number" $gh_repo_flag 2>/dev/null)"
     fi
 
@@ -612,7 +638,7 @@ RUNEOF
     _ag_set_env "$session" "$slug" "$local_repo" "$pr_branch"
 
     if [[ -n "$pr_prompt" ]]; then
-      cmd="${AGENT_EXECUTOR:-claude}"
+      cmd="$(_ag_executor "${AG_EXECUTOR:-claude}")"
       tmux send-keys -t "$session" "$cmd $(printf '%q' "$pr_prompt")" Enter
       echo "launched $slug (PR #$pr_number: $pr_title)"
       echo "  $pr_url"
@@ -620,7 +646,7 @@ RUNEOF
       echo "  ag status      see all agents"
       echo "  ag             pick from list"
     else
-      tmux send-keys -t "$session" "${AGENT_EXECUTOR:-claude}" Enter
+      tmux send-keys -t "$session" "$(_ag_executor "${AG_EXECUTOR:-claude}")" Enter
       echo "attaching to $slug (PR #$pr_number)"
       echo "  $pr_url"
       echo "  ag             switch to another session"
@@ -988,7 +1014,7 @@ RUNEOF
     fi
     shift
 
-    cmd="${AGENT_EXECUTOR:-claude}"
+    cmd="$(_ag_executor "${AG_EXECUTOR:-claude}")"
     open_cursor=false
     prompt=""
 

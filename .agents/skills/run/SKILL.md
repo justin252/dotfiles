@@ -18,15 +18,16 @@ At scale, 🦁 dispatches multiple `/run` pipelines in parallel. Today, each `ag
    - Fail if no plan.md found
 3. Read plan.md. Verify it has unchecked tasks. Read `## Open`; if non-empty, log each item to INBOX.md as a design decision the implementer should be aware of.
 4. Read plan.md YAML frontmatter. Extract `skip` list (stages to skip) and any other config.
-5. Read `AG_SKIP_STAGES` env var (comma-separated, set by `ag run --skip`). Merge with frontmatter skip list. CLI wins on conflict; union of both lists.
-6. **Artifact linkage**: scan the plan's parent directory for sibling `.md` files (problem.md, design.md, output.md, review.md, etc.). Read each one. These provide context for:
+5. **Subagent model**: `ag run` sets `CLAUDE_CODE_SUBAGENT_MODEL` from `AG_LEARNER` env var (e.g., `haiku`). Task subagents (retro, summarization) automatically use this lighter model. No manual configuration needed.
+6. Read `AG_SKIP_STAGES` env var (comma-separated, set by `ag run --skip`). Merge with frontmatter skip list. CLI wins on conflict; union of both lists.
+7. **Artifact linkage**: scan the plan's parent directory for sibling `.md` files (problem.md, design.md, output.md, review.md, etc.). Read each one. These provide context for:
    - Implementation decisions (design.md rationale)
    - PR descriptions (reference problem.md motivation, design.md decisions)
    - Review context (reviewer gets full artifact chain)
    Keep a list of linked artifacts for reference throughout the pipeline.
-7. Derive topic slug from plan path (parent dir name).
-8. Write phase state: `~/.agents/state/<slug>/phase` ← "starting"
-9. Write task progress: count plan.md checkboxes (`- [ ]` and `- [x]`) and write `<done>/<total>` to `~/.agents/state/<slug>/tasks`
+8. Derive topic slug from plan path (parent dir name).
+9. Write phase state: `~/.agents/state/<slug>/phase` ← "starting"
+10. Write task progress: count plan.md checkboxes (`- [ ]` and `- [x]`) and write `<done>/<total>` to `~/.agents/state/<slug>/tasks`
 
 ## Pipeline
 
@@ -88,6 +89,8 @@ If review.md is clean (only `nit` or `question`), skip this stage.
 ### Stage 5: 🐘 Learn
 
 Phase state: "learning". Skippable (`--skip retro`).
+
+Delegate retro to a Task subagent (`model: "fast"`) when running inside Claude Code. The `CLAUDE_CODE_SUBAGENT_MODEL` env var (set by `ag run` from `AG_LEARNER`) controls the model. Retro is low-stakes summarization; it doesn't need Opus.
 
 Run `/retro` (full mode):
 - Read `~/.agents/skills/retro/SKILL.md`
