@@ -1,6 +1,6 @@
 ---
 name: triage
-description: Sort and execute INBOX.md items. Promotes stable patterns to AGENTS.md or tool-specific rules.
+description: "🐘 Sort and execute INBOX.md items. Promotes stable patterns to AGENTS.md or tool-specific rules."
 
 ---
 

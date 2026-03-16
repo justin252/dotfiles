@@ -1,6 +1,6 @@
 ---
 name: explain
-description: Produce a written explanation of a codebase, system, or concept. Saves to ~/.agents/artifacts/<topic>/reference.md. Use when the user says 'explain', 'document this', 'how does X work', or needs a reference doc with code citations.
+description: "📖 Produce a written explanation of a codebase, system, or concept. Saves to ~/.agents/artifacts/<topic>/reference.md. Use when the user says 'explain', 'document this', 'how does X work', or needs a reference doc with code citations."
 ---
 
 # /explain

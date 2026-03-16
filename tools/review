@@ -130,12 +130,12 @@ else
   # try current branch's PR
   branch=$(git -C "$target_repo" branch --show-current 2>/dev/null || true)
   if [[ -n "$branch" ]] && resolve_pr "$branch" 2>/dev/null; then
-    echo "reviewing PR #$pr_number: $pr_title" >&2
+    echo "🦉 reviewing PR #$pr_number: $pr_title" >&2
   elif [[ -n "$branch" && "$branch" != "main" && "$branch" != "master" ]]; then
     # no PR, but on a feature branch – diff against main
     base_branch=$(git -C "$target_repo" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||' || true)
     [[ -n "$base_branch" ]] || base_branch="main"
-    echo "reviewing branch $branch (diff against $base_branch)" >&2
+    echo "🦉 reviewing branch $branch (diff against $base_branch)" >&2
   else
     echo "nothing to review: on main with no PR" >&2
     echo "  review <PR>    review a specific PR" >&2
@@ -300,11 +300,11 @@ echo "  log: $log_path" >&2
     ${reviewer_model:+-m "$reviewer_model"} \
     -c "model_reasoning_effort=\"high\"" \
     -c "model_instructions_file=\"$runtime_instructions\"" \
-    -o "$codex_out" </dev/null
+    </dev/null >"$codex_out"
 
   if [[ -s "$codex_out" ]]; then
     mv "$codex_out" "$review_path"
-    echo "review complete: $review_path"
+    echo "🦉 review complete: $review_path"
     # update state: done
     jq --arg f "$(date -u +%FT%TZ)" '.status = "done" | .finished = $f' "$state_path" > "$state_path.tmp" \
       && mv "$state_path.tmp" "$state_path"
@@ -341,7 +341,7 @@ jq -n \
   '{status:$status, pid:$pid, started:$started, topic:$topic, branch:$branch, base:$base, pr_url:$pr_url, log_path:$log_path, review_path:$review_path}' \
   > "$state_path"
 
-echo "review started (pid $!)" >&2
+echo "🦉 review started (pid $!)" >&2
 echo "  tail -f $log_path" >&2
 
 # --- json output ---
