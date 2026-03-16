@@ -59,8 +59,8 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 ```
 .agents/AGENTS.md            # Shared agent instructions (cross-tool source of truth)
 .agents/.gitignore           # Boundary: artifacts/, INBOX.md, wins.md are local-only
-.agents/references/          # Reference docs auto-consulted by agents
-.agents/references/artifact-templates.md  # Core artifact templates (problem, design, plan, output, review)
+.agents/conventions/         # Reference docs auto-consulted by agents
+.agents/conventions/artifact-templates.md # Core artifact templates (problem, design, plan, output, review)
 .agents/skills/              # Agent skills (symlinked to ~/.agents/, ~/.claude/; copied to ~/.cursor/)
 .codex/config.toml.example   # Codex CLI autonomy skeleton (merge, don't symlink blindly)
 .codex/review-instructions.md # Review artifact template/instructions for Codex runner

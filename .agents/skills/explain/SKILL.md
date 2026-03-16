@@ -11,7 +11,7 @@ Research a codebase or system and produce a reference document with code citatio
 
 1. Determine topic: $ARGUMENTS, or infer from conversation context
 2. Determine scope: specific file/package, system/service, or concept
-3. Read `~/.agents/references/artifact-templates.md` for reference.md format
+3. Read `~/.agents/conventions/artifact-templates.md` for reference.md format
 4. Create `~/.agents/artifacts/<topic>/` if missing
 
 ## Research

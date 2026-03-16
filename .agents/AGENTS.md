@@ -17,13 +17,10 @@
 - After merging/deduplicating lists, verify each exact item – don't summarize as families or wildcards.
 - Before proposing new tools/aliases, grep existing config to avoid duplicating what's already there.
 - Verify platform capabilities before designing around them – don't assume features exist at system boundaries.
-- Shell scripts (dotfiles): Linux support is required, not optional. Verify BSD (macOS) vs GNU flag compatibility. Known traps: `find -perm +mode` (BSD) vs `-perm /mode` (GNU) – use `[[ -x ]]` instead; `find -exec test -e {} \; -delete` (BSD) – use a loop; `wc` output has leading spaces on BSD – pipe through `tr -d ' '`; `pbcopy`/`open` (macOS-only) – guard with `command -v` and provide `xclip`/`xdg-open` fallback. Prefer cross-platform implementations; only guard with `$OSTYPE` when genuinely platform-specific. Use existence checks (`command -v`, `[[ -d ]]`) over OS checks when possible.
-- Bash scripts: `local` is only valid inside functions (zsh is permissive). Don't use at top level in case blocks or scripts.
-- Dotfiles install/repair flows: design for a clean machine first. Create dirs before scanning them; keep optional integrations non-fatal; only remove clearly managed paths; smoke-test with a temp `HOME`.
+- Shell scripts: MUST read `.agents/conventions/shell-scripts.md` before writing or modifying shell scripts. Covers strict mode, quoting, cross-platform traps (BSD vs GNU), error handling, security, testing.
 - Flag performance when it matters – hot paths, large datasets, repeated calls. Don't optimize prematurely.
-- Shell startup (.zshrc, etc.): never source commands that hit the network. Auth/token refreshes → on-demand or lazy.
 - Go: default to unexported (lowercase). Only export when cross-package usage is confirmed.
-- CLI tools: MUST read `.agents/references/cli-guidelines.md` before writing code. clig.dev is a menu, not a checklist – apply recommendations to the tool's actual use case:
+- CLI tools: MUST read `.agents/conventions/cli-guidelines.md` before writing code. clig.dev is a menu, not a checklist – apply recommendations to the tool's actual use case:
   - `--help`: universal. Every user-facing tool. Internal helpers get header comments instead.
   - `--json`: only where scripting/composability is real (orchestrators, status commands). Not for interactive fzf browsers.
   - `--quiet`, `--no-color`: only if the tool is used in automation/CI. Interactive-only tools skip these.
@@ -202,13 +199,13 @@ Artifacts:
 - Core artifacts: problem.md (why), design.md (how), plan.md (what/when), reference.md (learnings).
 - Delivery artifacts: output.md (what shipped), review.md (review loop for an output). Multi-output topics can use `outputs/<slug>.md` and `reviews/<slug>.md`.
 - Pipeline: problem → design → plan → output → review → checkpoint. Each artifact type except reference can use ## Open for feedback loop.
-- Templates: `~/.agents/references/artifact-templates.md`. Agents consult when creating artifacts.
+- Templates: `~/.agents/conventions/artifact-templates.md`. Agents consult when creating artifacts.
 - `load <topic>` → search `~/.agents/artifacts/` and `~/.agents/sessions/`. Partial match; ambiguous → show options. Read all artifact types, summarize status + next steps.
-- `~/.agents/references/workflow.md` – comprehensive workflow reference. Read on demand: `@~/.agents/references/workflow.md`.
+- `~/.agents/conventions/workflow.md` – comprehensive workflow reference. Read on demand: `@~/.agents/conventions/workflow.md`.
 
 Composability:
 - Pipeline: /propose persists to artifacts/, /execute tracks progress in plan.md, outputs carry concrete delivery state, /checkpoint ships and can trigger review.
-- Transitions + skill→doc mapping: see `~/.agents/references/workflow.md` § Composability.
+- Transitions + skill→doc mapping: see `~/.agents/conventions/workflow.md` § Composability.
 
 Capture:
 - `log <thought>` → agent appends to INBOX.md (date, context, idea). Not a shell alias – agent writes via bash.
@@ -233,7 +230,7 @@ Overlays are symlinked by their respective install scripts. Personal zshrc ends 
 ### install.sh
 
 Idempotent. Safe to re-run anytime. What it does:
-- Symlinks: `~/.zshrc`, `~/tools`, `~/.agents/AGENTS.md`, `~/.agents/skills/*/`, `~/.agents/references/`, `~/.claude/CLAUDE.md`, `~/.claude/settings.json`, `~/.claude/agents/`
+- Symlinks: `~/.zshrc`, `~/tools`, `~/.agents/AGENTS.md`, `~/.agents/skills/*/`, `~/.agents/conventions/`, `~/.claude/CLAUDE.md`, `~/.claude/settings.json`, `~/.claude/agents/`
 - Copies skills to `~/.cursor/skills/` (Cursor doesn't follow symlinks)
 - Seeds local-only files: `~/.agents/INBOX.md`, `~/.agents/wins.md`, `~/.agents/artifacts/`
 - Installs fzf if missing (brew on macOS, binary download on Linux)

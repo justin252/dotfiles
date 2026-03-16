@@ -1,6 +1,6 @@
 ---
 name: checkpoint
-description: Build, test, split/ship PRs, commit, push, async review handoff, win check, retro. The only release path.
+description: "🦅 Build, test, split/ship PRs, commit, push, async review handoff, win check, retro. The only release path."
 ---
 
 Self-contained workflow -- execute steps fully, don't inject extra confirmation gates.

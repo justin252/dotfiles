@@ -10,7 +10,7 @@ Research, then produce artifacts at `~/.agents/artifacts/<topic>/`. Context-awar
 ## Bootstrap
 
 1. Read `~/.agents/AGENTS.md` for conventions
-2. Read `~/.agents/references/artifact-templates.md` for doc format
+2. Read `~/.agents/conventions/artifact-templates.md` for doc format
 3. Determine topic from $ARGUMENTS or conversation context
 4. Create `~/.agents/artifacts/<topic>/` if missing
 5. Check what exists and pick up there:
@@ -37,7 +37,7 @@ Match verbosity to problem size:
 
 ## Doc Formats
 
-See `~/.agents/references/artifact-templates.md` for canonical templates. Key points:
+See `~/.agents/conventions/artifact-templates.md` for canonical templates. Key points:
 
 - All docs use YAML frontmatter (topic, repo, component, status, created, updated, chain)
 - Each actionable type has ## Open for unresolved questions
