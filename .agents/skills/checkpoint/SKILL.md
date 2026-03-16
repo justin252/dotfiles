@@ -12,7 +12,7 @@ Self-contained workflow -- execute steps fully, don't inject extra confirmation 
 2. **Build + test**: scope to affected targets. Skip if:
    - Docs-only change (no source files modified)
    - Tests already passed this session (TDD workflow -- don't re-run)
-   - Dotfiles/config-only change (no build system)
+   - Pure config change (no executable code modified). Note: shell scripts and tools ARE executable code – always test those
 3. **README**: update if changes affect it
 4. **Split or ship**: split into stacked PRs if logically independent changes exist, otherwise ship as one. Use Graphite only when repo-level config enables it; default to git+gh.
 5. **Config review**: if any config files changed (CLAUDE.md, settings.json, zshrc, AGENTS.md), summarize what changed and why before committing
