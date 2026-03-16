@@ -6,7 +6,7 @@
 - Read-only ops (ls, web search, read queries) never need confirmation
 - Avoid unnecessary bash: `echo`/`printf` for output (use direct text), interactive flags (`-i`), commands waiting on stdin – these hang on approval prompts.
 - Hang detection applies to bash too: never sit idle waiting on a silent command.
-- Plan files: auto-generated plans stay in `~/.claude/plans/` (Claude Code manages). For persistent plans, use /propose → docs/<topic>/plan.md.
+- Plan files: auto-generated plans stay in `~/.claude/plans/` (Claude Code manages). For persistent plans, use /propose → artifacts/<topic>/plan.md.
 - Skills override CLAUDE.md constraints for their active scope (e.g. /execute in autonomous mode overrides confirmation gates).
 - If a build/run subagent is rejected, offer manual commands – don't retry the subagent.
 - Permission denied in `ccy` mode: can't switch permission modes mid-session. Tell user the exact operation that was blocked, provide the manual command, and suggest running it in a new interactive `claude` session if multiple operations need approval.

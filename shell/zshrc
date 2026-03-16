@@ -201,7 +201,8 @@ alias cxr="codex resume"
 
 # ─── Shell ────────────────────────────────────────────────────
 alias dot="cd ~/dotfiles"
-alias docs="cd ~/.agents/docs"
+alias artifacts="cd ~/.agents/artifacts"
+alias a=artifacts
 alias pen="cd ~/code/penny"
 tools() { cd "${TOOLS_PATH:-$HOME/tools}"; }
 alias sz='source ~/.zshrc && tmux source-file ~/.tmux.conf 2>/dev/null; true'

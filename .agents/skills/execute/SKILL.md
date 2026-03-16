@@ -1,6 +1,6 @@
 ---
 name: execute
-description: Execute phased implementation plans. Creates or reads ~/.agents/docs/<topic>/plan.md, works through phases with testable checkpoints. Use when the user wants to implement something, execute a plan, build a feature, or says 'execute', 'build this', 'implement', 'exec'.
+description: Execute phased implementation plans. Creates or reads ~/.agents/artifacts/<topic>/plan.md, works through phases with testable checkpoints. Use when the user wants to implement something, execute a plan, build a feature, or says 'execute', 'build this', 'implement', 'exec'.
 ---
 
 # /execute
@@ -9,15 +9,15 @@ Execute a phased plan. Each phase is independently valuable and testable.
 
 ## Launch
 
-Preferred: `ag <name> -m "/execute from ~/.agents/docs/<topic>/plan.md"` (auto-creates worktree, autonomous).
-Or via `doc` → pick plan → execute action.
+Preferred: `ag <name> -m "/execute from ~/.agents/artifacts/<topic>/plan.md"` (auto-creates worktree, autonomous).
+Or via `artifacts` → pick plan → execute action.
 Can also run inline in an existing claude session.
 
 ## Bootstrap
 
 1. Read `~/.agents/AGENTS.md` for conventions (commit style, PR template, safety rules)
 2. Determine the topic: $ARGUMENTS, or infer from conversation context
-3. Check `~/.agents/docs/<topic>/`:
+3. Check `~/.agents/artifacts/<topic>/`:
    - **plan.md exists**: read it, find the next unchecked phase, inspect `output.md`/`review.md` if present, resume there
    - **No plan.md but design.md exists**: derive plan.md from design. Read ## Open sections from problem.md/design.md first – append unresolved items as phase 0 decisions.
    - **Nothing exists**: draft plan.md from task description.
@@ -25,7 +25,7 @@ Can also run inline in an existing claude session.
 
 ## Plan Doc Format
 
-See `~/.agents/references/doc-templates.md` for the canonical template. Key structure:
+See `~/.agents/references/artifact-templates.md` for the canonical template. Key structure:
 
 ```markdown
 ---

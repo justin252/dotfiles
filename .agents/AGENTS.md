@@ -32,8 +32,8 @@
 - Hang detection: run potentially-slow commands in background. Poll output – if no new output for 15s (with verbose/debug flags) or 30s (without), assume hung. Kill, retry with timeout, or fall back.
 - Exit loops if no progress toward verifiable goal. Never loop 3+ times on same failure – stop, note pattern, ask.
 - Ask before guessing paths/values – don't assume from directory listings.
-- Saved docs (drafts, research, proposals) → `~/.agents/docs/<topic-folder>/` with descriptive slug filenames. Not repo `docs/`, not `~/.cursor/plans/`. Exception: project design docs that belong with the repo stay in-repo (e.g. `docs/design/`).
-- Before creating files/dirs, confirm destination with user – especially when "save locally" or "keep it local" is ambiguous between repo, dotfiles, and `~/.agents/docs/`.
+- Saved artifacts (drafts, research, proposals) → `~/.agents/artifacts/<topic-folder>/` with descriptive slug filenames. Not repo `docs/`, not `~/.cursor/plans/`. Exception: project design docs that belong with the repo stay in-repo (e.g. `docs/design/`).
+- Before creating files/dirs, confirm destination with user – especially when "save locally" or "keep it local" is ambiguous between repo, dotfiles, and `~/.agents/artifacts/`.
 - Flag over/under-prompting: if user is over-specifying something obvious, say so. If under-specifying is causing rework, flag that too. When flagging, log the pattern to INBOX.md so /triage can promote it to a default (AGENTS.md rule, alias, or skill).
 - For review/planning sessions, present 1–2 decisions at a time, not a full menu.
 - When working across repos, confirm target repo early.
@@ -186,17 +186,17 @@ Model: session → INBOX.md (short-term) → triage → AGENTS.md (long-term)
 - Skill vs instruction: single command + context → AGENTS.md instruction. Multi-step, branching logic, or cross-repo → skill.
 - When updating a skill or its reference example, diff conventions against the artifact to catch drift.
 
-Docs:
-- `~/.agents/docs/<topic>/` = all long-lived docs. Flat by topic, frontmatter for metadata. Local-only (`.gitignore`).
-- Core docs: problem.md (why), design.md (how), plan.md (what/when), reference.md (learnings).
+Artifacts:
+- `~/.agents/artifacts/<topic>/` = all long-lived artifacts. Flat by topic, frontmatter for metadata. Local-only (`.gitignore`).
+- Core artifacts: problem.md (why), design.md (how), plan.md (what/when), reference.md (learnings).
 - Delivery artifacts: output.md (what shipped), review.md (review loop for an output). Multi-output topics can use `outputs/<slug>.md` and `reviews/<slug>.md`.
-- Pipeline: problem → design → plan → output → review → checkpoint. Each doc type except reference can use ## Open for feedback loop.
-- Templates: `~/.agents/references/doc-templates.md`. Agents consult when creating docs.
-- `load <topic>` → search `~/.agents/docs/` and `~/.agents/sessions/`. Partial match; ambiguous → show options. Read all doc types, summarize status + next steps.
+- Pipeline: problem → design → plan → output → review → checkpoint. Each artifact type except reference can use ## Open for feedback loop.
+- Templates: `~/.agents/references/artifact-templates.md`. Agents consult when creating artifacts.
+- `load <topic>` → search `~/.agents/artifacts/` and `~/.agents/sessions/`. Partial match; ambiguous → show options. Read all artifact types, summarize status + next steps.
 - `~/.agents/references/workflow.md` – comprehensive workflow reference. Read on demand: `@~/.agents/references/workflow.md`.
 
 Composability:
-- Pipeline: /propose persists to docs/, /execute tracks progress in plan.md, outputs carry concrete delivery state, /checkpoint ships and can trigger review.
+- Pipeline: /propose persists to artifacts/, /execute tracks progress in plan.md, outputs carry concrete delivery state, /checkpoint ships and can trigger review.
 - Transitions + skill→doc mapping: see `~/.agents/references/workflow.md` § Composability.
 
 Capture:
@@ -224,7 +224,7 @@ Overlays are symlinked by their respective install scripts. Personal zshrc ends 
 Idempotent. Safe to re-run anytime. What it does:
 - Symlinks: `~/.zshrc`, `~/tools`, `~/.agents/AGENTS.md`, `~/.agents/skills/*/`, `~/.agents/references/`, `~/.claude/CLAUDE.md`, `~/.claude/settings.json`, `~/.claude/agents/`
 - Copies skills to `~/.cursor/skills/` (Cursor doesn't follow symlinks)
-- Seeds local-only files: `~/.agents/INBOX.md`, `~/.agents/wins.md`, `~/.agents/docs/`
+- Seeds local-only files: `~/.agents/INBOX.md`, `~/.agents/wins.md`, `~/.agents/artifacts/`
 - Installs fzf if missing (brew on macOS, binary download on Linux)
 - Sets `git pull.rebase true`
 - Karabiner: copies (not symlinks) on macOS
@@ -271,7 +271,7 @@ All on PATH via `~/tools` symlink:
 - `ag` – agent session manager (stage 6-7 orchestrator). One command for parallel work: `ag <name>` auto-creates worktree + launches agent. `ag <name> -m MSG` with initial task (background launch; prints guided output, doesn't attach). `ag` fzf dashboard (all repos). `ag status` cross-repo view. `ag kill <name>` kill session. `ag clean` dead sessions + merged worktrees (`--force` skips prompt, `--all` nuclear reset). Name flows everywhere: branch, session, worktree, tmux status bar. Tmux status shows `name●` (active) / `name○` (idle). `C-a a` for popup dashboard.
 - `wt` – navigate to any branch or PR. `wt <branch>` finds existing worktree or creates one. `wt 90` or `wt <PR-URL>` resolves PR. `wt` fzf switch. `wt -d` delete. `wt list` show all. `wt clean` remove merged worktrees. `wt clean --all` remove all worktrees. Composable: `ag` delegates worktree ops here.
 - `wss` – workspace SSH+tmux. `wss <name>` connect, `wss` fzf picker. Work-only (macOS guard).
-- `doc` – unified doc browser (fzf). Sources: `~/.agents/docs/`. Frontmatter-aware picker: [type] topic repo/component status. Actions: edit, view, execute, propose, review, claude, cursor. `doc <query>` pre-filters.
+- `artifacts` (`a`) – unified artifact browser (fzf). Sources: `~/.agents/artifacts/`. Frontmatter-aware picker: [type] topic repo/component status. Actions: edit, view, execute, propose, review, claude, cursor. `artifacts <query>` pre-filters.
 - `review-output` – create/update the current topic output artifact and run Codex review into the linked review artifact
 - `sesh` – session notes browser (fzf). Sources: `~/.agents/sessions/`. Curated .md summaries for context handoff to new sessions. `sesh <query>` pre-filters.
 

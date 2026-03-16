@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DOCS_ROOT="${DOCS_ROOT:-$HOME/.agents/docs}"
+ARTIFACTS_ROOT="${ARTIFACTS_ROOT:-$HOME/.agents/artifacts}"
 SCRIPT_PATH="${BASH_SOURCE[0]}"
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -15,7 +15,7 @@ Usage:
   review-output <topic-dir|topic> [--repo <dir>] [--output <slug>] [--base <branch>] [--title <title>] [--background]
 
 Examples:
-  review-output ~/.agents/docs/auth
+  review-output ~/.agents/artifacts/auth
   review-output auth
   review-output auth --output phase-2
   review-output auth --background
@@ -94,8 +94,8 @@ resolve_topic_dir() {
     (cd "$value" && pwd)
   elif [[ -f "$value" ]]; then
     (cd "$(dirname "$value")" && pwd)
-  elif [[ -d "$DOCS_ROOT/$value" ]]; then
-    (cd "$DOCS_ROOT/$value" && pwd)
+  elif [[ -d "$ARTIFACTS_ROOT/$value" ]]; then
+    (cd "$ARTIFACTS_ROOT/$value" && pwd)
   else
     return 1
   fi

@@ -30,7 +30,7 @@ One command: pulls latest dotfiles, refreshes shared skills + Codex defaults, an
 reset-dot
 ```
 
-Repairs the dotfiles-managed layer without touching local-only state like auth, `~/.agents/docs`, `INBOX.md`, `~/.zshrc.work`, or `~/.zshrc.personal`.
+Repairs the dotfiles-managed layer without touching local-only state like auth, `~/.agents/artifacts`, `INBOX.md`, `~/.zshrc.work`, or `~/.zshrc.personal`.
 
 **Interactive learning path** – explore the repo with [Claude Code](https://docs.anthropic.com/en/docs/claude-code):
 
@@ -47,7 +47,7 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 - Symlinks `.claude/agents/` (CC subagent definitions)
 - Symlinks `~/.gemini/GEMINI.md` to `.gemini/GEMINI.md` (Gemini global context, @imports AGENTS.md)
 - Syncs Codex defaults into `~/.codex/config.toml` without replacing auth/trust state
-- Seeds `~/.agents/INBOX.md`, `~/.agents/wins.md`, `~/.agents/docs/` (local-only, never synced)
+- Seeds `~/.agents/INBOX.md`, `~/.agents/wins.md`, `~/.agents/artifacts/` (local-only, never synced)
 - Copies Karabiner config (can't symlink – Karabiner overwrites symlinks)
 - Sets `git pull.rebase true`
 - Installs fzf, tmux if missing
@@ -58,9 +58,9 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 
 ```
 .agents/AGENTS.md            # Shared agent instructions (cross-tool source of truth)
-.agents/.gitignore           # Boundary: docs/, INBOX.md, wins.md are local-only
+.agents/.gitignore           # Boundary: artifacts/, INBOX.md, wins.md are local-only
 .agents/references/          # Reference docs auto-consulted by agents
-.agents/references/doc-templates.md  # Core docs + output/review artifact templates
+.agents/references/artifact-templates.md  # Core artifact templates (problem, design, plan, output, review)
 .agents/skills/              # Agent skills (symlinked to ~/.agents/, ~/.claude/; copied to ~/.cursor/)
 .codex/config.toml.example   # Codex CLI autonomy skeleton (merge, don't symlink blindly)
 .codex/review-instructions.md # Review artifact template/instructions for Codex runner
@@ -74,7 +74,7 @@ tools/ag                     # Agent session manager (launch, PR checkout, dashb
 tools/ag-preview             # fzf preview for ag picker (PR info, plan/review paths)
 tools/wt-resolve             # Worktree resolver: branch/PR# → worktree path (find existing or create)
 tools/ag-status-line         # tmux status bar: agent state indicators (polled every 5s)
-tools/doc                    # Unified doc browser: ~/.agents/docs/ (frontmatter-aware, typed actions)
+tools/artifacts              # Unified artifact browser: ~/.agents/artifacts/ (frontmatter-aware, typed actions)
 tools/review-output          # Create/update output.md and run agent review ($AGENT_REVIEWER)
 tools/sync-codex-config      # Set Codex CLI autonomy defaults (workspace-write + never ask)
 tools/reset-dot              # Rebuild dotfiles-managed symlinks/copies/config scaffolding
@@ -110,7 +110,7 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `reset-dot` – rebuild the managed dotfiles layer after migrations or drift while preserving local-only state; leaves a real `~/tools` directory alone
 - `review-output` – create/update `output.md` and run agent review into `review.md` for the current topic. Respects `$AGENT_REVIEWER` (codex only for now). Use `--background` for checkpoint-style async review
 - `rebase-wip` – stash local edits, fetch/rebase onto the target branch, then reapply the stash. Useful when dotfiles change mid-task
-- `doc` – unified doc browser: `~/.agents/docs/` with frontmatter-aware picker. Actions: edit, view, execute, propose, review, claude, gemini, plan, cursor. `doc <query>` pre-filters.
+- `artifacts` (`a`) – unified artifact browser: `~/.agents/artifacts/` with frontmatter-aware picker. Actions: edit, view, execute, propose, review, claude, gemini, plan, cursor. `artifacts <query>` pre-filters.
 - `sesh` – session notes browser: `~/.agents/sessions/` (curated .md summaries for context handoff). `sesh <query>` pre-filters.
 
 ## Contributing
@@ -162,7 +162,7 @@ session → friction/insights
 | Short-term | `~/.agents/INBOX.md` | Local, never synced | /retro, log, idea |
 | Per-project | `<repo>/AGENTS.md` | Team-shared, committed | Manual or /triage |
 | Per-project | `~/.claude/projects/*/memory/` | Claude Code auto-memory | Claude Code |
-| Per-topic | `~/.agents/docs/<topic>/review.md` | Output review + candidate learnings | Codex + executor loop |
+| Per-topic | `~/.agents/artifacts/<topic>/review.md` | Output review + candidate learnings | Codex + executor loop |
 
 Capture: `log`, `idea: <thought>`, `win: <description>`.
 Triage (`/triage`) promotes INBOX items to AGENTS.md rules, problem.md docs, zshrc aliases, scripts, or discards them.

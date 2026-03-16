@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# doc - browse agent docs (problem → design → plan → output → review → reference)
-# Sources: ~/.agents/docs/<topic>/ with YAML frontmatter
+# artifacts - browse agent artifacts (problem → design → plan → output → review → reference)
+# Sources: ~/.agents/artifacts/<topic>/ with YAML frontmatter
 
-DOCS_ROOT="${DOCS_ROOT:-$HOME/.agents/docs}"
+ARTIFACTS_ROOT="${ARTIFACTS_ROOT:-$HOME/.agents/artifacts}"
 
 if ! command -v fzf &>/dev/null; then
   echo "fzf required but not found" >&2
@@ -51,14 +51,14 @@ parse_frontmatter() {
 # Format: "colored_display \t full_path \t type \t topic_root \t topic \t repo \t component \t status"
 entries=""
 
-if [[ -d "$DOCS_ROOT" ]]; then
+if [[ -d "$ARTIFACTS_ROOT" ]]; then
   while IFS= read -r file; do
     fname=$(basename "$file" .md)
     topic_dir=$(dirname "$file")
     topic_name=$(basename "$topic_dir")
 
     # Skip non-doc files at root level
-    [[ "$topic_dir" == "$DOCS_ROOT" ]] && continue
+    [[ "$topic_dir" == "$ARTIFACTS_ROOT" ]] && continue
 
     # Determine type from filename or subdir
     parent_name=$(basename "$topic_dir")
@@ -87,11 +87,11 @@ if [[ -d "$DOCS_ROOT" ]]; then
     [[ -n "$status" ]] && display+="  ${DIM}${status}${RESET}"
 
     entries+="${display}"$'\t'"${file}"$'\t'"${doc_type}"$'\t'"${topic_dir}"$'\t'"${topic_name}"$'\t'"${repo}"$'\t'"${component}"$'\t'"${status}"$'\n'
-  done < <(find "$DOCS_ROOT" -type f -name '*.md' | sort)
+  done < <(find "$ARTIFACTS_ROOT" -type f -name '*.md' | sort)
 fi
 
 if [[ -z "$entries" ]]; then
-  echo "No documents found in $DOCS_ROOT" >&2
+  echo "No documents found in $ARTIFACTS_ROOT" >&2
   exit 1
 fi
 
@@ -100,7 +100,7 @@ preview_cmd="bat --style=plain --color=always {2} 2>/dev/null || cat {2}"
 
 # fzf with optional query arg – searches across all fields including hidden ones
 fzf_args=(
-  --prompt="doc> "
+  --prompt="artifacts> "
   --ansi
   --delimiter=$'\t'
   --with-nth=1
@@ -179,7 +179,7 @@ case "$action" in
       review-output "$topic_dir" "${repo_arg[@]}"
     fi ;;
   claude)
-    if [[ -d "$topic_dir" && "$topic_dir" != "$DOCS_ROOT" ]]; then
+    if [[ -d "$topic_dir" && "$topic_dir" != "$ARTIFACTS_ROOT" ]]; then
       echo "Launching Claude Code: $topic"
       cd "$topic_dir" && claude "load $topic ($topic_dir/)"
     else
@@ -187,7 +187,7 @@ case "$action" in
       claude "load $full"
     fi ;;
   gemini)
-    if [[ -d "$topic_dir" && "$topic_dir" != "$DOCS_ROOT" ]]; then
+    if [[ -d "$topic_dir" && "$topic_dir" != "$ARTIFACTS_ROOT" ]]; then
       echo "Launching Gemini: $topic"
       cd "$topic_dir" && gemini "load $topic ($topic_dir/)"
     else
@@ -201,7 +201,7 @@ case "$action" in
       gemini) plan_flag="--approval-mode plan" ;;
       *)      plan_flag="" ;;
     esac
-    if [[ -d "$topic_dir" && "$topic_dir" != "$DOCS_ROOT" ]]; then
+    if [[ -d "$topic_dir" && "$topic_dir" != "$ARTIFACTS_ROOT" ]]; then
       echo "Launching $planner (Plan Mode): $topic"
       cd "$topic_dir" && $planner $plan_flag "load $topic ($topic_dir/)"
     else
@@ -209,7 +209,7 @@ case "$action" in
       $planner $plan_flag "load $full"
     fi ;;
   cursor)
-    if [[ -d "$topic_dir" && "$topic_dir" != "$DOCS_ROOT" ]]; then
+    if [[ -d "$topic_dir" && "$topic_dir" != "$ARTIFACTS_ROOT" ]]; then
       cursor "$topic_dir"
     else
       cursor "$full"
