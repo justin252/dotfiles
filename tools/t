@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# t – browse tools on PATH (fzf)
+# category: browse
+
+usage() {
+  cat <<'EOF'
+t – browse tools (fzf)
+
+Usage:
+  t [query]
+
+Options:
+  -h, --help    Show this help
+
+Preview shows full --help output for the highlighted tool.
+EOF
+}
+
+case "${1:-}" in -h|--help) usage; exit 0 ;; esac
+
+TOOLS_DIR="${TOOLS_DIR:-$HOME/tools}"
+
+if ! command -v fzf &>/dev/null; then
+  echo "fzf required but not found" >&2
+  exit 1
+fi
+
+# Build entries: category \t name \t description
+entries=""
+while IFS= read -r tool; do
+  name=$(basename "$tool")
+  # Extract category from comment
+  cat_line=$(grep '^# category:' "$tool" 2>/dev/null | head -1)
+  category="${cat_line#*: }"
+  [[ -z "$category" ]] && category="other"
+  # Extract one-liner from --help or header comment
+  desc=$("$tool" --help 2>/dev/null | head -1 || true)
+  if [[ -z "$desc" ]]; then
+    desc=$(grep '^#' "$tool" 2>/dev/null | grep -v '^#!' | head -1 | sed 's/^# *//')
+  fi
+  # Strip "tool-name – " prefix
+  desc="${desc#*– }"
+  desc="${desc#*- }"
+  entries+="${category}"$'\t'"${name}"$'\t'"${desc}"$'\n'
+done < <(find "$TOOLS_DIR" -maxdepth 1 -type f -perm +111 2>/dev/null | sort)
+
+if [[ -z "$entries" ]]; then
+  echo "No tools found in $TOOLS_DIR" >&2
+  exit 1
+fi
+
+# Sort by category, format with section headers
+DIM=$'\033[2m'
+RESET=$'\033[0m'
+last_cat=""
+formatted=""
+while IFS=$'\t' read -r cat name desc; do
+  [[ -z "$cat" ]] && continue
+  if [[ "$cat" != "$last_cat" ]]; then
+    formatted+="${DIM}── ${cat} ──${RESET}"$'\n'
+    last_cat="$cat"
+  fi
+  formatted+=$(printf '  %-20s %s' "$name" "$desc")$'\n'
+done < <(printf '%s' "$entries" | sort -t$'\t' -k1,1 -k2,2)
+
+# fzf with preview = full --help
+printf '%s' "$formatted" | fzf \
+  --prompt="tools> " \
+  --ansi \
+  --no-sort \
+  --preview='tool=$(echo {} | awk "{print \$1}"); [[ -z "$tool" || "$tool" == "──" ]] && exit 0; ~/tools/$tool --help 2>/dev/null || head -20 ~/tools/$tool' \
+  --preview-window=right:50%:wrap \
+  ${1:+--query="$1"} || true

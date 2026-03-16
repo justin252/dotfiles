@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # ag-status-line – polled by tmux status-right every 5s
 # Shows compact agent session indicators: name● (active) name○ (idle)
+# category: agent
 set -euo pipefail
 
 sessions=$(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^ag-' || true)
