@@ -17,7 +17,7 @@
 - After merging/deduplicating lists, verify each exact item – don't summarize as families or wildcards.
 - Before proposing new tools/aliases, grep existing config to avoid duplicating what's already there.
 - Verify platform capabilities before designing around them – don't assume features exist at system boundaries.
-- Shell scripts (dotfiles): verify BSD (macOS) vs GNU flag compatibility. Dotfiles run on both macOS (laptop) and Linux (workspace); prefer cross-platform implementations, only guard with `$OSTYPE` when genuinely platform-specific (desktop apps, macOS-only tools). Use existence checks (`command -v`, `[[ -d ]]`) over OS checks when possible.
+- Shell scripts (dotfiles): Linux support is required, not optional. Verify BSD (macOS) vs GNU flag compatibility. Known traps: `find -perm +mode` (BSD) vs `-perm /mode` (GNU) – use `[[ -x ]]` instead; `find -exec test -e {} \; -delete` (BSD) – use a loop; `wc` output has leading spaces on BSD – pipe through `tr -d ' '`; `pbcopy`/`open` (macOS-only) – guard with `command -v` and provide `xclip`/`xdg-open` fallback. Prefer cross-platform implementations; only guard with `$OSTYPE` when genuinely platform-specific. Use existence checks (`command -v`, `[[ -d ]]`) over OS checks when possible.
 - Bash scripts: `local` is only valid inside functions (zsh is permissive). Don't use at top level in case blocks or scripts.
 - Dotfiles install/repair flows: design for a clean machine first. Create dirs before scanning them; keep optional integrations non-fatal; only remove clearly managed paths; smoke-test with a temp `HOME`.
 - Flag performance when it matters – hot paths, large datasets, repeated calls. Don't optimize prematurely.
@@ -210,8 +210,8 @@ Composability:
 - Transitions + skill→doc mapping: see `~/.agents/references/workflow.md` § Composability.
 
 Capture:
-- `log` / `idea: <thought>` → append to INBOX.md (date, context, idea)
-- `win: <description>` → `~/.agents/wins.md` (promo-packet worthy)
+- `log <thought>` → agent appends to INBOX.md (date, context, idea). Not a shell alias – agent writes via bash.
+- `win: <description>` → agent appends to `~/.agents/wins.md` (promo-packet worthy).
 - Self-resolve friction once. If reusable, suggest INBOX.md entry.
 - At capture time, note if INBOX.md is growing and nudge toward triage.
 
