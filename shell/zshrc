@@ -209,6 +209,9 @@ unalias pull-dot 2>/dev/null
 function pull-dot {
   git -C ~/dotfiles fetch origin main && git -C ~/dotfiles rebase --autostash origin/main
   [[ -d ~/dotfiles-work/.git ]] && git -C ~/dotfiles-work pull --rebase --autostash
+  # migrate docs → artifacts (one-time, idempotent)
+  [[ -d ~/.agents/docs && ! -d ~/.agents/artifacts ]] && mv ~/.agents/docs ~/.agents/artifacts && echo "migrated ~/.agents/docs → ~/.agents/artifacts"
+  [[ -d ~/.agents/docs && -d ~/.agents/artifacts ]] && echo "warn: both ~/.agents/docs and ~/.agents/artifacts exist; merge manually" >&2
   command -v refresh-skills &>/dev/null && refresh-skills
   command -v sync-codex-config &>/dev/null && { sync-codex-config || true; }
   source ~/.zshrc

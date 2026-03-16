@@ -5,7 +5,7 @@ description: Review a PR or diff for correctness, style, and domain-specific iss
 
 # /review
 
-Structured code review. Domain-aware via `~/.agents/references/`. For output-linked review loops, prefer `review-output`, which writes a durable `review.md` artifact.
+Structured code review. Domain-aware via `~/.agents/references/`. For durable review artifacts, use `review` CLI which runs Codex and writes `review.md`.
 
 ## Bootstrap
 

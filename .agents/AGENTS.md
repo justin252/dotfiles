@@ -272,7 +272,7 @@ All on PATH via `~/tools` symlink:
 - `wt` – navigate to any branch or PR. `wt <branch>` finds existing worktree or creates one. `wt 90` or `wt <PR-URL>` resolves PR. `wt` fzf switch. `wt -d` delete. `wt list` show all. `wt clean` remove merged worktrees. `wt clean --all` remove all worktrees. Composable: `ag` delegates worktree ops here.
 - `wss` – workspace SSH+tmux. `wss <name>` connect, `wss` fzf picker. Work-only (macOS guard).
 - `artifacts` (`a`) – unified artifact browser (fzf). Sources: `~/.agents/artifacts/`. Frontmatter-aware picker: [type] topic repo/component status. Actions: edit, view, execute, propose, review, claude, cursor. `artifacts <query>` pre-filters.
-- `review-output` – create/update the current topic output artifact and run Codex review into the linked review artifact
+- `review` – Codex code review for any PR or branch. `review` (auto-detect), `review 123` (PR), `review --status` (check progress), `review --json` (machine output). Always async; writes `review.md` + `review-state.json` to auto-discovered topic dir, notifies on completion.
 - `sesh` – session notes browser (fzf). Sources: `~/.agents/sessions/`. Curated .md summaries for context handoff to new sessions. `sesh <query>` pre-filters.
 
 ### Testing dotfiles changes
