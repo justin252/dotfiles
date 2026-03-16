@@ -59,9 +59,9 @@ _repo() { compadd -M 'm:{a-zA-Z}={A-Za-z}' $(ls "$REPO_ROOT") }
 compdef _repo repo
 
 # ─── Git ──────────────────────────────────────────────────────
-# Hygiene: gm (back to main + cleanup), gsync (rebase onto main), gclean (cleanup only)
+# Hygiene: gm (main + cleanup), gsync (rebase onto main), gclean (cleanup only), gnew (fresh branch)
 # All use self-healing fetch – auto-rebuilds refs on stale packed-ref conflicts
-# Graphite stacks: use gtr not gsync
+# Worktrees: wt <branch|PR#|URL>. Graphite stacks: gtr not gsync
 alias gs="git status"
 alias gco="git checkout"
 alias gb="git branch"
@@ -72,7 +72,6 @@ alias gpull="git pull --rebase --autostash"
 alias gca="git commit --amend --no-edit"
 alias gpushup='git push --set-upstream origin $(git branch --show-current)'
 alias gl="git log --oneline --graph -20"
-alias gr="git review"
 alias greb="git rebase"
 alias grebi="git rebase -i"
 alias gf="git fetch --prune"
@@ -83,7 +82,6 @@ alias gst="git stash"
 alias gstp="git stash pop"
 alias gu="git reset --soft HEAD~1"
 alias greset="git reset --hard HEAD"
-gborrow() { git fetch origin $1 && git branch $1 FETCH_HEAD && git checkout $1; }
 _git_default_branch() { local b; b=$(git symbolic-ref refs/remotes/origin/HEAD --short 2>/dev/null | sed 's|origin/||'); echo "${b:-main}"; }
 # Prune + auto-rebuild refs on packed-ref conflict
 _git_fetch_clean() {
@@ -115,13 +113,18 @@ gm() {
   git checkout "$(_git_default_branch)" && git pull --rebase --autostash
   _gclean_branches
 }
-alias gprc="gh pr checkout"
 gfresh() {
   local branch=$(git branch --show-current)
   git fetch origin "$branch" || { echo "No remote branch origin/$branch"; return 1; }
   local stash_msg=$(git stash)
   git reset --hard "origin/$branch"
   [[ "$stash_msg" != "No local changes to save" ]] && echo "Local changes stashed: git stash pop to recover"
+}
+gnew() {
+  local name="$1"
+  [[ -z "$name" ]] && echo "usage: gnew <branch-name>" >&2 && return 1
+  _git_fetch_clean
+  git checkout -b "$name" "origin/$(_git_default_branch)"
 }
 cdg() { cd "$(git rev-parse --show-toplevel)"; }
 
