@@ -668,22 +668,19 @@ RUNEOF
       case "$arg" in
         --help|-h) echo "ag status – show all agent sessions across repos"
                    echo "  --json    machine-readable output"
+                   echo "  Set AG_WORKSPACE_HOSTS=host1,host2 for remote workspace visibility"
                    exit 0 ;;
         --json) json=true ;;
       esac
     done
     # cross-repo: iterate all ag-* tmux sessions
     sessions_list=$(tmux list-sessions -F '#{session_name}' 2>/dev/null | grep '^ag-' || true)
-    if [[ -z "$sessions_list" ]]; then
-      [[ "$json" == true ]] && echo "[]" || echo "no agent sessions"
-      exit 0
-    fi
-
-    [[ "$json" == false ]] && printf "%-20s %-14s %-20s %s\n" "NAME" "STATUS" "BRANCH" "PR"
 
     # collect session info, fire gh calls in parallel
     tmpdir=$(mktemp -d)
     trap "rm -rf '$tmpdir'" EXIT
+    touch "$tmpdir/sessions"
+    if [[ -n "$sessions_list" ]]; then
     while read -r sess; do
       wt_path=$(tmux display-message -t "$sess" -p '#{pane_current_path}' 2>/dev/null) || continue
       branch=$(_ag_branch "$sess" "$wt_path")
@@ -712,7 +709,41 @@ RUNEOF
         echo "-" > "$tmpdir/pr-${sess}"
       fi
     done <<< "$sessions_list"
+    fi
+
+    # query workspace sessions in parallel (AG_WORKSPACE_HOSTS=host1,host2,...)
+    if [[ -n "${AG_WORKSPACE_HOSTS:-}" ]]; then
+      IFS=',' read -ra _ws_hosts <<< "$AG_WORKSPACE_HOSTS"
+      for _wh in "${_ws_hosts[@]}"; do
+        ssh -o ConnectTimeout=3 -o BatchMode=yes -- "$_wh" \
+          'for d in ~/.agents/state/*/; do [ -d "$d" ] && printf "%s %s\n" "$(basename "$d")" "$(cat "$d/phase" 2>/dev/null)"; done' \
+          > "$tmpdir/ws-${_wh}" 2>/dev/null &
+      done
+    fi
+
     wait
+
+    # collect remote sessions (deduplicate against local)
+    if [[ -n "${AG_WORKSPACE_HOSTS:-}" ]]; then
+      for _wf in "$tmpdir"/ws-*; do
+        [[ -f "$_wf" ]] || continue
+        while read -r _ws_slug _ws_phase; do
+          [[ -z "$_ws_slug" ]] && continue
+          # skip if already shown as local session
+          grep -qF " ${_ws_slug}" "$tmpdir/sessions" 2>/dev/null && continue
+          echo "ws-${_ws_slug} - ${_ws_phase:-unknown} ${_ws_slug}" >> "$tmpdir/sessions"
+          echo "-" > "$tmpdir/pr-ws-${_ws_slug}"
+        done < "$_wf"
+      done
+    fi
+
+    # no sessions at all (local or remote)
+    if [[ ! -s "$tmpdir/sessions" ]]; then
+      [[ "$json" == true ]] && echo "[]" || echo "no agent sessions"
+      exit 0
+    fi
+
+    [[ "$json" == false ]] && printf "%-20s %-14s %-20s %s\n" "NAME" "STATUS" "BRANCH" "PR"
 
     # print results
     if [[ "$json" == true ]]; then
@@ -742,6 +773,8 @@ RUNEOF
           *)         display_state="$state" ;;
         esac
         [[ -n "$tasks_info" ]] && display_state="$display_state ($tasks_info)"
+        # tag remote sessions
+        [[ "$sess" == ws-* ]] && display_state="[ws] $display_state"
         printf "%-20s %-18s %-20s %s\n" "$slug" "$display_state" "$branch" "$pr_state"
       done < "$tmpdir/sessions"
     fi
