@@ -170,33 +170,6 @@ chain: plan.md → **output.md**
 EOF
 fi
 
-# --- build prompt ---
-
-existing_review=""
-[[ -f "$review_path" ]] && existing_review="$(cat "$review_path")"
-
-prompt_file="$(mktemp)"
-
-cat >"$prompt_file" <<EOF
-Review the code changes for "$topic".
-
-Context:
-- Repo: $repo_name ($target_repo)
-- Branch: $branch
-- Base: $base_branch
-- PR: ${pr_url:-none}
-- Plan: ${plan_ref:-none}
-
-Instructions:
-- Review the repository diff against "$base_branch".
-- Use the plan artifact (if present) to understand intent.
-- Return the full review artifact in the exact markdown shape from the model instructions file.
-- Preserve useful existing resolution history when appropriate.
-
-Existing review artifact:
-$existing_review
-EOF
-
 # --- run codex async ---
 
 echo "  review: $review_path" >&2
@@ -204,14 +177,14 @@ echo "  log: $log_path" >&2
 
 (
   codex_out="$(mktemp)"
-  trap 'rm -f "$codex_out" "$prompt_file"' EXIT
+  trap 'rm -f "$codex_out"' EXIT
 
   codex -C "$target_repo" exec review \
     --base "$base_branch" \
+    --title "${pr_title:-$topic}" \
     -c "model_reasoning_effort=\"high\"" \
     -c "model_instructions_file=\"$MODEL_INSTRUCTIONS\"" \
-    -o "$codex_out" \
-    - <"$prompt_file"
+    -o "$codex_out"
 
   if [[ -s "$codex_out" ]]; then
     mv "$codex_out" "$review_path"
@@ -234,6 +207,7 @@ echo "  log: $log_path" >&2
 ) >"$log_path" 2>&1 &
 
 echo "review started (pid $!)" >&2
+echo "  tail -f $log_path" >&2
 
 # --- json output ---
 
