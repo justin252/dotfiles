@@ -23,7 +23,13 @@
 - Flag performance when it matters – hot paths, large datasets, repeated calls. Don't optimize prematurely.
 - Shell startup (.zshrc, etc.): never source commands that hit the network. Auth/token refreshes → on-demand or lazy.
 - Go: default to unexported (lowercase). Only export when cross-package usage is confirmed.
-- CLI tools: when building or improving a CLI, MUST read `.agents/references/cli-guidelines.md` before writing code (distilled from https://clig.dev/). Key defaults: flags over positional args, `--json`/`--quiet`/`--no-color`, stderr for messages, TTY detection, confirm before destructive ops, exit 0/non-zero.
+- CLI tools: MUST read `.agents/references/cli-guidelines.md` before writing code. clig.dev is a menu, not a checklist – apply recommendations to the tool's actual use case:
+  - `--help`: universal. Every user-facing tool. Internal helpers get header comments instead.
+  - `--json`: only where scripting/composability is real (orchestrators, status commands). Not for interactive fzf browsers.
+  - `--quiet`, `--no-color`: only if the tool is used in automation/CI. Interactive-only tools skip these.
+  - `--dry-run`: only for destructive operations on shared state.
+  - Error messages: say what went wrong AND suggest a fix.
+  - Always: stderr for messages, stdout for data. Exit 0/non-zero. Flags over positional args.
 - CLI tool layering: lower layers never call higher layers. Each independently useful (e.g. `wt` never calls `ag`; `ag` composes `wt`).
 
 ## Agent

@@ -7,9 +7,26 @@ import sys
 from pathlib import Path
 
 
+USAGE = """\
+csv2json – convert CSV to JSON array of objects
+
+Usage:
+  csv2json <input.csv|-> [output.json]
+
+Examples:
+  csv2json data.csv                 Write data.json
+  csv2json data.csv output.json     Explicit output path
+  csv2json - < data.csv             Read stdin, write stdout
+  cat data.csv | csv2json -         Pipe mode"""
+
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        print(USAGE)
+        sys.exit(0)
+
     if len(sys.argv) < 2:
-        print("Usage: csv2json <input.csv|->" " [output.json]", file=sys.stderr)
+        print(USAGE, file=sys.stderr)
         sys.exit(1)
 
     input_arg = sys.argv[1]
