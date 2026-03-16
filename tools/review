@@ -14,12 +14,14 @@ review – Codex code review for any PR or branch
 
 Usage:
   review [PR]          PR number, URL, or omit to auto-detect
+  review --topic T     override topic dir (slug or absolute path)
   review --json        machine output to stdout
   review -h
 
 Examples:
   review               review current branch (PR or diff against main)
   review 123           review PR #123
+  review --topic auth  write review to ~/.agents/artifacts/auth/
   review --json        structured output for scripts
 EOF
 }
