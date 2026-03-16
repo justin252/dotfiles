@@ -18,11 +18,13 @@
 - Before proposing new tools/aliases, grep existing config to avoid duplicating what's already there.
 - Verify platform capabilities before designing around them – don't assume features exist at system boundaries.
 - Shell scripts (dotfiles): verify BSD (macOS) vs GNU flag compatibility. Dotfiles run on both macOS (laptop) and Linux (workspace); prefer cross-platform implementations, only guard with `$OSTYPE` when genuinely platform-specific (desktop apps, macOS-only tools). Use existence checks (`command -v`, `[[ -d ]]`) over OS checks when possible.
+- Bash scripts: `local` is only valid inside functions (zsh is permissive). Don't use at top level in case blocks or scripts.
 - Dotfiles install/repair flows: design for a clean machine first. Create dirs before scanning them; keep optional integrations non-fatal; only remove clearly managed paths; smoke-test with a temp `HOME`.
 - Flag performance when it matters – hot paths, large datasets, repeated calls. Don't optimize prematurely.
 - Shell startup (.zshrc, etc.): never source commands that hit the network. Auth/token refreshes → on-demand or lazy.
 - Go: default to unexported (lowercase). Only export when cross-package usage is confirmed.
 - CLI tools: when building or improving a CLI, MUST read `.agents/references/cli-guidelines.md` before writing code (distilled from https://clig.dev/). Key defaults: flags over positional args, `--json`/`--quiet`/`--no-color`, stderr for messages, TTY detection, confirm before destructive ops, exit 0/non-zero.
+- CLI tool layering: lower layers never call higher layers. Each independently useful (e.g. `wt` never calls `ag`; `ag` composes `wt`).
 
 ## Agent
 
@@ -44,7 +46,8 @@
 - Before adding files/config to a codebase path, verify the path is stable – check for pending migrations or renames that would move the target.
 - In worktrees: verify edit target matches the worktree. `ag` worktree sessions should edit within the worktree, not the main repo checkout.
 - Multi-file tasks (3+ files, distinct context per step): delegate each logical step to a Task subagent with focused context. Inline is fine for <3 files or heavily shared context.
-- Test-only subagent runs: explicitly say "Do NOT modify any source files." Build-fix agents will otherwise revert your changes to satisfy the compiler.
+- Subagent constraints: test-only runs – say "Do NOT modify any source files" (build-fix agents revert otherwise). Research runs – return findings in response, don't create files unless requested. Implement runs – edit files only, never commit.
+- When plan references another PR/branch, diff its changes against current branch before shipping.
 - Permission denial in autonomous mode: don't retry the same operation. Identify what was blocked, explain what permission it needs, and offer the manual command or suggest user run it interactively. Continue with remaining work that doesn't require the blocked permission.
 - Autonomous session end: summarize completed work + remaining items. Send terminal notification so user knows the run finished.
 
@@ -66,6 +69,7 @@ Default to higher blast radius when uncertain. The cost of context-switching is 
 - `teach` (during execute) → Narrate changes. How each diff fits plan, gotchas, idioms. Link code inline. Approve each logical unit.
 - `poc <idea>` → Prove it works. Feasibility research → minimal build → draft PR with gaps documented. Single branch, no stacking. Requires `ccy`.
 - Plan mode is for code exploration + writing a plan. For iterative design discussion, stay in execute mode – enter plan mode once design is settled. Exception: plan mode suits exploratory design in a new domain where read-only codebase scanning drives the discussion.
+- Plan mode pacing: let user drive. Present analysis, wait. Don't rush to structured questions or formalize into plan files before alignment.
 - Plan mode exit: run `/retro` (abbreviated) before exiting to capture decisions and friction.
 
 ## Workflow
@@ -182,7 +186,7 @@ Model: session → INBOX.md (short-term) → triage → AGENTS.md (long-term)
 - INBOX.md (`~/.agents/INBOX.md`) = short-term capture. Local, never synced.
 - retro = capture process → INBOX.md. triage = promotion → AGENTS.md or discard.
 - Triage when INBOX.md exceeds ~10 items. Proactively check and suggest `/triage` when it's growing – don't wait to be asked.
-- Skills (shared workflows) live in `~/.agents/skills/` – both Claude Code and Cursor read from here.
+- Skills (shared workflows) live in `~/.agents/skills/` – both Claude Code and Cursor read from here. Skill frontmatter must include `name` + `description` at minimum (Codex enforces).
 - Skill vs instruction: single command + context → AGENTS.md instruction. Multi-step, branching logic, or cross-repo → skill.
 - When updating a skill or its reference example, diff conventions against the artifact to catch drift.
 
