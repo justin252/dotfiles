@@ -170,6 +170,42 @@ chain: plan.md → **output.md**
 EOF
 fi
 
+# --- build runtime instructions ---
+
+MAX_ARTIFACT_BYTES=4000
+runtime_instructions="$(mktemp)"
+
+# base: review template
+cat "$MODEL_INSTRUCTIONS" > "$runtime_instructions"
+
+# context: PR metadata + artifact excerpts
+{
+  echo ""
+  echo "---"
+  echo "## Review context"
+  echo ""
+  echo "- PR: ${pr_url:-none}"
+  echo "- Branch: $branch"
+  echo "- Base: $base_branch"
+  echo "- Repo: $repo_name"
+  echo "- Topic: $topic_dir"
+  echo ""
+
+  # include topic artifacts in priority order (bounded)
+  for artifact in problem.md design.md plan.md output.md review.md; do
+    artifact_path="$topic_dir/$artifact"
+    if [[ -f "$artifact_path" ]]; then
+      size=$(wc -c < "$artifact_path")
+      echo "### $artifact (${size} bytes)"
+      echo '```'
+      head -c "$MAX_ARTIFACT_BYTES" "$artifact_path"
+      (( size > MAX_ARTIFACT_BYTES )) && echo -e "\n... truncated at $MAX_ARTIFACT_BYTES bytes"
+      echo '```'
+      echo ""
+    fi
+  done
+} >> "$runtime_instructions"
+
 # --- run codex async ---
 
 echo "  review: $review_path" >&2
@@ -177,14 +213,24 @@ echo "  log: $log_path" >&2
 
 (
   codex_out="$(mktemp)"
-  trap 'rm -f "$codex_out"' EXIT
+  trap 'rm -f "$codex_out" "$runtime_instructions"' EXIT
+
+  # log context for observability
+  echo "=== review invocation ==="
+  echo "pr: ${pr_url:-none}"
+  echo "branch: $branch"
+  echo "base: $base_branch"
+  echo "topic: $topic_dir"
+  echo "instructions: $runtime_instructions ($(wc -c < "$runtime_instructions") bytes)"
+  echo "==="
+  echo ""
 
   codex -C "$target_repo" exec review \
     --base "$base_branch" \
     --title "${pr_title:-$topic}" \
     -c "model_reasoning_effort=\"high\"" \
-    -c "model_instructions_file=\"$MODEL_INSTRUCTIONS\"" \
-    -o "$codex_out"
+    -c "model_instructions_file=\"$runtime_instructions\"" \
+    -o "$codex_out" </dev/null
 
   if [[ -s "$codex_out" ]]; then
     mv "$codex_out" "$review_path"
