@@ -11,6 +11,9 @@ no_input=false
 usage() {
   cat <<'EOF'
 ag - agent session manager
+  ag run <topic>            🦁 full pipeline: plan.md -> PR (auto-detect everything)
+  ag run <topic> --codex    use codex instead of claude
+  ag run <topic> --dry-run  preview what would happen
   ag <name>                 launch $AGENT_EXECUTOR (default claude) in worktree
   ag <name> -m MSG          launch with initial task
   ag <name> --cursor        cursor + agent in worktree
@@ -89,6 +92,129 @@ attach_or_switch() {
 
 case "${1:-}" in
   -h|--help) usage ;;
+  run)
+    if [[ "${2:-}" == "--help" || "${2:-}" == "-h" ]]; then
+      cat <<'RUNEOF'
+ag run – 🦁 full pipeline from plan.md to PR
+
+Usage:
+  ag run <topic>             auto-detect plan, branch, worktree
+  ag run ./path/plan.md      run from explicit plan file
+
+Flags:
+  --codex, --claude, --gemini   override agent (default: $AGENT_EXECUTOR or claude)
+  --dry-run                     show what would happen, don't launch
+  --json                        machine-readable output
+
+Examples:
+  ag run auth                 finds ~/.agents/artifacts/auth/plan.md
+  ag run auth --codex         use codex instead of claude
+  ag run --dry-run auth       preview without launching
+RUNEOF
+      exit 0
+    fi
+
+    run_cmd="${AGENT_EXECUTOR:-claude}"
+    run_dry=false
+    run_json=false
+    run_input=""
+
+    # parse flags (order-independent)
+    for arg in "${@:2}"; do
+      case "$arg" in
+        --codex)   run_cmd="codex" ;;
+        --claude)  run_cmd="claude" ;;
+        --gemini)  run_cmd="gemini" ;;
+        --dry-run) run_dry=true ;;
+        --json)    run_json=true ;;
+        -*)        echo "unknown flag: $arg" >&2; exit 1 ;;
+        *)         [[ -z "$run_input" ]] && run_input="$arg" || { echo "unexpected arg: $arg" >&2; exit 1; } ;;
+      esac
+    done
+    [[ -z "$run_input" ]] && { echo "usage: ag run <topic|plan-path>" >&2; exit 1; }
+    command -v "$run_cmd" >/dev/null 2>&1 || { echo "$run_cmd not found on PATH" >&2; exit 1; }
+
+    # resolve plan path: explicit file or topic slug
+    run_plan=""
+    run_topic=""
+    if [[ -f "$run_input" ]]; then
+      run_plan="$(cd "$(dirname "$run_input")" && pwd)/$(basename "$run_input")"
+      run_topic="$(basename "$(dirname "$run_plan")")"
+    elif [[ -f "$HOME/.agents/artifacts/$run_input/plan.md" ]]; then
+      run_topic="$run_input"
+      run_plan="$HOME/.agents/artifacts/$run_topic/plan.md"
+    else
+      echo "error: no plan found for '$run_input'" >&2
+      echo "  expected: ~/.agents/artifacts/$run_input/plan.md" >&2
+      echo "  or pass an explicit plan path: ag run ./plan.md" >&2
+      exit 1
+    fi
+
+    local_repo=$(repo_name)
+    session="ag-${local_repo}-${run_topic}"
+
+    # --dry-run: show what would happen
+    if [[ "$run_dry" == true ]]; then
+      if [[ "$run_json" == true ]]; then
+        jq -n \
+          --arg topic "$run_topic" --arg plan "$run_plan" \
+          --arg agent "$run_cmd" --arg session "$session" \
+          --arg repo "$local_repo" \
+          '{topic:$topic, plan:$plan, agent:$agent, session:$session, repo:$repo}'
+      else
+        echo "🎪 ag run (dry-run): $run_topic" >&2
+        echo "  📋 plan: $run_plan" >&2
+        echo "  🌿 branch: $run_topic" >&2
+        echo "  💻 session: $session" >&2
+        echo "  🤖 agent: $run_cmd" >&2
+      fi
+      exit 0
+    fi
+
+    echo "🎪 ag run: $run_topic" >&2
+    echo "  📋 plan: $run_plan" >&2
+
+    # create worktree + session
+    worktree=$(WT_CREATE_MODE=new ~/tools/wt-resolve "$run_topic") || exit 1
+
+    if tmux has-session -t "$session" 2>/dev/null; then
+      echo "session already exists: $session" >&2
+      echo "  ag $run_topic    attach" >&2
+      echo "  ag kill $run_topic    kill first" >&2
+      exit 1
+    fi
+
+    if ! tmux new-session -d -s "$session" -c "$worktree" 2>/dev/null; then
+      echo "error: failed to create tmux session '$session'" >&2; exit 1
+    fi
+    _ag_set_env "$session" "$run_topic" "$local_repo" "$run_topic"
+    tmux set-environment -t "$session" AG_BACKGROUND 1
+
+    # create state dir for phase tracking
+    mkdir -p "$HOME/.agents/state/$run_topic"
+    echo "starting" > "$HOME/.agents/state/$run_topic/phase"
+
+    # launch agent with /run
+    run_prompt="/run $run_plan"
+    tmux send-keys -t "$session" "$run_cmd $(printf '%q' "$run_prompt")" Enter
+
+    echo "  🌿 branch: $run_topic" >&2
+    echo "  💻 session: $session" >&2
+    echo "  🤖 agent: $run_cmd" >&2
+    echo "" >&2
+    echo "  ag $run_topic    attach to session" >&2
+    echo "  ag status        see all agents" >&2
+    echo "  ag               pick from list" >&2
+
+    # --json: structured output for orchestrators
+    if [[ "$run_json" == true ]]; then
+      jq -n \
+        --arg topic "$run_topic" --arg plan "$run_plan" \
+        --arg agent "$run_cmd" --arg session "$session" \
+        --arg repo "$local_repo" --arg worktree "$worktree" \
+        '{topic:$topic, plan:$plan, agent:$agent, session:$session, repo:$repo, worktree:$worktree}'
+    fi
+    ;;
   pr)
     if [[ "${2:-}" == "--help" || "${2:-}" == "-h" ]]; then
       echo "ag pr – checkout PR into worktree + attach"
@@ -233,7 +359,7 @@ case "${1:-}" in
       exit 0
     fi
 
-    [[ "$json" == false ]] && printf "%-20s %-10s %-20s %s\n" "NAME" "STATUS" "BRANCH" "PR"
+    [[ "$json" == false ]] && printf "%-20s %-14s %-20s %s\n" "NAME" "STATUS" "BRANCH" "PR"
 
     # collect session info, fire gh calls in parallel
     tmpdir=$(mktemp -d)
@@ -249,6 +375,13 @@ case "${1:-}" in
         state="active"
       fi
       slug=$(_ag_slug "$sess")
+      # overlay /run phase state if available
+      phase_file="$HOME/.agents/state/$slug/phase"
+      if [[ -f "$phase_file" ]]; then
+        phase=$(cat "$phase_file" 2>/dev/null)
+        [[ -n "$phase" && "$phase" != "done" ]] && state="$phase"
+        [[ "$phase" == "done" ]] && state="done"
+      fi
       echo "$sess $branch $state $slug" >> "$tmpdir/sessions"
       if [[ "$branch" != "-" ]]; then
         (gh pr list --head "$branch" --no-interactive --json state --jq '.[0].state // "-"' 2>/dev/null || echo "-") > "$tmpdir/pr-${sess}" &
@@ -274,7 +407,19 @@ case "${1:-}" in
     else
       while read -r sess branch state slug; do
         pr_state=$(cat "$tmpdir/pr-${sess}" 2>/dev/null || echo "-")
-        printf "%-20s %-10s %-20s %s\n" "$slug" "$state" "$branch" "$pr_state"
+        # add phase emoji for pipeline states
+        case "$state" in
+          executing) display_state="🦊 executing" ;;
+          shipping)  display_state="🦅 shipping" ;;
+          reviewing) display_state="🦉 reviewing" ;;
+          fixing)    display_state="🔧 fixing" ;;
+          learning)  display_state="🐘 learning" ;;
+          done)      display_state="✅ done" ;;
+          active)    display_state="● active" ;;
+          idle)      display_state="○ idle" ;;
+          *)         display_state="$state" ;;
+        esac
+        printf "%-20s %-14s %-20s %s\n" "$slug" "$display_state" "$branch" "$pr_state"
       done < "$tmpdir/sessions"
     fi
     ;;

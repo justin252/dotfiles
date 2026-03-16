@@ -17,11 +17,32 @@ while read -r sess; do
     tmp="${sess#ag-}"; slug="${tmp#*-}"
   fi
 
-  pane_cmd=$(tmux display-message -t "$sess" -p '#{pane_current_command}' 2>/dev/null || echo "")
-  if [[ "$pane_cmd" == "zsh" || "$pane_cmd" == "bash" || -z "$pane_cmd" ]]; then
-    idle_parts+=" #[fg=yellow]${slug}○"
-  else
+  # check /run phase state first, fall back to pane command
+  phase_file="$HOME/.agents/state/$slug/phase"
+  phase=""
+  [[ -f "$phase_file" ]] && phase=$(cat "$phase_file" 2>/dev/null)
+
+  if [[ -n "$phase" && "$phase" != "done" ]]; then
+    # /run pipeline phase: show phase icon
+    case "$phase" in
+      executing) icon="🦊" ;;
+      shipping)  icon="🦅" ;;
+      reviewing) icon="🦉" ;;
+      fixing)    icon="🔧" ;;
+      learning)  icon="🐘" ;;
+      *)         icon="●"  ;;
+    esac
     active_count=$((active_count + 1))
+    idle_parts+=" #[fg=cyan]${slug}${icon}"
+  elif [[ "$phase" == "done" ]]; then
+    idle_parts+=" #[fg=green]${slug}✓"
+  else
+    pane_cmd=$(tmux display-message -t "$sess" -p '#{pane_current_command}' 2>/dev/null || echo "")
+    if [[ "$pane_cmd" == "zsh" || "$pane_cmd" == "bash" || -z "$pane_cmd" ]]; then
+      idle_parts+=" #[fg=yellow]${slug}○"
+    else
+      active_count=$((active_count + 1))
+    fi
   fi
 done <<< "$sessions"
 
