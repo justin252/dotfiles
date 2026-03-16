@@ -510,12 +510,11 @@ RUNEOF
     # launch agent with /run (pass model flag if set)
     run_prompt="/run $run_plan"
     run_model_flag=""
-    if [[ "$run_cli_override" == true ]]; then _rm=""; else _rm="$(_ag_model "${AG_EXECUTOR:-claude}")"; fi
-    [[ -n "$_rm" ]] && case "$run_cmd" in
-      claude) run_model_flag="--model $_rm" ;;
-      codex)  run_model_flag="-m $_rm" ;;
+    [[ -n "$_display_model" ]] && case "$run_cmd" in
+      claude) run_model_flag="--model $_display_model" ;;
+      codex)  run_model_flag="-m $_display_model" ;;
     esac
-    tmux send-keys -t "$session" "$run_cmd $run_model_flag $(printf '%q' "$run_prompt")" Enter
+    tmux send-keys -t "$session" "$run_cmd${run_model_flag:+ $run_model_flag} $(printf '%q' "$run_prompt")" Enter
 
     echo "  🌿 branch: $run_topic" >&2
     echo "  💻 session: $session" >&2

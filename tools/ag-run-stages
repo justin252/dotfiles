@@ -151,7 +151,7 @@ fi
 # --- Stage 4: Fix (conditional) ---
 if ! _should_skip "fix"; then
   review_md="$HOME/.agents/artifacts/$topic/review.md"
-  if [[ -f "$review_md" ]] && grep -qiE 'blocker|issue' "$review_md" 2>/dev/null; then
+  if [[ -f "$review_md" ]] && grep -qE '^#{1,3} .*(Blocker|Issue)|severity: *(blocker|issue)' "$review_md" 2>/dev/null; then
     echo "stage: fix ($exe_val)" >&2
     echo "fixing" > "$state_dir/phase"
     cmd="$(_build_cmd "$exe_val" "Read $review_md and fix all blocker/issue findings. Then run /checkpoint to amend and push.")"
