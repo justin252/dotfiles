@@ -170,7 +170,6 @@ _notify() {
   fi
 }
 
-<<<<<<< HEAD
 # --- chain context: gather upstream artifacts for stage prompts ---
 
 _gather_chain_context() {
@@ -197,8 +196,6 @@ _log_context() {
   [[ ${#_missing[@]} -gt 0 ]] && echo "  missing: ${_missing[*]}" >&2
 }
 
-=======
->>>>>>> 753e0b3 (fix: pipeline review status, CLI override propagation, artifact persistence)
 # --- main ---
 
 session="" topic="" plan="" skip_str="" resume=false test_mode=false
@@ -262,11 +259,8 @@ echo "  retro:   $retro_val" >&2
 [[ "$test_mode" == true ]] && echo "  mode:    test" >&2
 [[ "$resume" == true ]] && echo "  mode:    resume" >&2
 
-<<<<<<< HEAD
 topic_dir="$HOME/.agents/artifacts/$topic"
 
-=======
->>>>>>> 753e0b3 (fix: pipeline review status, CLI override propagation, artifact persistence)
 _run_stage() {
   local stage="$1" model_val="$2" phase_name="$3" timeout="$4" prompt="$5"
 
@@ -297,11 +291,8 @@ _run_stage() {
     return 0
   fi
 
-<<<<<<< HEAD
   [[ "${AG_DEBUG:-}" == "1" ]] && echo "debug: $stage prompt: $prompt" >&2
 
-=======
->>>>>>> 753e0b3 (fix: pipeline review status, CLI override propagation, artifact persistence)
   local cmd
   cmd="$(_build_cmd "$model_val" "$prompt")"
   _run_in_session "$session" "$cmd" "$state_dir"
@@ -309,7 +300,6 @@ _run_stage() {
 }
 
 # --- Stage 1: Execute ---
-<<<<<<< HEAD
 exe_artifacts=(problem.md design.md plan.md)
 exe_context=""
 if [[ -d "$topic_dir" ]]; then
@@ -326,9 +316,6 @@ $exe_context
 $exe_prompt"
 fi
 _run_stage "execute" "$exe_val" "executing" 1800 "$exe_prompt"
-=======
-_run_stage "execute" "$exe_val" "executing" 1800 "/execute $plan"
->>>>>>> 753e0b3 (fix: pipeline review status, CLI override propagation, artifact persistence)
 
 # --- Stage 2: Ship ---
 _run_stage "ship" "$ship_val" "shipping" 600 "/checkpoint"
@@ -352,11 +339,7 @@ if ! _should_skip "review"; then
       review_elapsed=0
       while (( review_elapsed < 600 )); do
         if [[ -f "$HOME/.agents/artifacts/$topic/review-state.json" ]]; then
-<<<<<<< HEAD
           if jq -e '.status == "done" or .status == "failed"' "$HOME/.agents/artifacts/$topic/review-state.json" >/dev/null 2>&1; then
-=======
-          if jq -e '.status == "done"' "$HOME/.agents/artifacts/$topic/review-state.json" >/dev/null 2>&1; then
->>>>>>> 753e0b3 (fix: pipeline review status, CLI override propagation, artifact persistence)
             break
           fi
         fi
@@ -391,7 +374,6 @@ if ! _should_skip "fix"; then
         sleep 1
         _finish_stage "$state_dir" "fix" "done"
       else
-<<<<<<< HEAD
         fix_artifacts=(problem.md design.md plan.md output.md)
         fix_context=""
         if [[ -d "$topic_dir" ]]; then
@@ -408,9 +390,6 @@ $fix_context
 $fix_prompt"
         fi
         cmd="$(_build_cmd "$exe_val" "$fix_prompt")"
-=======
-        cmd="$(_build_cmd "$exe_val" "Read $review_md and fix all blocker/issue findings. Then run /checkpoint to amend and push.")"
->>>>>>> 753e0b3 (fix: pipeline review status, CLI override propagation, artifact persistence)
         _run_in_session "$session" "$cmd" "$state_dir"
         _wait_stage "$state_dir" "fix" 900 || true
       fi
