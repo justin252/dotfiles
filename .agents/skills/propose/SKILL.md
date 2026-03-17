@@ -50,3 +50,7 @@ See `~/.agents/conventions/artifact-templates.md` for canonical templates. Key p
 - ## Open sections are for real blockers/decisions, not wishlists.
 - Design tradeoffs: state what was considered, what was chosen, why.
 - Plan phases feed directly to /execute.
+
+## Next
+
+On completion, print: `🦊 Plan ready. Next: ag run <topic> or /execute`

@@ -14,9 +14,11 @@ component: <area>       # subsystem/area (optional)
 status: draft | active | done | abandoned
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
-chain: <position>       # e.g. "problem.md → **design.md**"
+chain: [problem.md, design.md, plan.md, output.md, review.md]
 ---
 ```
+
+**chain is required** on all pipeline artifacts (problem, design, plan, output, review). Value is a fixed YAML list of the canonical pipeline. Same value in every pipeline artifact. Non-pipeline docs (reference.md) omit it. The orchestrator auto-injects upstream artifacts as context into pipeline stages (per-stage list, not chain parsing).
 
 ## Core doc types
 
@@ -30,6 +32,7 @@ topic: <slug>
 status: draft
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
+chain: [problem.md, design.md, plan.md, output.md, review.md]
 ---
 # Problem: <title>
 
@@ -58,7 +61,7 @@ topic: <slug>
 status: draft
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
-chain: problem.md → **design.md**
+chain: [problem.md, design.md, plan.md, output.md, review.md]
 ---
 # Design: <title>
 
@@ -85,7 +88,7 @@ topic: <slug>
 status: active
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
-chain: problem.md → design.md → **plan.md**
+chain: [problem.md, design.md, plan.md, output.md, review.md]
 ---
 # Plan: <title>
 
@@ -135,7 +138,7 @@ topic: <slug>
 status: draft | active | shipped
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
-chain: problem.md → design.md → plan.md → **output.md**
+chain: [problem.md, design.md, plan.md, output.md, review.md]
 ---
 # Output: <title>
 
@@ -163,7 +166,7 @@ topic: <slug>
 status: active | clean | waived
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
-chain: plan.md → output.md → **review.md**
+chain: [problem.md, design.md, plan.md, output.md, review.md]
 ---
 # Review: <title>
 

@@ -28,38 +28,39 @@ Per-pipeline (scale with workers):
 
 ---
 
-## Today: The Composable Pipeline (`/run`)
+## Today: The Multi-Stage Pipeline (`ag-orchestrate`)
 
-One command. Full pipeline. Learning at every phase transition.
+One command. Full pipeline. Per-stage models. Background orchestration.
 
 ```bash
 # 🐙 Design (still interactive)
 ccplan
-/propose auth                             # iterate until plan.md exists
-# /propose: "Plan ready. Run: ag run auth"
+/propose feed-atlas                       # iterate until plan.md exists
 
 # 🎪 Full pipeline
-ag run auth                               # discovers plan.md, full pipeline
+ag run feed-atlas                         # discovers plan.md, full pipeline
+ag run feed-atlas --resume                # pick up where it left off
+ag run feed-atlas --test                  # integration test with stubs
+ag review                                 # standalone review (current branch)
 ```
 
-`ag run <topic>` finds `~/.agents/artifacts/<topic>/plan.md`, creates a worktree, and launches `/run`. No paths, no prompts. Multi-source plan picker: artifacts, cursor plans, claude plans – sorted by last modified, fzf with preview.
+`ag run <topic>` finds `~/.agents/artifacts/<topic>/plan.md`, creates a worktree + tmux session, and launches `ag-orchestrate` in the background. Each stage gets its own agent session with the configured model.
 
-`/run` is the ringmaster. 🦅 is automatic. The only human gate is **merge**.
+`ag-orchestrate` is the ringmaster. 🦅 is automatic. The only human gate is **merge**.
 
 ```
-/run plan.md
+ag run feed-atlas
   │
-  ├─ DESIGN CHECKPOINT     scan plan.md ## Open → INBOX.md
-  ├─ 🦊 /execute            implement from plan
-  ├─ 🦅 /checkpoint          auto-ship: build, test, PR, output.md, /retro → INBOX.md
-  ├─ 🦉 review (async)       → review.md
-  │     └─ if issues:        new 🦊 reads review.md, pushes fixes to same PR
-  │                           🦅 auto-ships again, 🦉 re-reviews (1 cycle max)
-  ├─ 🐘 /retro               INBOX.md (from every phase)
-  └─ NOTIFY                  "PR #47 ready for merge. 3 INBOX items captured."
+  ag-orchestrate (background):
+  ├─ 🦊 claude --model opus '/execute plan.md'
+  ├─ 🦅 claude --model sonnet '/checkpoint'
+  ├─ 🦉 review --topic feed-atlas (async Codex)
+  │     └─ if blockers:  🦊 reads review.md, pushes fixes (1 cycle max)
+  ├─ 🐘 claude --model haiku '/retro'
+  └─ NOTIFY  "pipeline complete: feed-atlas"
 ```
 
-You come back to: a PR ready for teammate review, `review.md`, INBOX entries from every phase, `output.md` linking everything.
+State tracked in `~/.agents/state/<slug>/pipeline.json`. Monitor with `ag status`.
 
 ### Configuration
 
@@ -69,20 +70,20 @@ Per-stage executor/model via `AG_*` env vars in `shell/zshrc`. Format: `executor
 # ─── Agent Stages (executor:model) ───────────────────────────
 # Claude: --model (opus, sonnet, haiku)
 # Codex: -m (gpt-5.4, gpt-5.3-codex, gpt-5.3-codex-spark)
-export AG_EXECUTOR="claude:opus"           # 🦊 execute
-export AG_SHIPPER="claude:sonnet"          # 🦅 ship
-export AG_REVIEWER="codex:gpt-5.4"        # 🦉 review
-export AG_LEARNER="claude:haiku"           # 🐘 retro
+export AG_EXECUTE_MODEL="claude:opus"      # 🦊 execute
+export AG_SHIP_MODEL="claude:sonnet"       # 🦅 ship
+export AG_REVIEW_MODEL="codex:gpt-5.4"    # 🦉 review
+export AG_RETRO_MODEL="claude:haiku"       # 🐘 retro
 ```
 
 **CLI flags** (override env):
 ```bash
-ag run auth --codex --skip review    # executor + stage skipping
+ag run feed-atlas --codex --skip review    # executor + stage skipping
 ```
 
 Priority: CLI flag > stage env var > default (`claude`).
 
-`ag run` exports all `AG_*` vars into the tmux session + derives `CLAUDE_CODE_SUBAGENT_MODEL` from `AG_LEARNER` for Task delegation.
+`ag run` passes `AG_*_MODEL` vars to `ag-orchestrate` which builds per-stage commands. Derives `CLAUDE_CODE_SUBAGENT_MODEL` from `AG_RETRO_MODEL` for Task delegation.
 
 ### Status reporting
 
@@ -139,7 +140,7 @@ Which model for which animal. The key insight: different benchmarks measure diff
 | Aider Polyglot | Multi-lang coding, 6 languages | GPT-5 high 88.0% | 16pt over Opus 4 (72.0%) |
 | Terminal-Bench 2.0 | Autonomous terminal execution | Gemini 3.1 Pro 78.4% | GPT-5.3-Codex 77.3%, Opus 4.6 74.7% |
 
-SWE-bench Verified (where Claude leads) has confirmed training data contamination across all frontier models. SWE-bench Pro and Aider Polyglot are cleaner signals. Terminal-Bench measures the autonomous agent loop that `/run` actually uses.
+SWE-bench Verified (where Claude leads) has confirmed training data contamination across all frontier models. SWE-bench Pro and Aider Polyglot are cleaner signals. Terminal-Bench measures the autonomous agent loop that `ag-orchestrate` actually uses.
 
 Sources: [SWE-bench](https://www.marc0.dev/en/leaderboard), [Aider](https://aider.chat/docs/leaderboards/), [Interconnects: Opus 4.6 vs Codex 5.3](https://www.interconnects.ai/p/opus-46-vs-codex-53).
 
@@ -215,20 +216,19 @@ Pipeline flow: **Claude designs** (🐙) → **Codex builds** (🦊) → **Claud
 
 | Mechanism | Scope | Status |
 |-----------|-------|--------|
-| `AG_EXECUTOR` env var | executor:model for execute stage | working |
-| `AG_SHIPPER` env var | executor:model for ship stage | working |
-| `AG_REVIEWER` env var | executor:model for review stage | working |
-| `AG_LEARNER` env var | executor:model for retro stage | working |
+| `AG_EXECUTE_MODEL` env var | executor:model for execute stage | working |
+| `AG_SHIP_MODEL` env var | executor:model for ship stage | working |
+| `AG_REVIEW_MODEL` env var | executor:model for review stage | working |
+| `AG_RETRO_MODEL` env var | executor:model for retro stage | working |
 | `ag run --claude/--codex` | executor override | working |
-| `CLAUDE_CODE_SUBAGENT_MODEL` | subagent model (auto-derived from AG_LEARNER) | working |
+| `CLAUDE_CODE_SUBAGENT_MODEL` | subagent model (auto-derived from AG_RETRO_MODEL) | working |
 | `agent:` in plan.md frontmatter | executor per pipeline | working (legacy) |
-| `tools/ag-run-stages` | multi-executor stage orchestrator | built, not yet wired into ag run |
+| `tools/ag-orchestrate` | multi-executor stage orchestrator | wired into ag run |
+| `ag review` | first-class review subcommand | working |
 
-**Default path today**: `ag run <topic>` uses Claude Code (Opus) for the single-agent `/run` pipeline. Per-stage models are set via `AG_*` env vars. `ag-run-stages` enables sequential multi-executor stages.
+**Default path**: `ag run <topic>` launches `ag-orchestrate` in the background, which sequences stages with per-stage models from `AG_*_MODEL` env vars.
 
 ### Extension points (not yet built)
-
-**Wire `ag-run-stages` into `ag run`** – when stage env vars differ across executors, `ag run` delegates to `ag-run-stages` instead of launching a single `/run` session.
 
 **`ag status --remote`** – live SSH query for cross-machine status visibility.
 
@@ -261,4 +261,4 @@ Stage 7+ (full):   You only design and approve.
 
 ## Active Plans
 
-- **[Model config + workspace support](~/.agents/artifacts/circus/plan.md)** – per-stage executor selection, workspace routing fixes, cross-executor orchestrator. Three tiers: model hints (now), pipeline config (Tier 2), `ag-run-stages` (Tier 3).
+- **[ag system redesign](~/.cursor/plans/ag_system_redesign_afad05a2.plan.md)** – remaining: worktree foundations, beaver (branch mgmt), artifact linking, session management, observability. Pipeline + workspace routing shipped.

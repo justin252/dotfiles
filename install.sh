@@ -131,7 +131,11 @@ EOF
 fi
 [[ ! -f ~/.agents/wins.md ]] && touch ~/.agents/wins.md && echo "Created ~/.agents/wins.md"
 
-git config --global pull.rebase true
+# Managed git preferences (declarative; overrides DD-provisioned defaults for these keys)
+ln -sf "$DOTFILES/git/config" ~/.gitconfig.dotfiles
+if ! git config --global --get-all include.path 2>/dev/null | grep -qF '.gitconfig.dotfiles'; then
+  git config --global --add include.path '~/.gitconfig.dotfiles'
+fi
 
 echo "Done. Symlinked:"
 echo "  ~/tools → $DOTFILES/tools"
@@ -147,6 +151,7 @@ echo "  ~/.claude/skills/*/ → ~/.agents/skills/*/ (per-skill, merged)"
 echo "  ~/.cursor/skills/*/ ← ~/.agents/skills/*/ (copied; Cursor doesn't follow symlinks)"
 command -v codex &>/dev/null && echo "  ~/.codex/config.toml updated with workspace-write + never-ask defaults"
 echo "  ~/.cursor/rules/ → $DOTFILES/.cursor/rules/"
+echo "  ~/.gitconfig.dotfiles → $DOTFILES/git/config (included from ~/.gitconfig)"
 echo "  ~/.zshrc → $DOTFILES/shell/zshrc"
 echo "  ~/.tmux.conf → $DOTFILES/shell/tmux.conf"
 [[ "$OSTYPE" == darwin* ]] && echo "  ~/.config/karabiner/karabiner.json ← $DOTFILES/karabiner/karabiner.json (copied, Karabiner breaks symlinks)"

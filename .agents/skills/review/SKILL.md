@@ -5,13 +5,14 @@ description: "🦉 Review a PR or diff for correctness, style, and domain-specif
 
 # /review
 
-Structured code review. Domain-aware via `~/.agents/conventions/`. For durable review artifacts, use `review` CLI which runs Codex and writes `review.md`.
+Structured code review. Domain-aware via `~/.agents/conventions/`. Always persists `review.md` to the topic's artifact dir.
 
 ## Bootstrap
 
 1. Read `~/.agents/AGENTS.md` for conventions
 2. Load relevant conventions from `~/.agents/conventions/` (e.g., `cli-guidelines.md` for CLI, `shell-scripts.md` for shell scripts)
 3. Determine target: PR URL, branch diff, or staged changes
+4. Resolve topic: derive from branch name (`feat/foo` -> `foo`), explicit `--topic`, or repo name. Create `~/.agents/artifacts/<topic>/` if missing.
 
 ## Input
 
@@ -30,7 +31,15 @@ For each file changed:
 
 ## Output
 
+Present findings in chat, then persist to `~/.agents/artifacts/<topic>/review.md`:
+
 ```
+---
+topic: <slug>
+repo: <repo-name>
+branch: <branch>
+date: <YYYY-MM-DD>
+---
 ## <filename>
 
 - [severity] finding. <explanation>
@@ -39,6 +48,10 @@ For each file changed:
 
 Severities: `blocker`, `issue`, `nit`, `question`.
 
+On write failure (permissions, disk): warn in chat, continue. The review is still delivered in the conversation.
+
+Headless/pipeline reviews use the `review` CLI (Codex) which writes the same artifact shape.
+
 ## Principles
 
 - Blockers first, nits last
@@ -46,4 +59,8 @@ Severities: `blocker`, `issue`, `nit`, `question`.
 - Don't flag style issues covered by linters/formatters
 - Acknowledge good patterns -- not everything needs a comment
 - If the diff is large, focus on the riskiest changes
-- If writing an output review artifact, route process/tooling lessons into `## Future learnings` rather than mixing them with code findings
+- Route process/tooling lessons into `## Future learnings` rather than mixing them with code findings
+
+## Next
+
+On completion, print: `🦊 Review at <path>. Blockers? Fix and re-checkpoint`

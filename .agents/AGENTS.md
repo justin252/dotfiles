@@ -199,6 +199,7 @@ Artifacts (local, working):
 - Core artifacts: problem.md (why), design.md (how), plan.md (what/when), reference.md (learnings).
 - Delivery artifacts: output.md (what shipped), review.md (review loop for an output). Multi-output topics can use `outputs/<slug>.md` and `reviews/<slug>.md`.
 - Pipeline: problem → design → plan → output → review → checkpoint. Each artifact type except reference can use ## Open for feedback loop.
+- Skills that produce structured findings (review, retro, triage) always persist artifacts. Chat/terminal output is supplementary, never the primary record. On write failure, warn and continue.
 - Templates: `~/.agents/conventions/artifact-templates.md`. Agents consult when creating artifacts.
 - `load <topic>` → search `~/.agents/artifacts/`, `~/.agents/docs/`, and `~/.agents/sessions/`. Partial match; ambiguous → show options. Read all artifact types, summarize status + next steps.
 - `~/.agents/conventions/workflow.md` – comprehensive workflow reference. Read on demand: `@~/.agents/conventions/workflow.md`.

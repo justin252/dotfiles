@@ -48,3 +48,7 @@ Write each finding as a separate entry under `## Inbox` in `~/.agents/INBOX.md`:
 ```
 
 After writing, check INBOX.md size. If >10 items, nudge toward /triage.
+
+## Next
+
+On completion, print: `Done. ag clean <topic> when ready`
