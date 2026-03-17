@@ -121,16 +121,20 @@ function refresh-skills {
 }
 
 # ─── Workspace ────────────────────────────────────────────────
-# Setup: https://datadoghq.atlassian.net/wiki/spaces/DEVX/pages/5323785891
-# Requires: SSH config.d/workspaces.conf for port forwarding (8443 dev, 8080 docs)
 # One-time per workspace: yarn install, TLS cert trust on laptop
 if [[ "$OSTYPE" == darwin* ]]; then
   WS_PREFIX="jhsu"
 
-  # Resolve workspace name to SSH host, ensure SSH config exists
+  # Resolve workspace name to SSH host, ensure SSH config + port forwarding exist
+  # Port forwarding setup per: https://datadoghq.atlassian.net/wiki/spaces/DEVX/pages/5323785891
   _ws_resolve() {
     local name="$1"
-    workspaces ssh-config "${WS_PREFIX}-${name}" 2>/dev/null
+    local ws_name="${WS_PREFIX}-${name}"
+    local config="$HOME/.ssh/workspaces/${ws_name}.config"
+    workspaces ssh-config "$ws_name" 2>/dev/null
+    if [[ -f "$config" ]] && ! grep -q 'LocalForward 8443' "$config"; then
+      printf '    LocalForward 8443 localhost:8443\n    LocalForward 8080 localhost:8080\n' >> "$config"
+    fi
     echo "workspace-${WS_PREFIX}-${name}"
   }
 
