@@ -1,0 +1,375 @@
+# ─── Datadog ─────────────────────────────────────────────────────
+export DATADOG_ROOT="$HOME/dd"
+export REPO_ROOT="$DATADOG_ROOT"
+export PATH="$DATADOG_ROOT/jhsu-tools:$PATH"
+
+alias dds="cd $DATADOG_ROOT/dd-source"
+alias default-repo="dds"
+alias webui="cd $DATADOG_ROOT/web-ui"
+
+# ─── Datadog Auth ───────────────────────────────────────────────
+export POD_NAMESPACE="orchestration-staging"
+
+# Ephemeral keys via dd-auth. Usage: dda [domain] -- <cmd>
+# dda staging -- curl ..., dda -- python script.py
+dda() {
+  local domain="app.datadoghq.com"
+  if [[ "$1" == "staging" ]]; then domain="ddstaging.datadoghq.com"; shift
+  elif [[ "$1" == "prod" ]]; then shift
+  elif [[ "$1" != "--" && "$1" != -* && -n "$1" ]]; then domain="$1"; shift
+  fi
+  dd-auth --domain "$domain" -- "$@"
+}
+_dda() { compadd staging prod }
+compdef _dda dda
+
+# ─── Kubernetes ──────────────────────────────────────────────────
+alias k="kubectl"
+alias kcx="kubectx"
+alias kgp="kubectl get pods"
+alias kgs="kubectl get svc"
+alias kl="kubectl logs"
+alias klf="kubectl logs -f"
+kex() { kubectl exec -it "$1" -- "${2:-/bin/sh}"; }
+
+# ─── Bazel ───────────────────────────────────────────────────────
+alias bb="bzl build"
+alias br="bzl run"
+alias bt="bzl test"
+alias tidy="bzl run //domains/api_platform/apps/tidy"
+alias gaz="bzl run //:gazelle"
+alias killbazel='pkill -9 -f bazel'
+[[ "$OSTYPE" == darwin* ]] && alias killcursor='pkill -f "Cursor Helper (Plugin)"'
+
+devmem() {
+  echo "=== Dev tooling memory ==="
+  ps aux | awk '
+    /[g]opls/          { gopls += $6 }
+    /[j]ava/           { java += $6 }
+    /[t]sserver/       { ts += $6 }
+    /[b]azel/          { bazel += $6; bn++ }
+    /Cursor Helper/    { cursor += $6; cn++ }
+    END {
+      printf "gopls:    %6.0f MB\n", gopls/1024
+      printf "java:     %6.0f MB\n", java/1024
+      printf "tsserver: %6.0f MB\n", ts/1024
+      printf "bazel:    %6.0f MB  (%d processes)\n", bazel/1024, bn
+      printf "cursor:   %6.0f MB  (%d processes)\n", cursor/1024, cn
+      printf "TOTAL:    %6.0f MB\n", (gopls+java+ts+bazel+cursor)/1024
+    }'
+}
+compdef _bazel bzl
+
+# bz: track bzl target usage for history-based ranking
+_bz_preexec() {
+  local cmd="$1"
+  [[ "$cmd" =~ '^(bzl|bb|br|bt) (run|test|build)? *(//[^ ]+)' ]] || return
+  local target="${match[3]}"
+  [[ -n "$target" ]] && mkdir -p ~/.cache/bz && echo "$(date +%s)\t${target}" >> ~/.cache/bz/history
+}
+autoload -Uz add-zsh-hook
+add-zsh-hook preexec _bz_preexec
+
+# bz: Ctrl-B inserts a bzl target at cursor via fzf
+_bz_widget() {
+  local target
+  target=$(bz --widget) || return
+  LBUFFER+="$target"
+  zle redisplay
+}
+zle -N _bz_widget
+bindkey '^B' _bz_widget
+
+# ─── Yarn/Dev ────────────────────────────────────────────────────
+alias yi="(cd static-apps/sdp && yarn install)"
+alias yd="yarn dev"
+alias ydoc="yarn docs-builder mosaic-docs --compute-props --port 8080"
+alias cg="(cd static-apps/sdp && yarn workspace sdp codegen)"
+alias sb="yarn storybook:start static-apps/sdp"
+
+# ─── Git Helpers (work) ─────────────────────────────────────────
+alias gr="git review"
+
+# git-dd: branch management for dd-source monorepo
+if command -v git-dd &>/dev/null; then
+  alias gdd="git dd"
+  alias gdds="git dd sync"
+  alias gddn="git dd new-branch"
+  alias gddw="git dd switch"
+  alias gddr="git dd sync-and-rebase"
+  alias gddp="git dd prune"
+fi
+
+# pull-dot: update both personal + work dotfiles, refresh skills, re-source
+unalias pull-dot 2>/dev/null
+function pull-dot {
+  git -C ~/dotfiles pull --rebase --autostash
+  [[ -d ~/workspaces-dotfiles ]] && git -C ~/workspaces-dotfiles pull --rebase --autostash
+  refresh-skills
+  source ~/.zshrc
+}
+
+# refresh-skills: re-copy skills to Cursor (Cursor doesn't follow symlinks)
+function refresh-skills {
+  [[ -L ~/.cursor/skills ]] && rm ~/.cursor/skills
+  rm -rf ~/.cursor/skills
+  mkdir -p ~/.cursor/skills
+  for skill in ~/.agents/skills/*/; do
+    [[ -d "$skill" ]] && cp -rL "$skill" ~/.cursor/skills/"$(basename "$skill")"
+  done
+  echo "Cursor skills refreshed from ~/.agents/skills/"
+}
+
+# ─── Workspace ────────────────────────────────────────────────
+if [[ "$OSTYPE" == darwin* ]]; then
+  WS_PREFIX="jhsu"
+
+  # Resolve workspace name to SSH host, ensure SSH config exists
+  _ws_resolve() {
+    local name="$1"
+    workspaces ssh-config "${WS_PREFIX}-${name}" 2>/dev/null
+    echo "workspace-${WS_PREFIX}-${name}"
+  }
+
+  # ws: primitive workspace SSH
+  # ws <name>           SSH into workspace (plain shell)
+  # ws <name> <repo>    SSH + cd ~/dd/<repo>
+  # ws                  fzf picker
+  # ws list|create|...  passthrough to workspaces CLI
+  ws() {
+    case "${1:-}" in
+      list|ssh-config|create|delete|start|stop)
+        workspaces "$@"; return ;;
+    esac
+    if [[ -z "${1:-}" ]]; then
+      local name
+      name=$(workspaces list --no-color 2>/dev/null | tail -n+2 | awk '{print $1}' | fzf --prompt="workspace> ") || return
+      ws "$name"
+      return
+    fi
+    local host
+    host=$(_ws_resolve "$1")
+    if [[ -n "${2:-}" ]]; then
+      ssh -t "$host" "cd ~/dd/$2 && exec \$SHELL -l"
+    else
+      ssh -t "$host"
+    fi
+  }
+
+  # wss: workspace SSH + tmux session
+  # wss <name>    SSH + tmux (attach or create "main" session)
+  # wss           fzf picker
+  wss() {
+    if [[ -z "${1:-}" ]]; then
+      local name
+      name=$(workspaces list --no-color 2>/dev/null | tail -n+2 | awk '{print $1}' | fzf --prompt="workspace> ") || return
+      wss "$name"
+      return
+    fi
+    local host
+    host=$(_ws_resolve "$1")
+    ssh -t "$host" "tmux new-session -A -s main"
+  }
+
+  # Workspace → agent routing: auto-SSH to mapped workspace for ag sessions
+  # Override per-invocation: ag -w <workspace> <name> [cmd]
+  typeset -A AG_WORKSPACE_MAP=(
+    [dd-source]=jhsu-test-drive
+    [web-ui]=jhsu-web-ui
+  )
+
+  # Derive AG_WORKSPACE_HOSTS for ag status visibility
+  AG_WORKSPACE_HOSTS=""
+  for _ws in ${(vo)AG_WORKSPACE_MAP}; do
+    AG_WORKSPACE_HOSTS+="${AG_WORKSPACE_HOSTS:+,}workspace-${WS_PREFIX}-${_ws}"
+  done
+  export AG_WORKSPACE_HOSTS
+  unset _ws
+
+  ag() {
+    # Always local: no args, management commands, help, local-only
+    case "${1:-}" in
+      ""|-k|-h|--help|clean|status|kill|.) command ag "$@"; return ;;
+    esac
+
+    # Route heavy-compute subcommands to workspace
+    case "${1:-}" in
+      run|pr)
+        local repo workspace host
+        repo=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null)
+        workspace="${AG_WORKSPACE_MAP[$repo]:-}"
+        [[ -z "$workspace" ]] && { command ag "$@"; return; }
+        host=$(_ws_resolve "$workspace")
+        local _args=()
+        for _a in "$@"; do _args+=("$(printf '%q' "$_a")"); done
+        ssh -t "$host" "source ~/.zshrc 2>/dev/null; cd ~/dd/$repo && ag ${_args[*]}"
+        return ;;
+    esac
+
+    local workspace=""
+    if [[ "$1" == "-w" ]]; then
+      workspace="$2"; shift 2
+    fi
+
+    # Resolve workspace from repo mapping
+    if [[ -z "$workspace" ]]; then
+      local repo
+      repo=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)" 2>/dev/null)
+      workspace="${AG_WORKSPACE_MAP[$repo]:-}"
+    fi
+
+    # No mapping → local
+    [[ -z "$workspace" ]] && { command ag "$@"; return; }
+
+    local name="$1"; shift
+    local cmd="claude"
+    case "${1:-}" in
+      claude|codex|gemini|cursor) cmd="$1"; shift ;;
+    esac
+
+    # Cursor: open workspace in Cursor IDE
+    if [[ "$cmd" == "cursor" ]]; then
+      workspaces connect "${WS_PREFIX}-${workspace}" -e cursor
+      return
+    fi
+
+    # Build remote command with proper escaping
+    local host
+    host=$(_ws_resolve "$workspace")
+    local remote_cmd="source ~/.zshrc 2>/dev/null; cd ~/dd/$repo && ag $(printf '%q' "$name") $(printf '%q' "$cmd")"
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        -m) [[ -n "${2:-}" ]] && remote_cmd+=" -m $(printf '%q' "$2")"; shift 2 ;;
+        *) shift ;;
+      esac
+    done
+    ssh -t "$host" "$remote_cmd"
+  }
+fi
+
+alias reb="git dd sync-and-rebase"
+
+# ─── DDTool ──────────────────────────────────────────────────────
+token() {
+  local env="$1"
+  shift
+  local datacenter
+
+  case "$env" in
+    rmp)  datacenter="us1.release.mgmt.dog" ;;
+    prod) datacenter="us1.ddbuild.io" ;;
+    staging) datacenter="us1.staging.dog" ;;
+    gov)  datacenter="us1.fed.dog" ;;
+    *)
+      echo "usage: token {rmp|prod|staging|gov} [--flags]" >&2
+      return 1
+      ;;
+  esac
+
+  ddtool auth token sdm --datacenter "$datacenter" "$@"
+}
+_token() { compadd rmp prod staging gov }
+compdef _token token
+
+whois() {
+  ddtool auth whois "$1" --datacenter us1.ddbuild.io
+}
+
+yeet() {
+  local service="$1"
+  local target="$2"
+  local branch
+
+  if [[ -z "$service" || -z "$target" ]]; then
+    echo "usage: yeet {service} {target}" >&2
+    return 1
+  fi
+
+  branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" || {
+    echo "not in a git repo" >&2
+    return 1
+  }
+
+  ddr conductor run \
+    --target "$target" \
+    --branch "$branch" \
+    "$service"
+}
+
+# ─── Bazel Helpers ───────────────────────────────────────────────
+gz(){
+    local -a dirs=("${(@f)$(git diff --name-only origin/main...HEAD | xargs -n1 dirname | sort -u)}")
+    bzl run //:gazelle -- "${dirs[@]}"
+}
+
+t() {
+  local input="$1"
+  local test_name="$2"
+  local pkg target
+
+  if [[ -z "$input" ]]; then
+    echo "usage: t {package|file.go} [TestNameRegex]" >&2
+    return 1
+  fi
+
+  if [[ "$input" == *.go ]]; then
+    pkg="${input%/*}"
+  else
+    pkg="$input"
+  fi
+
+  if [[ "$pkg" == //* ]]; then
+    target="${pkg}:go_default_test"
+  else
+    target="//${pkg}:go_default_test"
+  fi
+
+  if [[ -n "$test_name" ]]; then
+    bzl run "${target}" -- --test.run="$test_name"
+  else
+    bzl run "${target}"
+  fi
+}
+
+# ─── Project Helpers ─────────────────────────────────────────────
+alias depot="bzl run //domains/dependency_management/depot/apps/depofpcli --"
+alias fp="bzl run //domains/dependency_management/intake/apps/first-party --"
+alias ver="bzl run //domains/dependency_management/version/apps/version:version --"
+alias db="bzl run //domains/mosaic/apps/dogbrew:dogbrew --"
+alias d="dogbrew"
+alias mc="bzl run //domains/eee/apps/mosaic-cli:mosaic-cli --"
+[[ -x /opt/dogbrew/bin/adms ]] && alias adms="/opt/dogbrew/bin/adms"
+alias svc="bzl run //domains/eee/apps/svc-installer:svc-installer --"
+
+# ─── Go ──────────────────────────────────────────────────────────
+export GO111MODULE=auto
+export GOPRIVATE=github.com/DataDog
+export GOPROXY=binaries.ddbuild.io,https://proxy.golang.org,direct
+export GONOSUMDB=github.com/DataDog,go.ddbuild.io
+
+# ─── SCFW (macOS only) ──────────────────────────────────────────
+if [[ "$OSTYPE" == darwin* ]] && command -v scfw &>/dev/null; then
+  alias npm="scfw run npm"
+  alias pip="scfw run pip"
+  alias poetry="scfw run poetry"
+  export SCFW_DD_AGENT_LOG_PORT="10365"
+  export SCFW_DD_LOG_LEVEL="ALLOW"
+  export SCFW_HOME="$HOME/.scfw"
+fi
+
+# ─── GitLab ──────────────────────────────────────────────────────
+# Short-lived token via ddtool OAuth (2h TTL).
+# Setup: ddtool auth gitlab login  |  Refresh: gitlab-refresh
+gitlab-refresh() {
+  export GITLAB_TOKEN=$(ddtool auth gitlab token 2>/dev/null)
+  export gitlab_token="$GITLAB_TOKEN"
+}
+
+# ─── Yarn/Dogbrew PATH ──────────────────────────────────────────
+[[ -f "$HOME/.yarn/switch/env" ]] && source "$HOME/.yarn/switch/env"
+[[ -d /opt/dogbrew/bin ]] && export PATH="/opt/dogbrew/bin:$PATH"
+
+# ─── SDS-API ────────────────────────────────────────────────────
+export SDS_API_URL="https://sds-api-staging.us1.ddbuild.io/v1/graphql"
+export SDS_API_AUTH_ROLE="sdm-staging"
+export SDS_API_ALLOW_AUDIENCES="sdm-staging"
