@@ -4,6 +4,20 @@
 # category: agent
 set -euo pipefail
 
+# Fail fast if critical deps are missing (gh is optional, used for PR enrichment only)
+_check_deps() {
+  local missing=()
+  for cmd in tmux jq; do
+    command -v "$cmd" &>/dev/null || missing+=("$cmd")
+  done
+  if (( ${#missing[@]} )); then
+    echo "ag: missing required tools: ${missing[*]}" >&2
+    echo "  install: brew install ${missing[*]}" >&2
+    exit 1
+  fi
+}
+_check_deps
+
 # --no-input / AG_NO_INPUT: skip all interactive prompts
 no_input=false
 [[ "${AG_NO_INPUT:-}" == "1" ]] && no_input=true
@@ -70,9 +84,15 @@ _ag_slug() {
   local slug
   slug=$(tmux show-environment -t "$sess" AG_SLUG 2>/dev/null | sed 's/^AG_SLUG=//') || true
   if [[ -z "$slug" ]]; then
-    # fallback: parse from session name (breaks on hyphenated repo names)
+    # fallback: use AG_REPO to strip known prefix from session name
     local tmp="${sess#ag-}"
-    slug="${tmp#*-}"
+    local repo
+    repo=$(tmux show-environment -t "$sess" AG_REPO 2>/dev/null | sed 's/^AG_REPO=//' || true)
+    if [[ -n "$repo" ]]; then
+      slug="${tmp#"${repo}"-}"
+    else
+      slug="${tmp##*-}"
+    fi
   fi
   echo "$slug"
 }
@@ -981,7 +1001,7 @@ INFOEOF
       # action picker (TTY only)
       if [[ -t 1 ]] && command -v fzf &>/dev/null; then
 
-\        _info_actions "$info_topic" "$info_pr" "${info_wt:-}"
+        _info_actions "$info_topic" "$info_pr" "${info_wt:-}"
       fi
     fi
     ;;
@@ -1543,6 +1563,8 @@ INFOEOF
       echo "error: failed to create tmux session '$session'" >&2
       echo "cleaning up worktree..." >&2
       git worktree remove "$worktree" 2>/dev/null
+      git branch -D "$name" 2>/dev/null || true
+      rm -rf "$HOME/.agents/state/$name"
       exit 1
     fi
     _ag_set_env "$session" "$name" "$local_repo" "$name"
