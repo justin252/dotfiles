@@ -1,0 +1,372 @@
+#!/usr/bin/env bash
+# ag-orchestrate - multi-stage pipeline orchestrator (the ringmaster)
+# Called by `ag run` as a background process. Sequences stages with per-stage models.
+# category: agent
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+ag-orchestrate - run pipeline stages with per-stage executors
+
+Usage: ag-orchestrate --session <name> --topic <slug> --plan <path> [options]
+
+Options:
+  --session NAME    tmux session name
+  --topic SLUG      topic slug (state dir name)
+  --plan PATH       path to plan.md
+  --skip STAGES     comma-separated stages to skip
+  --resume          resume from last incomplete stage
+  --test            integration test mode (stub artifacts in /tmp)
+  -h, --help        show this help
+
+Reads AG_EXECUTE_MODEL, AG_SHIP_MODEL, AG_REVIEW_MODEL, AG_RETRO_MODEL env vars.
+Format: executor:model (e.g., claude:opus, codex:gpt-5.4)
+
+Stages: execute, ship, review, fix, retro
+EOF
+}
+
+# --- parsing helpers ---
+
+_executor() { echo "${1%%:*}"; }
+_model()    { local m="${1#*:}"; [[ "$m" == "$1" ]] && m=""; echo "$m"; }
+
+_build_cmd() {
+  local val="$1" prompt="$2"
+  local exe model cmd
+  exe="$(_executor "$val")"
+  model="$(_model "$val")"
+
+  case "$exe" in
+    claude) cmd="claude${model:+ --model $model}" ;;
+    codex)  cmd="codex exec${model:+ -m $model} --sandbox workspace-write -a never" ;;
+    *)      cmd="$exe" ;;
+  esac
+  echo "$cmd $(printf '%q' "$prompt")"
+}
+
+_now() { date -u +%FT%TZ; }
+
+# --- pipeline.json state management ---
+
+_init_pipeline() {
+  local state_dir="$1" topic="$2" session="$3"
+  jq -n \
+    --arg topic "$topic" \
+    --arg session "$session" \
+    --arg started "$(_now)" \
+    '{
+      topic: $topic,
+      session: $session,
+      started: $started,
+      current_stage: null,
+      stages: {
+        execute: {status: "pending"},
+        ship:    {status: "pending"},
+        review:  {status: "pending"},
+        fix:     {status: "pending"},
+        retro:   {status: "pending"}
+      }
+    }' > "$state_dir/pipeline.json"
+}
+
+_update_stage() {
+  local state_dir="$1" stage="$2" field="$3" value="$4"
+  local tmp="$state_dir/pipeline.json.tmp"
+  jq --arg s "$stage" --arg f "$field" --arg v "$value" \
+    '.stages[$s][$f] = $v' "$state_dir/pipeline.json" > "$tmp" \
+    && mv "$tmp" "$state_dir/pipeline.json"
+}
+
+_set_current() {
+  local state_dir="$1" stage="$2"
+  local tmp="$state_dir/pipeline.json.tmp"
+  jq --arg s "$stage" '.current_stage = $s' "$state_dir/pipeline.json" > "$tmp" \
+    && mv "$tmp" "$state_dir/pipeline.json"
+}
+
+_stage_status() {
+  local state_dir="$1" stage="$2"
+  jq -r --arg s "$stage" '.stages[$s].status' "$state_dir/pipeline.json"
+}
+
+_start_stage() {
+  local state_dir="$1" stage="$2" model="$3"
+  _set_current "$state_dir" "$stage"
+  _update_stage "$state_dir" "$stage" "status" "running"
+  _update_stage "$state_dir" "$stage" "started" "$(_now)"
+  _update_stage "$state_dir" "$stage" "model" "$model"
+}
+
+_finish_stage() {
+  local state_dir="$1" stage="$2" status="$3"
+  _update_stage "$state_dir" "$stage" "status" "$status"
+  _update_stage "$state_dir" "$stage" "ended" "$(_now)"
+}
+
+# --- sentinel-based stage execution ---
+
+_wait_stage() {
+  local state_dir="$1" stage="$2" timeout="${3:-600}"
+  local sentinel="$state_dir/stage-done"
+  local elapsed=0
+
+  while [[ ! -f "$sentinel" ]]; do
+    sleep 5
+    elapsed=$((elapsed + 5))
+    if (( elapsed >= timeout )); then
+      echo "timeout waiting for stage '$stage' after ${timeout}s" >&2
+      _finish_stage "$state_dir" "$stage" "failed"
+      return 1
+    fi
+  done
+
+  local result
+  result=$(cat "$sentinel")
+  rm -f "$sentinel"
+  if [[ "$result" == "done" ]]; then
+    _finish_stage "$state_dir" "$stage" "done"
+    return 0
+  else
+    _finish_stage "$state_dir" "$stage" "failed"
+    return 1
+  fi
+}
+
+_run_in_session() {
+  local session="$1" cmd="$2" state_dir="$3"
+  local sentinel="$state_dir/stage-done"
+  rm -f "$sentinel"
+  tmux send-keys -t "$session" \
+    "$cmd && echo done > $(printf '%q' "$sentinel") || echo fail > $(printf '%q' "$sentinel")" Enter
+}
+
+# --- test mode stubs ---
+
+_run_test_stage() {
+  local state_dir="$1" stage="$2" topic="$3"
+  local artifact_dir="$state_dir/artifacts"
+  mkdir -p "$artifact_dir"
+
+  case "$stage" in
+    execute) echo "stub: would implement tasks from plan.md" > "$artifact_dir/execute.log" ;;
+    ship)    echo "stub: would create PR" > "$artifact_dir/output.md" ;;
+    review)  printf "## Blockers\n\nseverity: blocker\nStub blocker for fix-stage trigger\n" > "$artifact_dir/review.md" ;;
+    fix)     echo "stub: would fix 1 blocker" > "$artifact_dir/fix.log" ;;
+    retro)   echo "stub: would capture learnings to INBOX.md" > "$artifact_dir/retro.log" ;;
+  esac
+}
+
+# --- notifications ---
+
+_notify() {
+  local topic="$1" message="$2"
+  tput bel 2>/dev/null || true
+  tmux display-message "$message" 2>/dev/null || true
+  if command -v terminal-notifier >/dev/null 2>&1; then
+    terminal-notifier -title "ag: $topic" -message "$message" -sound default 2>/dev/null || true
+  elif command -v notify-send >/dev/null 2>&1; then
+    notify-send "ag: $topic" "$message" 2>/dev/null || true
+  fi
+}
+
+# --- main ---
+
+session="" topic="" plan="" skip_str="" resume=false test_mode=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --session) session="$2"; shift 2 ;;
+    --topic)   topic="$2"; shift 2 ;;
+    --plan)    plan="$2"; shift 2 ;;
+    --skip)    skip_str="$2"; shift 2 ;;
+    --resume)  resume=true; shift ;;
+    --test)    test_mode=true; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *)         echo "unknown flag: $1" >&2; exit 1 ;;
+  esac
+done
+
+[[ -z "$session" || -z "$topic" ]] && { usage >&2; exit 1; }
+[[ "$test_mode" == false && -z "$plan" ]] && { usage >&2; exit 1; }
+
+state_dir="$HOME/.agents/state/$topic"
+mkdir -p "$state_dir"
+
+# test mode: use temp dir
+if [[ "$test_mode" == true ]]; then
+  state_dir=$(mktemp -d "/tmp/ag-test-XXXXX")
+  plan="$state_dir/plan.md"
+  echo -e "---\ntopic: $topic\n---\n# Test Plan\n- [ ] stub task" > "$plan"
+  trap 'echo "test artifacts: $state_dir" >&2' EXIT
+fi
+
+# Parse skip list
+IFS=',' read -ra skips <<< "${skip_str:-}"
+_should_skip() {
+  local stage="$1"
+  for s in "${skips[@]:-}"; do
+    [[ "$s" == "$stage" ]] && return 0
+  done
+  return 1
+}
+
+# Resolve per-stage config
+exe_val="${AG_EXECUTE_MODEL:-claude:opus}"
+ship_val="${AG_SHIP_MODEL:-claude:sonnet}"
+review_val="${AG_REVIEW_MODEL:-codex:gpt-5.4}"
+retro_val="${AG_RETRO_MODEL:-claude:haiku}"
+
+# Init or resume pipeline state
+if [[ "$resume" == true && -f "$state_dir/pipeline.json" ]]; then
+  echo "ag-orchestrate: resuming $topic" >&2
+else
+  _init_pipeline "$state_dir" "$topic" "$session"
+fi
+
+echo "ag-orchestrate: $topic" >&2
+echo "  execute: $exe_val" >&2
+echo "  ship:    $ship_val" >&2
+echo "  review:  $review_val" >&2
+echo "  retro:   $retro_val" >&2
+[[ -n "$skip_str" ]] && echo "  skip:    $skip_str" >&2
+[[ "$test_mode" == true ]] && echo "  mode:    test" >&2
+[[ "$resume" == true ]] && echo "  mode:    resume" >&2
+
+_run_stage() {
+  local stage="$1" model_val="$2" phase_name="$3" timeout="$4" prompt="$5"
+
+  if _should_skip "$stage"; then
+    echo "skipping: $stage" >&2
+    _update_stage "$state_dir" "$stage" "status" "skipped"
+    return 0
+  fi
+
+  # resume: skip already-done stages
+  if [[ "$resume" == true ]]; then
+    local cur_status
+    cur_status=$(_stage_status "$state_dir" "$stage")
+    if [[ "$cur_status" == "done" || "$cur_status" == "skipped" ]]; then
+      echo "already done: $stage" >&2
+      return 0
+    fi
+  fi
+
+  echo "stage: $stage ($model_val)" >&2
+  echo "$phase_name" > "$state_dir/phase"
+  _start_stage "$state_dir" "$stage" "$model_val"
+
+  if [[ "$test_mode" == true ]]; then
+    _run_test_stage "$state_dir" "$stage" "$topic"
+    sleep 1
+    _finish_stage "$state_dir" "$stage" "done"
+    return 0
+  fi
+
+  local cmd
+  cmd="$(_build_cmd "$model_val" "$prompt")"
+  _run_in_session "$session" "$cmd" "$state_dir"
+  _wait_stage "$state_dir" "$stage" "$timeout"
+}
+
+# --- Stage 1: Execute ---
+_run_stage "execute" "$exe_val" "executing" 1800 "/execute $plan"
+
+# --- Stage 2: Ship ---
+_run_stage "ship" "$ship_val" "shipping" 600 "/checkpoint"
+
+# --- Stage 3: Review ---
+if ! _should_skip "review"; then
+  cur_status="pending"
+  [[ "$resume" == true ]] && cur_status=$(_stage_status "$state_dir" "review")
+  if [[ "$cur_status" != "done" && "$cur_status" != "skipped" ]]; then
+    echo "stage: review ($review_val)" >&2
+    echo "reviewing" > "$state_dir/phase"
+    _start_stage "$state_dir" "review" "$review_val"
+
+    if [[ "$test_mode" == true ]]; then
+      _run_test_stage "$state_dir" "review" "$topic"
+      sleep 1
+      _finish_stage "$state_dir" "review" "done"
+    else
+      ~/tools/review --topic "$topic" 2>/dev/null &
+      review_pid=$!
+      review_elapsed=0
+      while (( review_elapsed < 600 )); do
+        if [[ -f "$HOME/.agents/artifacts/$topic/review-state.json" ]]; then
+          if jq -e '.status == "done"' "$HOME/.agents/artifacts/$topic/review-state.json" >/dev/null 2>&1; then
+            break
+          fi
+        fi
+        sleep 10
+        review_elapsed=$((review_elapsed + 10))
+      done
+      wait "$review_pid" 2>/dev/null || true
+      review_status="failed"
+      if [[ -f "$HOME/.agents/artifacts/$topic/review-state.json" ]]; then
+        review_status=$(jq -r '.status' "$HOME/.agents/artifacts/$topic/review-state.json" 2>/dev/null || echo "failed")
+      fi
+      _finish_stage "$state_dir" "review" "$review_status"
+    fi
+  fi
+fi
+
+# --- Stage 4: Fix (conditional) ---
+if ! _should_skip "fix"; then
+  cur_status="pending"
+  [[ "$resume" == true ]] && cur_status=$(_stage_status "$state_dir" "fix")
+  if [[ "$cur_status" != "done" && "$cur_status" != "skipped" ]]; then
+    review_md="$HOME/.agents/artifacts/$topic/review.md"
+    [[ "$test_mode" == true ]] && review_md="$state_dir/artifacts/review.md"
+
+    if [[ -f "$review_md" ]] && grep -qE '^#{1,3} .*(Blocker|Issue)|severity: *(blocker|issue)' "$review_md" 2>/dev/null; then
+      echo "stage: fix ($exe_val)" >&2
+      echo "fixing" > "$state_dir/phase"
+      _start_stage "$state_dir" "fix" "$exe_val"
+
+      if [[ "$test_mode" == true ]]; then
+        _run_test_stage "$state_dir" "fix" "$topic"
+        sleep 1
+        _finish_stage "$state_dir" "fix" "done"
+      else
+        cmd="$(_build_cmd "$exe_val" "Read $review_md and fix all blocker/issue findings. Then run /checkpoint to amend and push.")"
+        _run_in_session "$session" "$cmd" "$state_dir"
+        _wait_stage "$state_dir" "fix" 900 || true
+      fi
+    else
+      _update_stage "$state_dir" "fix" "status" "skipped"
+    fi
+  fi
+fi
+
+# --- Stage 5: Retro ---
+_run_stage "retro" "$retro_val" "learning" 300 "/retro" || true
+
+# --- Done ---
+echo "done" > "$state_dir/phase"
+_set_current "$state_dir" "done"
+
+if [[ "$test_mode" == true ]]; then
+  echo "" >&2
+  echo "=== test results ===" >&2
+  all_pass=true
+  for s in execute ship review fix retro; do
+    st=$(_stage_status "$state_dir" "$s")
+    if [[ "$st" == "done" || "$st" == "skipped" ]]; then
+      echo "  $s: $st ✓" >&2
+    else
+      echo "  $s: $st ✗" >&2
+      all_pass=false
+    fi
+  done
+  if [[ "$all_pass" == true ]]; then
+    echo "ALL STAGES PASS" >&2
+  else
+    echo "SOME STAGES FAILED" >&2
+    exit 1
+  fi
+else
+  _notify "$topic" "pipeline complete: $topic"
+fi
+
+echo "ag-orchestrate: $topic complete" >&2
