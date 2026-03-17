@@ -156,10 +156,10 @@ alias ducks="du -cksh * | sort -rh | head -20"
 # ─── Agent Stages (executor:model) ───────────────────────────
 # Claude: --model (opus, sonnet, haiku, opusplan)
 # Codex: -m (gpt-5.4, gpt-5.3-codex, gpt-5.3-codex-spark)
-export AG_EXECUTOR="claude:opus"           # 🦊 execute
-export AG_SHIPPER="claude:sonnet"          # 🦅 ship
-export AG_REVIEWER="codex:gpt-5.4"        # 🦉 review
-export AG_LEARNER="claude:haiku"           # 🐘 retro
+export AG_EXECUTE_MODEL="claude:opus"      # 🦊 execute
+export AG_SHIP_MODEL="claude:sonnet"       # 🦅 ship
+export AG_REVIEW_MODEL="codex:gpt-5.4"    # 🦉 review
+export AG_RETRO_MODEL="claude:haiku"       # 🐘 retro
 
 # ─── Claude ───────────────────────────────────────────────────
 export CLAUDE_CODE_EFFORT_LEVEL=max

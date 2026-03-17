@@ -70,10 +70,11 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 shell/zshrc                  # Universal shell config (aliases, functions, env)
 shell/tmux.conf              # tmux config (C-a prefix, vim nav, agent status bar)
 tools/                       # CLI scripts on PATH (symlinked to ~/tools)
-tools/ag                     # Agent session manager (ag run pipeline with multi-source plan picker, launch, PR checkout, dashboard, status, clean)
+tools/ag                     # Agent session manager (ag run/review/status/kill/clean, multi-source plan picker)
+tools/ag-orchestrate         # Multi-stage pipeline orchestrator (background, per-stage models, pipeline.json)
 tools/ag-preview             # fzf preview for ag picker (PR info, plan/review paths)
+tools/ag-status-line         # tmux status bar: pipeline phase icons with timing (🦊3m, polled every 5s)
 tools/wt                     # Worktree CLI: resolve/list/rm/clean/migrate
-tools/ag-status-line         # tmux status bar: pipeline phase icons (🦊🦅🦉🐘, polled every 5s)
 tools/artifacts              # Unified artifact browser: ~/.agents/artifacts/ (frontmatter-aware, typed actions)
 tools/review                 # Codex code review: review [PR] --status --json (async, writes review.md)
 tools/sync-codex-config      # Set Codex CLI autonomy defaults (workspace-write + never ask)

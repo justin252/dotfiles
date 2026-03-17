@@ -17,13 +17,30 @@ while read -r sess; do
     tmp="${sess#ag-}"; slug="${tmp#*-}"
   fi
 
-  # check /run phase state first, fall back to pane command
+  # check pipeline state, fall back to phase file, then pane command
   phase_file="$HOME/.agents/state/$slug/phase"
+  pipeline_file="$HOME/.agents/state/$slug/pipeline.json"
   phase=""
   [[ -f "$phase_file" ]] && phase=$(cat "$phase_file" 2>/dev/null)
 
+  # enrich with pipeline.json timing if available
+  stage_elapsed=""
+  if [[ -n "$phase" && "$phase" != "done" && -f "$pipeline_file" ]] && command -v jq >/dev/null 2>&1; then
+    stage_start=$(jq -r --arg s "$phase" '
+      (.stages | to_entries[] | select(.value.status == "running") | .value.started) // empty
+    ' "$pipeline_file" 2>/dev/null || true)
+    if [[ -n "$stage_start" ]]; then
+      start_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$stage_start" +%s 2>/dev/null || date -d "$stage_start" +%s 2>/dev/null || true)
+      if [[ -n "$start_epoch" ]]; then
+        elapsed_s=$(( $(date +%s) - start_epoch ))
+        if (( elapsed_s >= 60 )); then
+          stage_elapsed=" $((elapsed_s / 60))m"
+        fi
+      fi
+    fi
+  fi
+
   if [[ -n "$phase" && "$phase" != "done" ]]; then
-    # /run pipeline phase: show phase icon
     case "$phase" in
       executing) icon="🦊" ;;
       shipping)  icon="🦅" ;;
@@ -33,7 +50,7 @@ while read -r sess; do
       *)         icon="●"  ;;
     esac
     active_count=$((active_count + 1))
-    idle_parts+=" #[fg=cyan]${slug}${icon}"
+    idle_parts+=" #[fg=cyan]${slug}${icon}${stage_elapsed}"
   elif [[ "$phase" == "done" ]]; then
     idle_parts+=" #[fg=green]${slug}✓"
   else

@@ -85,12 +85,12 @@ fi
 
 # --- prerequisites ---
 
-reviewer="${AG_REVIEWER:-codex:gpt-5.4}"
+reviewer="${AG_REVIEW_MODEL:-codex:gpt-5.4}"
 reviewer_cmd="${reviewer%%:*}"
 reviewer_model="${reviewer#*:}"
 [[ "$reviewer_cmd" == "$reviewer_model" ]] && reviewer_model=""
 if [[ "$reviewer_cmd" != "codex" ]]; then
-  echo "unsupported AG_REVIEWER executor: $reviewer_cmd (only codex)" >&2; exit 1
+  echo "unsupported AG_REVIEW_MODEL executor: $reviewer_cmd (only codex)" >&2; exit 1
 fi
 command -v codex >/dev/null 2>&1 || { echo "codex not found on PATH" >&2; exit 1; }
 [[ -f "$MODEL_INSTRUCTIONS" ]] || { echo "missing: $MODEL_INSTRUCTIONS" >&2; exit 1; }
