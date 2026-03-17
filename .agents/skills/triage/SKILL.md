@@ -43,3 +43,7 @@ Refined item format:
 - Refined items: `### <title>` with Priority/Approach/Context fields
 - Resolved items: single-line bullets – `YYYY-MM-DD HH:MM` – **title** – summary. **Disposition** [PR](url)
 - No sensitive content to AGENTS.md
+
+## Next
+
+On completion, print: `Inbox triaged. Promoted N items to AGENTS.md`

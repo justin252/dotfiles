@@ -34,6 +34,8 @@ ag - agent session manager
   ag review                 🦉 review current branch (async Codex)
   ag review <PR>            review specific PR
   ag review --status        check all review statuses
+  ag info <topic>           per-topic dashboard (artifacts, pipeline, PR)
+  ag info <topic> --json    machine-readable output
   ag                        dashboard – all sessions, all repos (fzf)
   ag status                 cross-repo unified view
   ag kill <name>            kill session
@@ -672,6 +674,231 @@ RUNEOF
   review)
     shift
     exec ~/tools/review "$@"
+    ;;
+  info)
+    info_json=false
+    info_input=""
+    for arg in "${@:2}"; do
+      case "$arg" in
+        --help|-h)
+          cat <<'INFOEOF'
+ag info <topic> – per-topic dashboard
+  ag info auth           show artifacts, pipeline, PR, branch, worktree
+  ag info auth --json    machine-readable output
+INFOEOF
+          exit 0 ;;
+        --json) info_json=true ;;
+        -*) echo "unknown flag: $arg" >&2; exit 1 ;;
+        *)  [[ -z "$info_input" ]] && info_input="$arg" || { echo "unexpected arg: $arg" >&2; exit 1; } ;;
+      esac
+    done
+
+    _info_actions() {
+      local topic="$1" pr="$2" wt="${3:-}"
+      local actions=()
+      local state_dir="$HOME/.agents/state/$topic"
+      local has_session=false
+      local lr; lr=$(repo_name 2>/dev/null || true)
+      local sess_name="ag-${lr}-${topic}"
+      tmux has-session -t "$sess_name" 2>/dev/null && has_session=true
+
+      if [[ "$has_session" == true ]]; then
+        actions+=("attach:attach to session")
+      else
+        actions+=("run:ag run (start/resume)")
+      fi
+      [[ -f "$HOME/.agents/artifacts/$topic/review.md" ]] || actions+=("review:run code review")
+      [[ "$pr" != "-" ]] && actions+=("open-pr:open PR in browser")
+      actions+=("edit:open artifacts in \$EDITOR")
+      actions+=("cursor:open worktree in Cursor")
+      [[ -f "$state_dir/orchestrate.log" ]] && actions+=("log:tail orchestrate log")
+      actions+=("clean:ag clean topic")
+
+      printf '\n'
+      local choice
+      choice=$(printf '%s\n' "${actions[@]}" | sed 's/:.*//' | \
+        fzf --prompt="action> " --height=~10 --layout=reverse \
+            --preview="echo {} | sed 's/^/  /'" \
+            --preview-window=hidden) || true
+      case "$choice" in
+        run)     ag run "$topic" ;;
+        attach)  tmux attach-session -t "$sess_name" ;;
+        review)  ~/tools/review --topic "$topic" ;;
+        open-pr)
+          local pr_url=""
+          if [[ "$pr" =~ ^# ]]; then
+            pr_url=$(gh pr view "${pr#\#}" --json url --jq .url 2>/dev/null) || true
+          fi
+          if [[ -n "$pr_url" ]]; then
+            if command -v open &>/dev/null; then open "$pr_url"
+            elif command -v xdg-open &>/dev/null; then xdg-open "$pr_url"
+            else echo "$pr_url" >&2
+            fi
+          else
+            echo "no PR to open" >&2
+          fi
+          ;;
+        edit)    "${EDITOR:-vim}" "$HOME/.agents/artifacts/$topic/" ;;
+        cursor)  [[ -n "$wt" ]] && cursor "$wt" || echo "no worktree found" >&2 ;;
+        log)     tail -f "$state_dir/orchestrate.log" ;;
+        clean)   ag clean "$topic" ;;
+        "")      ;; # cancelled
+      esac
+    }
+
+    # resolve topic: exact match, partial match, or fzf
+    _info_resolve() {
+      local input="$1"
+      if [[ -z "$input" ]]; then
+        if [[ "$info_json" == true || "$no_input" == true ]]; then
+          echo "error: topic required with --json or AG_NO_INPUT" >&2; return 1
+        fi
+        # fzf picker from all artifact topics
+        if command -v fzf &>/dev/null; then
+          local topics=""
+          for d in "$HOME/.agents/artifacts"/*/; do
+            [[ -d "$d" ]] || continue
+            topics+="$(basename "$d")"$'\n'
+          done
+          [[ -z "$topics" ]] && { echo "no artifact topics found" >&2; return 1; }
+          printf '%s' "$topics" | fzf --prompt="info> " || return 1
+        else
+          echo "usage: ag info <topic>" >&2; return 1
+        fi
+        return
+      fi
+      # exact
+      if [[ -d "$HOME/.agents/artifacts/$input" ]]; then
+        echo "$input"; return 0
+      fi
+      # partial
+      local matches=()
+      for d in "$HOME/.agents/artifacts"/*/; do
+        [[ -d "$d" ]] || continue
+        local s; s=$(basename "$d")
+        [[ "$s" == *"$input"* ]] && matches+=("$s")
+      done
+      if [[ ${#matches[@]} -eq 1 ]]; then
+        echo "${matches[0]}"; return 0
+      elif [[ ${#matches[@]} -gt 1 ]]; then
+        if [[ "$info_json" != true && "$no_input" != true ]] && command -v fzf &>/dev/null; then
+          printf '%s\n' "${matches[@]}" | fzf --prompt="info> " --query="$input" || return 1
+          return
+        fi
+        echo "error: multiple topics match '$input':" >&2
+        printf '  %s\n' "${matches[@]}" >&2; return 1
+      fi
+      echo "error: no topic found for '$input'" >&2; return 1
+    }
+
+    info_topic=$(_info_resolve "$info_input") || exit 1
+    info_dir="$HOME/.agents/artifacts/$info_topic"
+
+    # gather artifacts
+    info_artifacts=()
+    info_chain=""
+    for f in "$info_dir"/*.md; do
+      [[ -f "$f" ]] || continue
+      info_artifacts+=("$(basename "$f")")
+    done
+
+    # read chain from plan.md frontmatter
+    if [[ -f "$info_dir/plan.md" ]]; then
+      info_chain=$(sed -n '/^---$/,/^---$/{ /^chain:/{ s/^chain: *//; p; q; } }' "$info_dir/plan.md" 2>/dev/null || true)
+    fi
+
+    # pipeline state
+    info_phase="-"
+    info_pipeline=""
+    info_state_dir="$HOME/.agents/state/$info_topic"
+    if [[ -f "$info_state_dir/phase" ]]; then
+      info_phase=$(cat "$info_state_dir/phase" 2>/dev/null)
+    fi
+    if [[ -f "$info_state_dir/pipeline.json" ]] && command -v jq >/dev/null 2>&1; then
+      info_pipeline=$(jq -r '
+        ["execute","ship","review","fix","retro"] as $order |
+        [.stages | to_entries[] | {key, value, idx: ($order | index(.key) // 99)}] |
+        sort_by(.idx) |
+        map(
+          if .value.status == "done" then .key + "✓"
+          elif .value.status == "running" then .key + "●"
+          elif .value.status == "skipped" then .key + "–"
+          elif .value.status == "failed" then .key + "✗"
+          else .key + "○"
+          end
+        ) | join(" ")
+      ' "$info_state_dir/pipeline.json" 2>/dev/null || true)
+    fi
+
+    # branch: from plan.md frontmatter or state
+    info_branch=""
+    if [[ -f "$info_dir/plan.md" ]]; then
+      info_branch=$(sed -n '/^---$/,/^---$/{ /^branch:/{ s/^branch: *//; p; q; } }' "$info_dir/plan.md" 2>/dev/null || true)
+    fi
+    if [[ -z "$info_branch" && -f "$info_dir/output.md" ]]; then
+      info_branch=$(sed -n '/^---$/,/^---$/{ /^branch:/{ s/^branch: *//; p; q; } }' "$info_dir/output.md" 2>/dev/null || true)
+      [[ -z "$info_branch" ]] && info_branch=$(sed -n 's/^- Branch: *\(.*\)/\1/p' "$info_dir/output.md" 2>/dev/null | head -1) || true
+    fi
+
+    # worktree
+    info_wt=""
+    if [[ -n "$info_branch" ]]; then
+      info_wt=$(git worktree list 2>/dev/null | grep -F "$info_branch" | awk '{print $1}') || true
+    fi
+    # fallback: match topic slug in worktree paths
+    if [[ -z "$info_wt" ]]; then
+      info_wt=$(git worktree list 2>/dev/null | grep -F "$info_topic" | awk '{print $1}') || true
+    fi
+
+    # PR
+    info_pr="-"
+    if [[ -n "$info_branch" ]]; then
+      info_pr=$(gh pr list --head "$info_branch" --no-interactive --json number,state,isDraft --jq '.[0] | "#\(.number) (\(if .isDraft then "draft, " else "" end)\(.state | ascii_downcase))"' 2>/dev/null) || true
+    fi
+    # fallback: check output.md for PR link
+    if [[ "$info_pr" == "-" || -z "$info_pr" ]] && [[ -f "$info_dir/output.md" ]]; then
+      info_pr=$(sed -n 's/^- PR: *\(.*\)/\1/p' "$info_dir/output.md" 2>/dev/null | head -1) || true
+    fi
+    [[ -z "$info_pr" ]] && info_pr="-"
+
+    # phase display
+    case "$info_phase" in
+      executing) info_phase_display="executing 🦊" ;;
+      shipping)  info_phase_display="shipping 🦅" ;;
+      reviewing) info_phase_display="reviewing 🦉" ;;
+      fixing)    info_phase_display="fixing 🔧" ;;
+      learning)  info_phase_display="learning 🐘" ;;
+      done)      info_phase_display="done ✅" ;;
+      *)         info_phase_display="$info_phase" ;;
+    esac
+
+    if [[ "$info_json" == true ]]; then
+      jq -n \
+        --arg topic "$info_topic" \
+        --arg phase "$info_phase" \
+        --arg pipeline "$info_pipeline" \
+        --arg chain "$info_chain" \
+        --arg branch "${info_branch:-}" \
+        --arg worktree "${info_wt:-}" \
+        --arg pr "$info_pr" \
+        --argjson artifacts "$(printf '%s\n' "${info_artifacts[@]}" | jq -R . | jq -s .)" \
+        '{topic:$topic, phase:$phase, pipeline:$pipeline, artifacts:$artifacts, chain:$chain, branch:$branch, worktree:$worktree, pr:$pr}'
+    else
+      printf "  topic:     %s\n" "$info_topic"
+      printf "  phase:     %s\n" "$info_phase_display"
+      [[ -n "$info_pipeline" ]] && printf "  pipeline:  %s\n" "$info_pipeline"
+      printf "  artifacts: %s\n" "${info_artifacts[*]:-none}"
+      [[ -n "$info_chain" ]] && printf "  chain:     %s\n" "$info_chain"
+      [[ -n "$info_branch" ]] && printf "  branch:    %s\n" "$info_branch"
+      [[ -n "$info_wt" ]] && printf "  worktree:  %s\n" "$info_wt"
+      printf "  PR:        %s\n" "$info_pr"
+
+      # action picker (TTY only)
+      if [[ -t 1 ]] && command -v fzf &>/dev/null; then
+
+\        _info_actions "$info_topic" "$info_pr" "${info_wt:-}"
+      fi
+    fi
     ;;
   kill)
     if [[ "${2:-}" == "--help" || "${2:-}" == "-h" ]]; then

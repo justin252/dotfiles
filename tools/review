@@ -219,7 +219,7 @@ repo: $repo_name
 status: active
 created: $today
 updated: $today
-chain: plan.md → **output.md**
+chain: [problem.md, design.md, plan.md, output.md, review.md]
 ---
 # Output: ${pr_title:-$topic}
 
@@ -294,6 +294,16 @@ echo "  log: $log_path" >&2
   echo "==="
   echo ""
 
+  # versioned review setup
+  reviews_dir="$topic_dir/reviews"
+  mkdir -p "$reviews_dir"
+  max_prefix=$(find "$reviews_dir" -maxdepth 1 -name '*.md' 2>/dev/null \
+    | sed 's|.*/||' | sed 's/-.*//' | sort -n | tail -1 | sed 's/^0*//' || true)
+  review_num=$(( ${max_prefix:-0} + 1 ))
+  review_ts=$(date -u +%FT%H%MZ)
+  commit_sha=$(git -C "$target_repo" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+  versioned_path="$reviews_dir/$(printf '%03d' "$review_num")-${review_ts}.md"
+
   codex -C "$target_repo" exec review \
     --base "$base_branch" \
     --title "${pr_title:-$topic}" \
@@ -303,10 +313,20 @@ echo "  log: $log_path" >&2
     </dev/null >"$codex_out"
 
   if [[ -s "$codex_out" ]]; then
-    mv "$codex_out" "$review_path"
-    echo "🦉 review complete: $review_path"
+    # prepend version metadata into frontmatter
+    if head -1 "$codex_out" | grep -q '^---$'; then
+      { echo "---"; echo "review: $review_num"; echo "commit: $commit_sha"; sed '1{/^---$/d}' "$codex_out"; } > "$versioned_path"
+    else
+      { echo "---"; echo "review: $review_num"; echo "commit: $commit_sha"; echo "---"; cat "$codex_out"; } > "$versioned_path"
+    fi
+    cp "$versioned_path" "$review_path"
+    rm -f "$codex_out"
+    echo "🦉 review #$review_num complete: $review_path"
+    echo "  versioned: $versioned_path"
     # update state: done
-    jq --arg f "$(date -u +%FT%TZ)" '.status = "done" | .finished = $f' "$state_path" > "$state_path.tmp" \
+    jq --arg f "$(date -u +%FT%TZ)" --arg num "$review_num" --arg sha "$commit_sha" \
+      '.status = "done" | .finished = $f | .review_num = ($num|tonumber) | .commit = $sha' \
+      "$state_path" > "$state_path.tmp" \
       && mv "$state_path.tmp" "$state_path"
   else
     echo "codex produced no output"

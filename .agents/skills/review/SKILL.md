@@ -60,3 +60,7 @@ Headless/pipeline reviews use the `review` CLI (Codex) which writes the same art
 - Acknowledge good patterns -- not everything needs a comment
 - If the diff is large, focus on the riskiest changes
 - Route process/tooling lessons into `## Future learnings` rather than mixing them with code findings
+
+## Next
+
+On completion, print: `🦊 Review at <path>. Blockers? Fix and re-checkpoint`
