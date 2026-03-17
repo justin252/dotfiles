@@ -22,6 +22,7 @@ ag - agent session manager
   ag run <plan> --resume        resume from last incomplete stage
   ag run <plan> --test          integration test (stubs in /tmp)
   ag <name>                 launch agent in worktree (executor from AG_EXECUTE_MODEL)
+  ag proj/feature           grouped session (display-only grouping by prefix)
   ag <name> --shell         create worktree + tmux, drop to shell
   ag <name> -m MSG          launch with initial task
   ag <name> --cursor        cursor + agent in worktree
@@ -38,6 +39,7 @@ ag - agent session manager
   ag info <topic> --json    machine-readable output
   ag                        dashboard – all sessions, all repos (fzf)
   ag status                 cross-repo unified view
+  ag restart <name>         relaunch agent in an idle session
   ag kill <name>            kill session
   ag clean                  dead sessions + merged worktrees
   ag clean --all            kill all sessions + remove all worktrees + state
@@ -101,6 +103,88 @@ attach_or_switch() {
   else
     tmux attach-session -t "$session"
   fi
+}
+
+# Prompt to restart an idle session (agent exited, shell running)
+# Called when attaching to a session with AG_CMD set and AG_MANUAL not set
+_restart_prompt() {
+  local session="$1" name="$2" cmd="$3"
+  local reply
+  if [[ "$no_input" == true ]]; then
+    # non-interactive: just attach
+    attach_or_switch "$session"
+    return
+  fi
+  read -r -p "$name exited. restart? [Y/n/shell] " reply
+  case "${reply:-y}" in
+    [Yy]|"")
+      tmux send-keys -t "$session" "$cmd" Enter
+      echo "restarted $name" >&2
+      attach_or_switch "$session"
+      ;;
+    [Ss]|shell)
+      tmux set-environment -t "$session" AG_MANUAL 1
+      echo "shell mode (ag restart $name to relaunch)" >&2
+      attach_or_switch "$session"
+      ;;
+    *)
+      tmux kill-session -t "$session"
+      echo "killed $name" >&2
+      ;;
+  esac
+}
+
+# Archive session metadata before cleanup (best-effort, never fails clean)
+_archive_session() {
+  local slug="$1" repo="${2:-local}" session="${3:-}"
+  local archive_dir="$HOME/.agents/sessions"
+  # flatten / to - in filename
+  local safe_slug="${slug//\//-}"
+  local archive_file="${archive_dir}/${safe_slug}.md"
+
+  mkdir -p "$archive_dir"
+  [[ -f "$archive_file" ]] && return 0  # already archived
+
+  local branch="-" pr="-" phase="-" artifacts=""
+
+  # gather metadata from tmux env (if session still exists)
+  if [[ -n "$session" ]] && tmux has-session -t "$session" 2>/dev/null; then
+    local wt_path
+    wt_path=$(tmux display-message -t "$session" -p '#{pane_current_path}' 2>/dev/null || echo "")
+    branch=$(_ag_branch "$session" "$wt_path") || true
+  fi
+
+  # PR info
+  if [[ "$branch" != "-" && -n "$branch" ]]; then
+    pr=$(gh pr list --head "$branch" --no-interactive --json number,state \
+      --jq '"#" + (.[0].number|tostring) + " (" + (.[0].state|ascii_downcase) + ")"' 2>/dev/null) || true
+  fi
+  [[ -z "$pr" ]] && pr="-"
+
+  # phase from state dir
+  [[ -f "$HOME/.agents/state/$slug/phase" ]] && phase=$(cat "$HOME/.agents/state/$slug/phase" 2>/dev/null) || true
+
+  # artifacts list
+  if [[ -d "$HOME/.agents/artifacts/$slug" ]]; then
+    artifacts=$(find "$HOME/.agents/artifacts/$slug" -maxdepth 1 -name '*.md' -exec basename {} \; 2>/dev/null | sort | tr '\n' ', ' | sed 's/,$//')
+  fi
+
+  cat > "$archive_file" <<EOF
+---
+topic: $slug
+repo: $repo
+date: $(date +%Y-%m-%d)
+---
+# $slug
+
+- Branch: $branch
+- PR: $pr
+- Phase: $phase
+- Artifacts: ${artifacts:-none}
+
+(auto-archived by ag clean)
+EOF
+  echo "  archived $slug" >&2
 }
 
 case "${1:-}" in
@@ -652,6 +736,7 @@ RUNEOF
       echo "error: failed to create tmux session '$session'" >&2; exit 1
     fi
     _ag_set_env "$session" "$slug" "$local_repo" "$pr_branch"
+    tmux set-environment -t "$session" AG_CMD "$(_ag_executor "${AG_EXECUTE_MODEL:-claude}")"
 
     if [[ -n "$pr_prompt" ]]; then
       cmd="$(_ag_executor "${AG_EXECUTE_MODEL:-claude}")"
@@ -908,6 +993,25 @@ INFOEOF
     local_repo=$(repo_name)
     tmux kill-session -t "ag-${local_repo}-${2}" 2>/dev/null && echo "killed ag-${local_repo}-${2}" || echo "no session ag-${local_repo}-${2}" >&2
     ;;
+  restart)
+    if [[ "${2:-}" == "--help" || "${2:-}" == "-h" ]]; then
+      echo "ag restart <name> – relaunch agent in an idle session"; exit 0
+    fi
+    [[ -z "${2:-}" ]] && { echo "usage: ag restart <name>" >&2; exit 1; }
+    local_repo=$(repo_name)
+    session="ag-${local_repo}-${2}"
+    if ! tmux has-session -t "$session" 2>/dev/null; then
+      echo "no session: $session" >&2; exit 1
+    fi
+    ag_cmd=$(tmux show-environment -t "$session" AG_CMD 2>/dev/null | sed 's/^[^=]*=//' || true)
+    if [[ -z "$ag_cmd" ]]; then
+      echo "no AG_CMD stored for $2 (was it a --shell session?)" >&2; exit 1
+    fi
+    tmux set-environment -t "$session" -u AG_MANUAL 2>/dev/null || true
+    tmux send-keys -t "$session" "$ag_cmd" Enter
+    echo "restarted $2" >&2
+    attach_or_switch "$session"
+    ;;
   status)
     json=false
     for arg in "${@:2}"; do
@@ -1004,6 +1108,9 @@ INFOEOF
       exit 0
     fi
 
+    # sort by slug (field 4) so grouped sessions cluster
+    sort -t' ' -k4,4 "$tmpdir/sessions" -o "$tmpdir/sessions"
+
     [[ "$json" == false ]] && printf "%-20s %-14s %-20s %s\n" "NAME" "STATUS" "BRANCH" "PR"
 
     # print results
@@ -1051,12 +1158,15 @@ INFOEOF
           echo "  kills dead sessions, removes merged worktrees,"
           echo "  finds orphan worktrees/sessions, cleans state files"
           echo "  --all               nuclear: kill all sessions + worktrees + state"
+          echo "  --remote            also clean on remote workspace hosts (SSH)"
           echo "  --force/--no-input  skip confirmation prompts"
           exit 0 ;;
         --all) clean_all=true ;;
+        --remote) clean_remote=true ;;
         --force|-f|--no-input) force=true ;;
       esac
     done
+    clean_remote=${clean_remote:-false}
 
     if [[ "$clean_all" == true ]]; then
       # nuclear: kill all ag sessions, remove all worktrees, clean all state
@@ -1076,9 +1186,12 @@ INFOEOF
         read -r -p "remove everything? [y/N] " reply
         [[ ! "$reply" =~ ^[Yy] ]] && exit 0
       fi
-      # 1. kill all ag sessions
+      # 1. archive + kill all ag sessions
       if [[ -n "$ag_sessions" ]]; then
         while read -r sess; do
+          slug=$(_ag_slug "$sess")
+          repo=$(tmux show-environment -t "$sess" AG_REPO 2>/dev/null | sed 's/^AG_REPO=//' || true)
+          _archive_session "$slug" "${repo:-local}" "$sess" 2>/dev/null || true
           tmux kill-session -t "$sess" 2>/dev/null
           echo "  killed $sess"
         done <<< "$ag_sessions"
@@ -1119,6 +1232,8 @@ INFOEOF
         pane_cmd=$(tmux display-message -t "$sess" -p '#{pane_current_command}' 2>/dev/null)
         if [[ "$pane_cmd" == "zsh" || "$pane_cmd" == "bash" ]]; then
           slug=$(_ag_slug "$sess")
+          repo=$(tmux show-environment -t "$sess" AG_REPO 2>/dev/null | sed 's/^AG_REPO=//' || true)
+          _archive_session "$slug" "${repo:-local}" "$sess" 2>/dev/null || true
           echo "  $slug (session idle)"
           tmux kill-session -t "$sess"
           found_dead=true
@@ -1137,6 +1252,8 @@ INFOEOF
         wt_path=$(tmux display-message -t "$sess" -p '#{pane_current_path}' 2>/dev/null || echo "")
         if [[ -z "$wt_path" || ! -d "$wt_path/.git" ]]; then
           slug=$(_ag_slug "$sess")
+          repo=$(tmux show-environment -t "$sess" AG_REPO 2>/dev/null | sed 's/^AG_REPO=//' || true)
+          _archive_session "$slug" "${repo:-local}" "$sess" 2>/dev/null || true
           echo "  $slug (worktree missing)"
           tmux kill-session -t "$sess"
           found_orphan_sess=true
@@ -1157,6 +1274,8 @@ INFOEOF
         [[ "$wt_path" == "$root" ]] && continue
         wt_name=$(basename "$wt_path")
         wt_slug="${wt_name#*-wt-}"
+        # fallback to old naming convention (--)
+        [[ "$wt_slug" == "$wt_name" ]] && wt_slug="${wt_name#*--}"
         expected_sess="ag-${repo}-${wt_slug}"
         # get branch: prefer tmux env (handles detached HEAD), fall back to git
         branch=$(_ag_branch "$expected_sess" "$wt_path")
@@ -1178,6 +1297,8 @@ INFOEOF
         [[ "$wt_path" == "$root" ]] && continue
         wt_name=$(basename "$wt_path")
         wt_slug="${wt_name#*-wt-}"
+        # fallback to old naming convention (--)
+        [[ "$wt_slug" == "$wt_name" ]] && wt_slug="${wt_name#*--}"
         expected_sess="ag-${repo}-${wt_slug}"
         if ! tmux has-session -t "$expected_sess" 2>/dev/null; then
           branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "-")
@@ -1198,9 +1319,18 @@ INFOEOF
           state_name=$(basename "$state_dir")
           expected_sess="ag-${repo}-${state_name}"
           if ! tmux has-session -t "$expected_sess" 2>/dev/null; then
-            echo "  $state_name"
-            found_stale=true
-            rm -rf "$state_dir"
+            # guard: skip if worktree still exists (Cursor may have active worktree without tmux)
+            has_wt=false
+            while read -r _wt_check; do
+              [[ "$_wt_check" == *"$state_name"* ]] && has_wt=true
+            done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
+            if [[ "$has_wt" == true ]]; then
+              echo "  $state_name (kept – worktree exists)"
+            else
+              echo "  $state_name"
+              found_stale=true
+              rm -rf "$state_dir"
+            fi
           fi
         done
         $found_stale || echo "  (none)"
@@ -1221,8 +1351,10 @@ INFOEOF
           for wt_path in "${to_remove[@]}"; do
             wt_name=$(basename "$wt_path")
             wt_slug="${wt_name#*-wt-}"
+            [[ "$wt_slug" == "$wt_name" ]] && wt_slug="${wt_name#*--}"
             sess_name="ag-${repo}-${wt_slug}"
             branch=$(_ag_branch "$sess_name" "$wt_path")
+            _archive_session "$wt_slug" "$repo" "$sess_name" 2>/dev/null || true
             tmux kill-session -t "$sess_name" 2>/dev/null
             if git worktree remove "$wt_path" --force 2>/dev/null; then
               if [[ -n "$branch" && "$branch" != "HEAD" ]]; then
@@ -1233,6 +1365,34 @@ INFOEOF
               echo "  failed to remove $wt_slug (dirty?)" >&2
             fi
           done
+        fi
+      fi
+    fi
+
+    # remote cleanup
+    if [[ -n "${AG_WORKSPACE_HOSTS:-}" ]]; then
+      if [[ "$clean_remote" == true ]]; then
+        echo ""
+        echo "=== remote cleanup ==="
+        IFS=',' read -ra _ws_hosts <<< "$AG_WORKSPACE_HOSTS"
+        for _wh in "${_ws_hosts[@]}"; do
+          echo "  $_wh:"
+          ssh -o ConnectTimeout=5 -o BatchMode=yes -- "$_wh" "ag clean --force" 2>&1 | sed 's/^/    /' || {
+            echo "    (failed to connect)" >&2
+          }
+        done
+      else
+        # probe for remote sessions and warn
+        _remote_count=0
+        IFS=',' read -ra _ws_hosts <<< "$AG_WORKSPACE_HOSTS"
+        for _wh in "${_ws_hosts[@]}"; do
+          _rc=$(ssh -o ConnectTimeout=3 -o BatchMode=yes -- "$_wh" \
+            'ls -d ~/.agents/state/*/ 2>/dev/null | wc -l | tr -d " "' 2>/dev/null || echo 0)
+          (( _remote_count += _rc )) || true
+        done
+        if (( _remote_count > 0 )); then
+          echo ""
+          echo "$_remote_count remote state dir(s) found. Run: ag clean --remote"
         fi
       fi
     fi
@@ -1265,6 +1425,9 @@ INFOEOF
       fi
       lines+="$line"$'\n'
     done <<< "$all_sessions"
+
+    # sort by slug so grouped sessions (project/feature) cluster together
+    lines=$(echo "$lines" | sort -t' ' -k1,1)
 
     if command -v fzf &>/dev/null; then
       pick=$(echo "$lines" | fzf \
@@ -1301,8 +1464,8 @@ INFOEOF
       echo "run 'ag --help' for usage" >&2
       exit 1
     fi
-    if [[ ! "$name" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
-      echo "error: name must be alphanumeric (hyphens/underscores ok): $name" >&2
+    if [[ ! "$name" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*(/[a-zA-Z0-9][a-zA-Z0-9_-]*)?$ ]]; then
+      echo "error: name must be alphanumeric (hyphens/underscores ok, one / for grouping): $name" >&2
       exit 1
     fi
     shift
@@ -1347,13 +1510,21 @@ INFOEOF
     local_repo=$(repo_name)
     session="ag-${local_repo}-${name}"
 
-    # if session exists, just attach
+    # if session exists, check for idle agent and possibly restart
     if tmux has-session -t "$session" 2>/dev/null; then
-      echo "attaching to $name"
-      echo "  ag             switch to another session"
-      echo "  ag status      see all agents"
-      echo "  C-a d          detach back to terminal"
-      attach_or_switch "$session"
+      pane_cmd=$(tmux display-message -t "$session" -p '#{pane_current_command}' 2>/dev/null || echo "")
+      ag_cmd=$(tmux show-environment -t "$session" AG_CMD 2>/dev/null | sed 's/^[^=]*=//' || true)
+      ag_manual=$(tmux show-environment -t "$session" AG_MANUAL 2>/dev/null | sed 's/^[^=]*=//' || true)
+
+      if [[ ("$pane_cmd" == "zsh" || "$pane_cmd" == "bash") && -n "$ag_cmd" && "$ag_manual" != "1" ]]; then
+        _restart_prompt "$session" "$name" "$ag_cmd"
+      else
+        echo "attaching to $name"
+        echo "  ag             switch to another session"
+        echo "  ag status      see all agents"
+        echo "  C-a d          detach back to terminal"
+        attach_or_switch "$session"
+      fi
       exit 0
     fi
 
@@ -1375,6 +1546,8 @@ INFOEOF
       exit 1
     fi
     _ag_set_env "$session" "$name" "$local_repo" "$name"
+    # store executor for restart (skip for --shell sessions)
+    [[ "$shell_only" != true ]] && tmux set-environment -t "$session" AG_CMD "$cmd"
 
     if [[ -n "$prompt" ]]; then
       # background agents get AG_BACKGROUND=1 so they know not to block on input
