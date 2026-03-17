@@ -17,6 +17,7 @@ Usage:
   review [PR]              PR number, URL, or omit to auto-detect
   review --status [TOPIC]  check review status (all or per-topic)
   review --topic T         override topic dir (slug or absolute path)
+  review --base B          override base branch (for stacked PRs)
   review --json            machine output to stdout
   review -h
 
@@ -31,6 +32,7 @@ EOF
 
 pr_arg=""
 topic_override=""
+base_override=""
 json_output=false
 status_mode=false
 
@@ -40,6 +42,7 @@ while [[ $# -gt 0 ]]; do
     --json)      json_output=true; shift ;;
     --status)    status_mode=true; shift ;;
     --topic)     topic_override="${2:-}"; [[ -n "$topic_override" ]] || { echo "missing value for --topic" >&2; exit 1; }; shift 2 ;;
+    --base)      base_override="${2:-}"; [[ -n "$base_override" ]] || { echo "missing value for --base" >&2; exit 1; }; shift 2 ;;
     -*)          echo "unknown flag: $1" >&2; usage >&2; exit 1 ;;
     *)           [[ -z "$pr_arg" ]] || { echo "unexpected arg: $1" >&2; exit 1; }; pr_arg="$1"; shift ;;
   esac
@@ -145,6 +148,8 @@ else
 fi
 
 [[ -n "$base_branch" ]] || base_branch="main"
+# --base flag overrides GitHub PR metadata (useful for stacked PRs)
+[[ -n "$base_override" ]] && base_branch="$base_override"
 echo "  branch: $branch" >&2
 echo "  base: $base_branch" >&2
 
