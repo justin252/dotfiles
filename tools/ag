@@ -20,6 +20,7 @@ ag - agent session manager
   ag run -a                 pick from artifacts only
   ag run <plan> --skip review   skip pipeline stages
   ag <name>                 launch agent in worktree (executor from AG_EXECUTOR)
+  ag <name> --shell         create worktree + tmux, drop to shell
   ag <name> -m MSG          launch with initial task
   ag <name> --cursor        cursor + agent in worktree
   ag <name> --claude        force using claude
@@ -480,7 +481,7 @@ RUNEOF
     echo "  📋 plan: $run_plan" >&2
 
     # create worktree + session
-    worktree=$(WT_CREATE_MODE=new ~/tools/wt-resolve "$run_topic") || exit 1
+    worktree=$(WT_CREATE_MODE=new ~/tools/wt resolve "$run_topic") || exit 1
 
     if tmux has-session -t "$session" 2>/dev/null; then
       echo "session already exists: $session" >&2
@@ -615,8 +616,8 @@ RUNEOF
       cd "$local_repo"
     fi
 
-    # resolve worktree via wt-resolve (handles fetch, existing worktree, creation)
-    dest=$(~/tools/wt-resolve "$pr_branch") || exit 1
+    # resolve worktree via wt resolve (handles fetch, existing worktree, creation)
+    dest=$(~/tools/wt resolve "$pr_branch") || exit 1
     slug=$(echo "$pr_branch" | tr '/' '-')
     local_repo=$(repo_name)
     session="ag-${local_repo}-${slug}"
@@ -1048,11 +1049,13 @@ RUNEOF
 
     cmd="$(_ag_executor "${AG_EXECUTOR:-claude}")"
     open_cursor=false
+    shell_only=false
     prompt=""
 
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --cursor) open_cursor=true; shift ;;
+        --shell)  shell_only=true; shift ;;
         --gemini) cmd="gemini"; shift ;;
         --claude) cmd="claude"; shift ;;
         --codex)  cmd="codex"; shift ;;
@@ -1063,18 +1066,23 @@ RUNEOF
       esac
     done
 
+    if [[ "$shell_only" == true && -n "$prompt" ]]; then
+      echo "error: --shell cannot be combined with -m" >&2
+      exit 1
+    fi
+
     command -v "$cmd" >/dev/null 2>&1 || { echo "$cmd not found on PATH" >&2; exit 1; }
 
     # resolve worktree: ag creates new branches (not checking out existing remote)
     if [[ -n "$prompt" || "$no_input" == true ]]; then
       # auto-confirm for background launch
-      worktree=$(WT_CREATE_MODE=new ~/tools/wt-resolve "$name") || exit 1
+      worktree=$(WT_CREATE_MODE=new ~/tools/wt resolve "$name") || exit 1
     elif [[ -t 0 ]]; then
       # interactive: confirm creation
       echo "will create worktree for '$name' if needed" >&2
-      worktree=$(WT_CREATE_MODE=new ~/tools/wt-resolve "$name") || exit 1
+      worktree=$(WT_CREATE_MODE=new ~/tools/wt resolve "$name") || exit 1
     else
-      worktree=$(WT_CREATE_MODE=new ~/tools/wt-resolve "$name") || exit 1
+      worktree=$(WT_CREATE_MODE=new ~/tools/wt resolve "$name") || exit 1
     fi
     local_repo=$(repo_name)
     session="ag-${local_repo}-${name}"
@@ -1125,6 +1133,8 @@ RUNEOF
       echo "  ag $name       attach to session"
       echo "  ag status      see all agents"
       echo "  ag             pick from list"
+    elif [[ "$shell_only" == true ]]; then
+      attach_or_switch "$session"
     else
       tmux send-keys -t "$session" "$cmd" Enter
       attach_or_switch "$session"

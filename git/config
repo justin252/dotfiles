@@ -1,0 +1,8 @@
+# Managed git preferences (included via ~/.gitconfig)
+# Universal defaults – override machine-specific settings in ~/.gitconfig
+[pull]
+	rebase = true
+[rebase]
+	autoStash = true
+[fetch]
+	prune = true
