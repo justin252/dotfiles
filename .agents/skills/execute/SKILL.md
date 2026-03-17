@@ -104,4 +104,4 @@ When all phases are checked off:
 
 ## Next
 
-On completion, print: `🦅 Done. Next: /checkpoint`
+On completion, print: `🦅 Done. Next: /checkpoint (launches async review if output.md exists)`

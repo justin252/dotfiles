@@ -42,4 +42,17 @@ Self-contained workflow -- execute steps fully, don't inject extra confirmation 
 
 ## Next
 
-On completion, print: `🦉 PR open: <url>. Next: ag review <topic> or wait for pipeline`
+After completion, print one of:
+
+If async review was launched (step 9):
+```
+🦉 Review launched (async)
+  tail -f ~/.agents/artifacts/<topic>/review-run.log
+  review --status
+  cat ~/.agents/artifacts/<topic>/review.md
+```
+
+If no review launched:
+```
+🦉 PR open: <url>. Next: review <topic> or wait for pipeline
+```
