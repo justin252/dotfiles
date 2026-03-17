@@ -121,6 +121,9 @@ function refresh-skills {
 }
 
 # ─── Workspace ────────────────────────────────────────────────
+# Setup: https://datadoghq.atlassian.net/wiki/spaces/DEVX/pages/5323785891
+# Requires: SSH config.d/workspaces.conf for port forwarding (8443 dev, 8080 docs)
+# One-time per workspace: yarn install, TLS cert trust on laptop
 if [[ "$OSTYPE" == darwin* ]]; then
   WS_PREFIX="jhsu"
 
