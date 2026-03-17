@@ -57,16 +57,6 @@ if ! command -v rtk &> /dev/null; then
   fi
 fi
 
-# Install Codex CLI if missing
-if ! command -v codex &>/dev/null; then
-  echo "Installing Codex CLI..."
-  if [[ -w "$(npm config get prefix)/lib" ]]; then
-    npm i -g @openai/codex || echo "Warning: codex install failed"
-  else
-    npm i -g --prefix ~/.local @openai/codex || echo "Warning: codex install failed"
-  fi
-fi
-
 # Symlink tools
 ln -sfn "$DOTFILES/tools" ~/tools
 
