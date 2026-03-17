@@ -17,6 +17,7 @@ Usage:
   review [PR]              PR number, URL, or omit to auto-detect
   review --status [TOPIC]  check review status (all or per-topic)
   review --topic T         override topic dir (slug or absolute path)
+  review --base B          override base branch (for stacked PRs)
   review --json            machine output to stdout
   review -h
 
@@ -31,6 +32,7 @@ EOF
 
 pr_arg=""
 topic_override=""
+base_override=""
 json_output=false
 status_mode=false
 
@@ -40,6 +42,7 @@ while [[ $# -gt 0 ]]; do
     --json)      json_output=true; shift ;;
     --status)    status_mode=true; shift ;;
     --topic)     topic_override="${2:-}"; [[ -n "$topic_override" ]] || { echo "missing value for --topic" >&2; exit 1; }; shift 2 ;;
+    --base)      base_override="${2:-}"; [[ -n "$base_override" ]] || { echo "missing value for --base" >&2; exit 1; }; shift 2 ;;
     -*)          echo "unknown flag: $1" >&2; usage >&2; exit 1 ;;
     *)           [[ -z "$pr_arg" ]] || { echo "unexpected arg: $1" >&2; exit 1; }; pr_arg="$1"; shift ;;
   esac
@@ -85,12 +88,12 @@ fi
 
 # --- prerequisites ---
 
-reviewer="${AG_REVIEWER:-codex:gpt-5.4}"
+reviewer="${AG_REVIEW_MODEL:-codex:gpt-5.4}"
 reviewer_cmd="${reviewer%%:*}"
 reviewer_model="${reviewer#*:}"
 [[ "$reviewer_cmd" == "$reviewer_model" ]] && reviewer_model=""
 if [[ "$reviewer_cmd" != "codex" ]]; then
-  echo "unsupported AG_REVIEWER executor: $reviewer_cmd (only codex)" >&2; exit 1
+  echo "unsupported AG_REVIEW_MODEL executor: $reviewer_cmd (only codex)" >&2; exit 1
 fi
 command -v codex >/dev/null 2>&1 || { echo "codex not found on PATH" >&2; exit 1; }
 [[ -f "$MODEL_INSTRUCTIONS" ]] || { echo "missing: $MODEL_INSTRUCTIONS" >&2; exit 1; }
@@ -145,6 +148,8 @@ else
 fi
 
 [[ -n "$base_branch" ]] || base_branch="main"
+# --base flag overrides GitHub PR metadata (useful for stacked PRs)
+[[ -n "$base_override" ]] && base_branch="$base_override"
 echo "  branch: $branch" >&2
 echo "  base: $base_branch" >&2
 
@@ -219,7 +224,7 @@ repo: $repo_name
 status: active
 created: $today
 updated: $today
-chain: plan.md → **output.md**
+chain: [problem.md, design.md, plan.md, output.md, review.md]
 ---
 # Output: ${pr_title:-$topic}
 
@@ -294,6 +299,16 @@ echo "  log: $log_path" >&2
   echo "==="
   echo ""
 
+  # versioned review setup
+  reviews_dir="$topic_dir/reviews"
+  mkdir -p "$reviews_dir"
+  max_prefix=$(find "$reviews_dir" -maxdepth 1 -name '*.md' 2>/dev/null \
+    | sed 's|.*/||' | sed 's/-.*//' | sort -n | tail -1 | sed 's/^0*//' || true)
+  review_num=$(( ${max_prefix:-0} + 1 ))
+  review_ts=$(date -u +%FT%H%MZ)
+  commit_sha=$(git -C "$target_repo" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+  versioned_path="$reviews_dir/$(printf '%03d' "$review_num")-${review_ts}.md"
+
   codex -C "$target_repo" exec review \
     --base "$base_branch" \
     --title "${pr_title:-$topic}" \
@@ -303,10 +318,20 @@ echo "  log: $log_path" >&2
     </dev/null >"$codex_out"
 
   if [[ -s "$codex_out" ]]; then
-    mv "$codex_out" "$review_path"
-    echo "🦉 review complete: $review_path"
+    # prepend version metadata into frontmatter
+    if head -1 "$codex_out" | grep -q '^---$'; then
+      { echo "---"; echo "review: $review_num"; echo "commit: $commit_sha"; sed '1{/^---$/d}' "$codex_out"; } > "$versioned_path"
+    else
+      { echo "---"; echo "review: $review_num"; echo "commit: $commit_sha"; echo "---"; cat "$codex_out"; } > "$versioned_path"
+    fi
+    cp "$versioned_path" "$review_path"
+    rm -f "$codex_out"
+    echo "🦉 review #$review_num complete: $review_path"
+    echo "  versioned: $versioned_path"
     # update state: done
-    jq --arg f "$(date -u +%FT%TZ)" '.status = "done" | .finished = $f' "$state_path" > "$state_path.tmp" \
+    jq --arg f "$(date -u +%FT%TZ)" --arg num "$review_num" --arg sha "$commit_sha" \
+      '.status = "done" | .finished = $f | .review_num = ($num|tonumber) | .commit = $sha' \
+      "$state_path" > "$state_path.tmp" \
       && mv "$state_path.tmp" "$state_path"
   else
     echo "codex produced no output"

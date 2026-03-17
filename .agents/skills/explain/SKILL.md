@@ -63,3 +63,7 @@ Things that surprised you or would trip up a new reader.
 - Bridge from familiar concepts (Go, TS, Kubernetes patterns per user's stack)
 - Concise. A good explain doc is shorter than the code it describes.
 - Don't document the obvious. Focus on what's hard to discover by reading.
+
+## Next
+
+On completion, print: `📖 Reference saved. /propose if it reveals a problem to solve`

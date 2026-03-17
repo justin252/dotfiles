@@ -43,3 +43,7 @@ Prove an idea works with minimal effort. Compounds three skills into one flow.
 - Override confirmation gates. Hard safety rules still apply (AGENTS.md).
 - Scope guard: if implementation balloons past poc, stop and ship what works.
 - On completion: summarize + terminal notification.
+
+## Next
+
+On completion, print: `🧪 POC done. /propose for full design or /checkpoint to ship as-is`

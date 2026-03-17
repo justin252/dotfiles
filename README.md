@@ -49,7 +49,7 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 - Syncs Codex defaults into `~/.codex/config.toml` without replacing auth/trust state
 - Seeds `~/.agents/INBOX.md`, `~/.agents/wins.md`, `~/.agents/artifacts/` (local-only, never synced)
 - Copies Karabiner config (can't symlink – Karabiner overwrites symlinks)
-- Sets `git pull.rebase true`
+- Symlinks managed git preferences (`git/config` → `~/.gitconfig.dotfiles`) and injects `[include]` into `~/.gitconfig`
 - Installs fzf, tmux if missing
 
 `~/.zshrc` layering: `shell/zshrc` (universal, synced) sources `~/.zshrc.work` and `~/.zshrc.personal` if they exist. Work overlay is typically provided by a work dotfiles repo; personal overlay is local-only.
@@ -70,10 +70,11 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 shell/zshrc                  # Universal shell config (aliases, functions, env)
 shell/tmux.conf              # tmux config (C-a prefix, vim nav, agent status bar)
 tools/                       # CLI scripts on PATH (symlinked to ~/tools)
-tools/ag                     # Agent session manager (ag run pipeline with multi-source plan picker, launch, PR checkout, dashboard, status, clean)
+tools/ag                     # Agent session manager (ag run/review/info/status/kill/clean, multi-source plan picker)
+tools/ag-orchestrate         # Multi-stage pipeline orchestrator (background, per-stage models, pipeline.json)
 tools/ag-preview             # fzf preview for ag picker (PR info, plan/review paths)
-tools/wt-resolve             # Worktree resolver: branch/PR# → worktree path (find existing or create)
-tools/ag-status-line         # tmux status bar: pipeline phase icons (🦊🦅🦉🐘, polled every 5s)
+tools/ag-status-line         # tmux status bar: pipeline phase icons with timing (🦊3m, polled every 5s)
+tools/wt                     # Worktree CLI: resolve/list/rm/clean/migrate
 tools/artifacts              # Unified artifact browser: ~/.agents/artifacts/ (frontmatter-aware, typed actions)
 tools/review                 # Codex code review: review [PR] --status --json (async, writes review.md)
 tools/sync-codex-config      # Set Codex CLI autonomy defaults (workspace-write + never ask)
@@ -104,8 +105,8 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `pull-dot` pulls, refreshes shared skills + Codex defaults, and re-sources zshrc
 - `reset-dot` repairs dotfiles-managed state and re-sources zshrc
 - `sz` re-sources zshrc + tmux.conf after edits
-- `ag` – agent session manager: one command for parallel agent work. `ag run` picks a plan from all sources (artifacts, cursor, claude) sorted by last modified and runs the full pipeline (execute, ship, review, learn). `ag run -a` filters to artifact plans. `ag run <slug>` resolves an artifact plan. `ag run <plan> --skip review --skip retro` skips stages. Plan frontmatter (`skip:`, `agent:`) configures the pipeline; CLI flags override. `ag <name>` auto-creates worktree + launches agent (defaults to Claude; use `--gemini` or `--codex` to switch). `ag <name> -m MSG` launches in background. `ag pr <number>` checks out a PR into a worktree (`--review` for diff-only). `ag` fzf dashboard. `ag status` cross-repo view with pipeline phase + task progress (`--json`). `ag kill <name>` kill session. `ag clean` comprehensive cleanup (`--all` nuclear reset). `AG_NO_INPUT=1` for scripting.
-- `wt` – navigate to any branch or PR. `wt <branch>` finds existing worktree or creates one. `wt 90` or `wt <PR-URL>` resolves PR to branch. `wt` fzf switch. `wt -d` delete. `wt list` show all. `wt clean` remove merged worktrees. `wt clean --all` remove all worktrees. Composable: `ag` delegates worktree ops here.
+- `ag` – agent session manager: one command for parallel agent work. `ag run` picks a plan from all sources (artifacts, cursor, claude) sorted by last modified and runs the full pipeline (execute, ship, review, learn). `ag run -a` filters to artifact plans. `ag run <slug>` resolves an artifact plan. `ag run <plan> --skip review --skip retro` skips stages. Plan frontmatter (`skip:`, `agent:`) configures the pipeline; CLI flags override. `ag <name>` auto-creates worktree + launches an agent (defaults to Claude; use `--gemini` or `--codex` to switch). `ag <name> --shell` creates the worktree + tmux session but leaves you at a shell prompt. `ag <name> -m MSG` launches in background. `ag pr <number>` checks out a PR into a worktree (`--review` for diff-only). `ag info <topic>` shows per-topic dashboard (artifacts, chain, pipeline state, PR, branch, worktree; `--json` for scripts). `ag` fzf dashboard. `ag status` cross-repo view with pipeline phase + task progress (`--json`). `ag kill <name>` kill session. `ag clean` comprehensive cleanup (`--all` nuclear reset). `AG_NO_INPUT=1` for scripting.
+- `wt` – worktree CLI and shell wrapper. Branch is the canonical input; `chore/feed-atlas` → worktree `{repo}-wt-chore-feed-atlas`. `wt <branch>` finds an existing worktree, reuses the current dir if already on that branch, or creates one. `wt` fzf switch. `wt list` show all. `wt rm` or `wt -d` delete (by branch or slug). `wt clean` remove merged worktrees. `wt clean --all` remove all worktrees. `wt migrate` renames old worktree paths to the current convention. Work shell overlay adds workspace routing via `REPO_WORKSPACE_MAP` – primitives route transparently over SSH, interactive commands (`wt <branch>`, bare `wt`) attach a remote tmux session.
 - `refresh-skills` – rebuild `~/.agents/skills` from dotfiles sources, then re-sync Claude symlinks, re-copy Cursor skills, and generate Gemini slash commands with real SKILL.md descriptions (run after editing skills, or via `pull-dot`)
 - `sync-codex-config` – sync top-level Codex autonomy defaults without replacing auth, trust, or profile-specific settings
 - `reset-dot` – rebuild the managed dotfiles layer after migrations or drift while preserving local-only state; leaves a real `~/tools` directory alone

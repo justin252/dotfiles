@@ -219,7 +219,7 @@ case "$action" in
       gemini "load $full"
     fi ;;
   plan)
-    planner="${AG_EXECUTOR:-claude:opus}"
+    planner="${AG_EXECUTE_MODEL:-claude:opus}"
     planner="${planner%%:*}"
     case "$planner" in
       claude) plan_flag="--permission-mode plan" ;;

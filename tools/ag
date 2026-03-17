@@ -19,7 +19,11 @@ ag - agent session manager
   ag run <plan>             smart resolve: slug, path, or partial match
   ag run -a                 pick from artifacts only
   ag run <plan> --skip review   skip pipeline stages
-  ag <name>                 launch agent in worktree (executor from AG_EXECUTOR)
+  ag run <plan> --resume        resume from last incomplete stage
+  ag run <plan> --test          integration test (stubs in /tmp)
+  ag <name>                 launch agent in worktree (executor from AG_EXECUTE_MODEL)
+  ag proj/feature           grouped session (display-only grouping by prefix)
+  ag <name> --shell         create worktree + tmux, drop to shell
   ag <name> -m MSG          launch with initial task
   ag <name> --cursor        cursor + agent in worktree
   ag <name> --claude        force using claude
@@ -27,9 +31,15 @@ ag - agent session manager
   ag <name> --codex         force using codex
   ag pr <number|url>        checkout PR into worktree + attach
   ag pr <number|url> -m MSG checkout PR + launch agent with task
-  ag pr <number|url> --review  review PR diff with agent (no worktree)
+  ag pr <number|url> --review  review PR (alias for ag review)
+  ag review                 🦉 review current branch (async Codex)
+  ag review <PR>            review specific PR
+  ag review --status        check all review statuses
+  ag info <topic>           per-topic dashboard (artifacts, pipeline, PR)
+  ag info <topic> --json    machine-readable output
   ag                        dashboard – all sessions, all repos (fzf)
   ag status                 cross-repo unified view
+  ag restart <name>         relaunch agent in an idle session
   ag kill <name>            kill session
   ag clean                  dead sessions + merged worktrees
   ag clean --all            kill all sessions + remove all worktrees + state
@@ -95,6 +105,88 @@ attach_or_switch() {
   fi
 }
 
+# Prompt to restart an idle session (agent exited, shell running)
+# Called when attaching to a session with AG_CMD set and AG_MANUAL not set
+_restart_prompt() {
+  local session="$1" name="$2" cmd="$3"
+  local reply
+  if [[ "$no_input" == true ]]; then
+    # non-interactive: just attach
+    attach_or_switch "$session"
+    return
+  fi
+  read -r -p "$name exited. restart? [Y/n/shell] " reply
+  case "${reply:-y}" in
+    [Yy]|"")
+      tmux send-keys -t "$session" "$cmd" Enter
+      echo "restarted $name" >&2
+      attach_or_switch "$session"
+      ;;
+    [Ss]|shell)
+      tmux set-environment -t "$session" AG_MANUAL 1
+      echo "shell mode (ag restart $name to relaunch)" >&2
+      attach_or_switch "$session"
+      ;;
+    *)
+      tmux kill-session -t "$session"
+      echo "killed $name" >&2
+      ;;
+  esac
+}
+
+# Archive session metadata before cleanup (best-effort, never fails clean)
+_archive_session() {
+  local slug="$1" repo="${2:-local}" session="${3:-}"
+  local archive_dir="$HOME/.agents/sessions"
+  # flatten / to - in filename
+  local safe_slug="${slug//\//-}"
+  local archive_file="${archive_dir}/${safe_slug}.md"
+
+  mkdir -p "$archive_dir"
+  [[ -f "$archive_file" ]] && return 0  # already archived
+
+  local branch="-" pr="-" phase="-" artifacts=""
+
+  # gather metadata from tmux env (if session still exists)
+  if [[ -n "$session" ]] && tmux has-session -t "$session" 2>/dev/null; then
+    local wt_path
+    wt_path=$(tmux display-message -t "$session" -p '#{pane_current_path}' 2>/dev/null || echo "")
+    branch=$(_ag_branch "$session" "$wt_path") || true
+  fi
+
+  # PR info
+  if [[ "$branch" != "-" && -n "$branch" ]]; then
+    pr=$(gh pr list --head "$branch" --no-interactive --json number,state \
+      --jq '"#" + (.[0].number|tostring) + " (" + (.[0].state|ascii_downcase) + ")"' 2>/dev/null) || true
+  fi
+  [[ -z "$pr" ]] && pr="-"
+
+  # phase from state dir
+  [[ -f "$HOME/.agents/state/$slug/phase" ]] && phase=$(cat "$HOME/.agents/state/$slug/phase" 2>/dev/null) || true
+
+  # artifacts list
+  if [[ -d "$HOME/.agents/artifacts/$slug" ]]; then
+    artifacts=$(find "$HOME/.agents/artifacts/$slug" -maxdepth 1 -name '*.md' -exec basename {} \; 2>/dev/null | sort | tr '\n' ', ' | sed 's/,$//')
+  fi
+
+  cat > "$archive_file" <<EOF
+---
+topic: $slug
+repo: $repo
+date: $(date +%Y-%m-%d)
+---
+# $slug
+
+- Branch: $branch
+- PR: $pr
+- Phase: $phase
+- Artifacts: ${artifacts:-none}
+
+(auto-archived by ag clean)
+EOF
+  echo "  archived $slug" >&2
+}
+
 case "${1:-}" in
   -h|--help) usage ;;
   run)
@@ -110,8 +202,10 @@ Usage:
 
 Flags:
   -a, --artifacts               show only artifact plans in picker
-  --codex, --claude, --gemini   override agent (default: plan frontmatter > AG_EXECUTOR > claude)
+  --codex, --claude, --gemini   override agent (default: plan frontmatter > AG_EXECUTE_MODEL > claude)
   --skip <stage>                skip pipeline stage (review, retro, fix). repeatable.
+  --resume                      resume from last incomplete stage
+  --test                        integration test (stubs in /tmp, validates transitions)
   --dry-run                     show what would happen, don't launch
   --json                        machine-readable output
 
@@ -130,6 +224,8 @@ RUNEOF
     run_cli_override=false
     run_dry=false
     run_json=false
+    run_resume=false
+    run_test=false
     run_input=""
     run_skip=()
     run_artifacts_only=false
@@ -149,6 +245,8 @@ RUNEOF
         --claude)      run_cmd="claude"; run_cli_override=true ;;
         --gemini)      run_cmd="gemini"; run_cli_override=true ;;
         --dry-run)     run_dry=true ;;
+        --resume)      run_resume=true ;;
+        --test)        run_test=true ;;
         --json)        run_json=true ;;
         --skip)        _skip_next=true ;;
         --skip=*)      _sv="${arg#--skip=}"
@@ -419,7 +517,7 @@ RUNEOF
       fm_agent=$(sed -n '/^---$/,/^---$/{ /^agent:/{ s/^agent: *//; p; q; } }' "$run_plan" 2>/dev/null || true)
       [[ -n "$fm_agent" ]] && run_cmd="$fm_agent"
     fi
-    [[ -z "$run_cmd" ]] && run_cmd="$(_ag_executor "${AG_EXECUTOR:-claude}")"
+    [[ -z "$run_cmd" ]] && run_cmd="$(_ag_executor "${AG_EXECUTE_MODEL:-claude}")"
     command -v "$run_cmd" >/dev/null 2>&1 || { echo "$run_cmd not found on PATH" >&2; exit 1; }
 
     # merge skip stages: CLI --skip + plan frontmatter
@@ -451,7 +549,7 @@ RUNEOF
     if [[ "$run_cli_override" == true ]]; then
       _display_model=""
     else
-      _display_model="$(_ag_model "${AG_EXECUTOR:-claude}")"
+      _display_model="$(_ag_model "${AG_EXECUTE_MODEL:-claude}")"
     fi
 
     # --dry-run
@@ -480,7 +578,7 @@ RUNEOF
     echo "  📋 plan: $run_plan" >&2
 
     # create worktree + session
-    worktree=$(WT_CREATE_MODE=new ~/tools/wt-resolve "$run_topic") || exit 1
+    worktree=$(WT_CREATE_MODE=new ~/tools/wt resolve "$run_topic") || exit 1
 
     if tmux has-session -t "$session" 2>/dev/null; then
       echo "session already exists: $session" >&2
@@ -497,29 +595,35 @@ RUNEOF
     [[ -n "$skip_str" ]] && tmux set-environment -t "$session" AG_SKIP_STAGES "$skip_str"
 
     # pass AG_* stage config into session
-    for _v in AG_EXECUTOR AG_SHIPPER AG_REVIEWER AG_LEARNER; do
+    for _v in AG_EXECUTE_MODEL AG_SHIP_MODEL AG_REVIEW_MODEL AG_RETRO_MODEL; do
       [[ -n "${!_v:-}" ]] && tmux set-environment -t "$session" "$_v" "${!_v}"
     done
-    # derive subagent model from AG_LEARNER for Claude Code Task delegation
-    tmux set-environment -t "$session" CLAUDE_CODE_SUBAGENT_MODEL "$(_ag_model "${AG_LEARNER:-claude:haiku}")"
+    # CLI override (--codex/--claude/--gemini) takes priority over env vars
+    if [[ "$run_cli_override" == true ]]; then
+      tmux set-environment -t "$session" AG_EXECUTE_MODEL "${run_cmd}${_display_model:+:$_display_model}"
+    fi
+    # derive subagent model from AG_RETRO_MODEL for Claude Code Task delegation
+    tmux set-environment -t "$session" CLAUDE_CODE_SUBAGENT_MODEL "$(_ag_model "${AG_RETRO_MODEL:-claude:haiku}")"
 
     # create state dir for phase tracking
     mkdir -p "$HOME/.agents/state/$run_topic"
     echo "starting" > "$HOME/.agents/state/$run_topic/phase"
 
-    # launch agent with /run (pass model flag if set)
-    run_prompt="/run $run_plan"
-    run_model_flag=""
-    [[ -n "$_display_model" ]] && case "$run_cmd" in
-      claude) run_model_flag="--model $_display_model" ;;
-      codex)  run_model_flag="-m $_display_model" ;;
-    esac
-    tmux send-keys -t "$session" "$run_cmd${run_model_flag:+ $run_model_flag} $(printf '%q' "$run_prompt")" Enter
+    # launch ag-orchestrate as background process
+    orch_flags=(--session "$session" --topic "$run_topic" --plan "$run_plan")
+    [[ -n "$skip_str" ]] && orch_flags+=(--skip "$skip_str")
+    [[ "$run_resume" == true ]] && orch_flags+=(--resume)
+    [[ "$run_test" == true ]] && orch_flags+=(--test)
+
+    orch_log="$HOME/.agents/state/$run_topic/orchestrate.log"
+    nohup ~/tools/ag-orchestrate "${orch_flags[@]}" >> "$orch_log" 2>&1 &
 
     echo "  🌿 branch: $run_topic" >&2
     echo "  💻 session: $session" >&2
-    echo "  🤖 agent: $run_cmd${_display_model:+ (model: $_display_model)}" >&2
+    echo "  🎪 orchestrator: ag-orchestrate (pid $!)" >&2
     [[ -n "$skip_str" ]] && echo "  ⏭  skip: $skip_str" >&2
+    [[ "$run_resume" == true ]] && echo "  🔄 resuming from last stage" >&2
+    [[ "$run_test" == true ]] && echo "  🧪 test mode (stubs)" >&2
     (( artifact_count > 0 )) && echo "  📎 artifacts: $artifact_count linked" >&2
     echo "" >&2
     echo "  ag $run_topic    attach to session" >&2
@@ -585,12 +689,9 @@ RUNEOF
       esac
     done
 
-    # --review: no worktree, just pipe diff to agent (works for any repo via API)
+    # --review: delegate to review tool (async Codex review)
     if [[ "$pr_review" == true ]]; then
-      echo "reviewing PR #$pr_number: $pr_title"
-      echo "  $pr_url"
-      cmd="$(_ag_executor "${AG_EXECUTOR:-claude}")"
-      exec $cmd "Review this PR: $pr_title ($pr_url). Here is the diff: $(gh pr diff "$pr_number" $gh_repo_flag 2>/dev/null)"
+      exec ~/tools/review "$pr_input"
     fi
 
     # checkout mode: need local repo
@@ -615,8 +716,8 @@ RUNEOF
       cd "$local_repo"
     fi
 
-    # resolve worktree via wt-resolve (handles fetch, existing worktree, creation)
-    dest=$(~/tools/wt-resolve "$pr_branch") || exit 1
+    # resolve worktree via wt resolve (handles fetch, existing worktree, creation)
+    dest=$(~/tools/wt resolve "$pr_branch") || exit 1
     slug=$(echo "$pr_branch" | tr '/' '-')
     local_repo=$(repo_name)
     session="ag-${local_repo}-${slug}"
@@ -635,9 +736,10 @@ RUNEOF
       echo "error: failed to create tmux session '$session'" >&2; exit 1
     fi
     _ag_set_env "$session" "$slug" "$local_repo" "$pr_branch"
+    tmux set-environment -t "$session" AG_CMD "$(_ag_executor "${AG_EXECUTE_MODEL:-claude}")"
 
     if [[ -n "$pr_prompt" ]]; then
-      cmd="$(_ag_executor "${AG_EXECUTOR:-claude}")"
+      cmd="$(_ag_executor "${AG_EXECUTE_MODEL:-claude}")"
       tmux send-keys -t "$session" "$cmd $(printf '%q' "$pr_prompt")" Enter
       echo "launched $slug (PR #$pr_number: $pr_title)"
       echo "  $pr_url"
@@ -645,13 +747,242 @@ RUNEOF
       echo "  ag status      see all agents"
       echo "  ag             pick from list"
     else
-      tmux send-keys -t "$session" "$(_ag_executor "${AG_EXECUTOR:-claude}")" Enter
+      tmux send-keys -t "$session" "$(_ag_executor "${AG_EXECUTE_MODEL:-claude}")" Enter
       echo "attaching to $slug (PR #$pr_number)"
       echo "  $pr_url"
       echo "  ag             switch to another session"
       echo "  ag status      see all agents"
       echo "  C-a d          detach back to terminal"
       attach_or_switch "$session"
+    fi
+    ;;
+  review)
+    shift
+    exec ~/tools/review "$@"
+    ;;
+  info)
+    info_json=false
+    info_input=""
+    for arg in "${@:2}"; do
+      case "$arg" in
+        --help|-h)
+          cat <<'INFOEOF'
+ag info <topic> – per-topic dashboard
+  ag info auth           show artifacts, pipeline, PR, branch, worktree
+  ag info auth --json    machine-readable output
+INFOEOF
+          exit 0 ;;
+        --json) info_json=true ;;
+        -*) echo "unknown flag: $arg" >&2; exit 1 ;;
+        *)  [[ -z "$info_input" ]] && info_input="$arg" || { echo "unexpected arg: $arg" >&2; exit 1; } ;;
+      esac
+    done
+
+    _info_actions() {
+      local topic="$1" pr="$2" wt="${3:-}"
+      local actions=()
+      local state_dir="$HOME/.agents/state/$topic"
+      local has_session=false
+      local lr; lr=$(repo_name 2>/dev/null || true)
+      local sess_name="ag-${lr}-${topic}"
+      tmux has-session -t "$sess_name" 2>/dev/null && has_session=true
+
+      if [[ "$has_session" == true ]]; then
+        actions+=("attach:attach to session")
+      else
+        actions+=("run:ag run (start/resume)")
+      fi
+      [[ -f "$HOME/.agents/artifacts/$topic/review.md" ]] || actions+=("review:run code review")
+      [[ "$pr" != "-" ]] && actions+=("open-pr:open PR in browser")
+      actions+=("edit:open artifacts in \$EDITOR")
+      actions+=("cursor:open worktree in Cursor")
+      [[ -f "$state_dir/orchestrate.log" ]] && actions+=("log:tail orchestrate log")
+      actions+=("clean:ag clean topic")
+
+      printf '\n'
+      local choice
+      choice=$(printf '%s\n' "${actions[@]}" | sed 's/:.*//' | \
+        fzf --prompt="action> " --height=~10 --layout=reverse \
+            --preview="echo {} | sed 's/^/  /'" \
+            --preview-window=hidden) || true
+      case "$choice" in
+        run)     ag run "$topic" ;;
+        attach)  tmux attach-session -t "$sess_name" ;;
+        review)  ~/tools/review --topic "$topic" ;;
+        open-pr)
+          local pr_url=""
+          if [[ "$pr" =~ ^# ]]; then
+            pr_url=$(gh pr view "${pr#\#}" --json url --jq .url 2>/dev/null) || true
+          fi
+          if [[ -n "$pr_url" ]]; then
+            if command -v open &>/dev/null; then open "$pr_url"
+            elif command -v xdg-open &>/dev/null; then xdg-open "$pr_url"
+            else echo "$pr_url" >&2
+            fi
+          else
+            echo "no PR to open" >&2
+          fi
+          ;;
+        edit)    "${EDITOR:-vim}" "$HOME/.agents/artifacts/$topic/" ;;
+        cursor)  [[ -n "$wt" ]] && cursor "$wt" || echo "no worktree found" >&2 ;;
+        log)     tail -f "$state_dir/orchestrate.log" ;;
+        clean)   ag clean "$topic" ;;
+        "")      ;; # cancelled
+      esac
+    }
+
+    # resolve topic: exact match, partial match, or fzf
+    _info_resolve() {
+      local input="$1"
+      if [[ -z "$input" ]]; then
+        if [[ "$info_json" == true || "$no_input" == true ]]; then
+          echo "error: topic required with --json or AG_NO_INPUT" >&2; return 1
+        fi
+        # fzf picker from all artifact topics
+        if command -v fzf &>/dev/null; then
+          local topics=""
+          for d in "$HOME/.agents/artifacts"/*/; do
+            [[ -d "$d" ]] || continue
+            topics+="$(basename "$d")"$'\n'
+          done
+          [[ -z "$topics" ]] && { echo "no artifact topics found" >&2; return 1; }
+          printf '%s' "$topics" | fzf --prompt="info> " || return 1
+        else
+          echo "usage: ag info <topic>" >&2; return 1
+        fi
+        return
+      fi
+      # exact
+      if [[ -d "$HOME/.agents/artifacts/$input" ]]; then
+        echo "$input"; return 0
+      fi
+      # partial
+      local matches=()
+      for d in "$HOME/.agents/artifacts"/*/; do
+        [[ -d "$d" ]] || continue
+        local s; s=$(basename "$d")
+        [[ "$s" == *"$input"* ]] && matches+=("$s")
+      done
+      if [[ ${#matches[@]} -eq 1 ]]; then
+        echo "${matches[0]}"; return 0
+      elif [[ ${#matches[@]} -gt 1 ]]; then
+        if [[ "$info_json" != true && "$no_input" != true ]] && command -v fzf &>/dev/null; then
+          printf '%s\n' "${matches[@]}" | fzf --prompt="info> " --query="$input" || return 1
+          return
+        fi
+        echo "error: multiple topics match '$input':" >&2
+        printf '  %s\n' "${matches[@]}" >&2; return 1
+      fi
+      echo "error: no topic found for '$input'" >&2; return 1
+    }
+
+    info_topic=$(_info_resolve "$info_input") || exit 1
+    info_dir="$HOME/.agents/artifacts/$info_topic"
+
+    # gather artifacts
+    info_artifacts=()
+    info_chain=""
+    for f in "$info_dir"/*.md; do
+      [[ -f "$f" ]] || continue
+      info_artifacts+=("$(basename "$f")")
+    done
+
+    # read chain from plan.md frontmatter
+    if [[ -f "$info_dir/plan.md" ]]; then
+      info_chain=$(sed -n '/^---$/,/^---$/{ /^chain:/{ s/^chain: *//; p; q; } }' "$info_dir/plan.md" 2>/dev/null || true)
+    fi
+
+    # pipeline state
+    info_phase="-"
+    info_pipeline=""
+    info_state_dir="$HOME/.agents/state/$info_topic"
+    if [[ -f "$info_state_dir/phase" ]]; then
+      info_phase=$(cat "$info_state_dir/phase" 2>/dev/null)
+    fi
+    if [[ -f "$info_state_dir/pipeline.json" ]] && command -v jq >/dev/null 2>&1; then
+      info_pipeline=$(jq -r '
+        ["execute","ship","review","fix","retro"] as $order |
+        [.stages | to_entries[] | {key, value, idx: ($order | index(.key) // 99)}] |
+        sort_by(.idx) |
+        map(
+          if .value.status == "done" then .key + "✓"
+          elif .value.status == "running" then .key + "●"
+          elif .value.status == "skipped" then .key + "–"
+          elif .value.status == "failed" then .key + "✗"
+          else .key + "○"
+          end
+        ) | join(" ")
+      ' "$info_state_dir/pipeline.json" 2>/dev/null || true)
+    fi
+
+    # branch: from plan.md frontmatter or state
+    info_branch=""
+    if [[ -f "$info_dir/plan.md" ]]; then
+      info_branch=$(sed -n '/^---$/,/^---$/{ /^branch:/{ s/^branch: *//; p; q; } }' "$info_dir/plan.md" 2>/dev/null || true)
+    fi
+    if [[ -z "$info_branch" && -f "$info_dir/output.md" ]]; then
+      info_branch=$(sed -n '/^---$/,/^---$/{ /^branch:/{ s/^branch: *//; p; q; } }' "$info_dir/output.md" 2>/dev/null || true)
+      [[ -z "$info_branch" ]] && info_branch=$(sed -n 's/^- Branch: *\(.*\)/\1/p' "$info_dir/output.md" 2>/dev/null | head -1) || true
+    fi
+
+    # worktree
+    info_wt=""
+    if [[ -n "$info_branch" ]]; then
+      info_wt=$(git worktree list 2>/dev/null | grep -F "$info_branch" | awk '{print $1}') || true
+    fi
+    # fallback: match topic slug in worktree paths
+    if [[ -z "$info_wt" ]]; then
+      info_wt=$(git worktree list 2>/dev/null | grep -F "$info_topic" | awk '{print $1}') || true
+    fi
+
+    # PR
+    info_pr="-"
+    if [[ -n "$info_branch" ]]; then
+      info_pr=$(gh pr list --head "$info_branch" --no-interactive --json number,state,isDraft --jq '.[0] | "#\(.number) (\(if .isDraft then "draft, " else "" end)\(.state | ascii_downcase))"' 2>/dev/null) || true
+    fi
+    # fallback: check output.md for PR link
+    if [[ "$info_pr" == "-" || -z "$info_pr" ]] && [[ -f "$info_dir/output.md" ]]; then
+      info_pr=$(sed -n 's/^- PR: *\(.*\)/\1/p' "$info_dir/output.md" 2>/dev/null | head -1) || true
+    fi
+    [[ -z "$info_pr" ]] && info_pr="-"
+
+    # phase display
+    case "$info_phase" in
+      executing) info_phase_display="executing 🦊" ;;
+      shipping)  info_phase_display="shipping 🦅" ;;
+      reviewing) info_phase_display="reviewing 🦉" ;;
+      fixing)    info_phase_display="fixing 🔧" ;;
+      learning)  info_phase_display="learning 🐘" ;;
+      done)      info_phase_display="done ✅" ;;
+      *)         info_phase_display="$info_phase" ;;
+    esac
+
+    if [[ "$info_json" == true ]]; then
+      jq -n \
+        --arg topic "$info_topic" \
+        --arg phase "$info_phase" \
+        --arg pipeline "$info_pipeline" \
+        --arg chain "$info_chain" \
+        --arg branch "${info_branch:-}" \
+        --arg worktree "${info_wt:-}" \
+        --arg pr "$info_pr" \
+        --argjson artifacts "$(printf '%s\n' "${info_artifacts[@]}" | jq -R . | jq -s .)" \
+        '{topic:$topic, phase:$phase, pipeline:$pipeline, artifacts:$artifacts, chain:$chain, branch:$branch, worktree:$worktree, pr:$pr}'
+    else
+      printf "  topic:     %s\n" "$info_topic"
+      printf "  phase:     %s\n" "$info_phase_display"
+      [[ -n "$info_pipeline" ]] && printf "  pipeline:  %s\n" "$info_pipeline"
+      printf "  artifacts: %s\n" "${info_artifacts[*]:-none}"
+      [[ -n "$info_chain" ]] && printf "  chain:     %s\n" "$info_chain"
+      [[ -n "$info_branch" ]] && printf "  branch:    %s\n" "$info_branch"
+      [[ -n "$info_wt" ]] && printf "  worktree:  %s\n" "$info_wt"
+      printf "  PR:        %s\n" "$info_pr"
+
+      # action picker (TTY only)
+      if [[ -t 1 ]] && command -v fzf &>/dev/null; then
+
+\        _info_actions "$info_topic" "$info_pr" "${info_wt:-}"
+      fi
     fi
     ;;
   kill)
@@ -661,6 +992,25 @@ RUNEOF
     [[ -z "${2:-}" ]] && { echo "usage: ag kill <name>" >&2; exit 1; }
     local_repo=$(repo_name)
     tmux kill-session -t "ag-${local_repo}-${2}" 2>/dev/null && echo "killed ag-${local_repo}-${2}" || echo "no session ag-${local_repo}-${2}" >&2
+    ;;
+  restart)
+    if [[ "${2:-}" == "--help" || "${2:-}" == "-h" ]]; then
+      echo "ag restart <name> – relaunch agent in an idle session"; exit 0
+    fi
+    [[ -z "${2:-}" ]] && { echo "usage: ag restart <name>" >&2; exit 1; }
+    local_repo=$(repo_name)
+    session="ag-${local_repo}-${2}"
+    if ! tmux has-session -t "$session" 2>/dev/null; then
+      echo "no session: $session" >&2; exit 1
+    fi
+    ag_cmd=$(tmux show-environment -t "$session" AG_CMD 2>/dev/null | sed 's/^[^=]*=//' || true)
+    if [[ -z "$ag_cmd" ]]; then
+      echo "no AG_CMD stored for $2 (was it a --shell session?)" >&2; exit 1
+    fi
+    tmux set-environment -t "$session" -u AG_MANUAL 2>/dev/null || true
+    tmux send-keys -t "$session" "$ag_cmd" Enter
+    echo "restarted $2" >&2
+    attach_or_switch "$session"
     ;;
   status)
     json=false
@@ -692,8 +1042,9 @@ RUNEOF
         state="active"
       fi
       slug=$(_ag_slug "$sess")
-      # overlay /run phase state + task progress if available
+      # overlay pipeline phase state + task progress if available
       phase_file="$HOME/.agents/state/$slug/phase"
+      pipeline_file="$HOME/.agents/state/$slug/pipeline.json"
       tasks_file="$HOME/.agents/state/$slug/tasks"
       tasks_info=""
       if [[ -f "$phase_file" ]]; then
@@ -702,6 +1053,20 @@ RUNEOF
         [[ "$phase" == "done" ]] && state="done"
       fi
       [[ -f "$tasks_file" ]] && tasks_info=$(cat "$tasks_file" 2>/dev/null)
+      # enrich with pipeline.json stage timing
+      stage_time=""
+      if [[ -f "$pipeline_file" ]] && command -v jq >/dev/null 2>&1; then
+        stage_start=$(jq -r '(.stages | to_entries[] | select(.value.status == "running") | .value.started) // empty' "$pipeline_file" 2>/dev/null || true)
+        if [[ -n "$stage_start" ]]; then
+          start_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$stage_start" +%s 2>/dev/null || date -d "$stage_start" +%s 2>/dev/null || true)
+          if [[ -n "$start_epoch" ]]; then
+            elapsed_s=$(( $(date +%s) - start_epoch ))
+            if (( elapsed_s >= 60 )); then stage_time=" $((elapsed_s / 60))m"
+            else stage_time=" ${elapsed_s}s"; fi
+          fi
+        fi
+      fi
+      [[ -n "$stage_time" ]] && tasks_info="${tasks_info}${stage_time}"
       echo "$sess $branch $state $slug $tasks_info" >> "$tmpdir/sessions"
       if [[ "$branch" != "-" ]]; then
         (gh pr list --head "$branch" --no-interactive --json state --jq '.[0].state // "-"' 2>/dev/null || echo "-") > "$tmpdir/pr-${sess}" &
@@ -742,6 +1107,9 @@ RUNEOF
       [[ "$json" == true ]] && echo "[]" || echo "no agent sessions"
       exit 0
     fi
+
+    # sort by slug (field 4) so grouped sessions cluster
+    sort -t' ' -k4,4 "$tmpdir/sessions" -o "$tmpdir/sessions"
 
     [[ "$json" == false ]] && printf "%-20s %-14s %-20s %s\n" "NAME" "STATUS" "BRANCH" "PR"
 
@@ -790,12 +1158,15 @@ RUNEOF
           echo "  kills dead sessions, removes merged worktrees,"
           echo "  finds orphan worktrees/sessions, cleans state files"
           echo "  --all               nuclear: kill all sessions + worktrees + state"
+          echo "  --remote            also clean on remote workspace hosts (SSH)"
           echo "  --force/--no-input  skip confirmation prompts"
           exit 0 ;;
         --all) clean_all=true ;;
+        --remote) clean_remote=true ;;
         --force|-f|--no-input) force=true ;;
       esac
     done
+    clean_remote=${clean_remote:-false}
 
     if [[ "$clean_all" == true ]]; then
       # nuclear: kill all ag sessions, remove all worktrees, clean all state
@@ -815,9 +1186,12 @@ RUNEOF
         read -r -p "remove everything? [y/N] " reply
         [[ ! "$reply" =~ ^[Yy] ]] && exit 0
       fi
-      # 1. kill all ag sessions
+      # 1. archive + kill all ag sessions
       if [[ -n "$ag_sessions" ]]; then
         while read -r sess; do
+          slug=$(_ag_slug "$sess")
+          repo=$(tmux show-environment -t "$sess" AG_REPO 2>/dev/null | sed 's/^AG_REPO=//' || true)
+          _archive_session "$slug" "${repo:-local}" "$sess" 2>/dev/null || true
           tmux kill-session -t "$sess" 2>/dev/null
           echo "  killed $sess"
         done <<< "$ag_sessions"
@@ -858,6 +1232,8 @@ RUNEOF
         pane_cmd=$(tmux display-message -t "$sess" -p '#{pane_current_command}' 2>/dev/null)
         if [[ "$pane_cmd" == "zsh" || "$pane_cmd" == "bash" ]]; then
           slug=$(_ag_slug "$sess")
+          repo=$(tmux show-environment -t "$sess" AG_REPO 2>/dev/null | sed 's/^AG_REPO=//' || true)
+          _archive_session "$slug" "${repo:-local}" "$sess" 2>/dev/null || true
           echo "  $slug (session idle)"
           tmux kill-session -t "$sess"
           found_dead=true
@@ -876,6 +1252,8 @@ RUNEOF
         wt_path=$(tmux display-message -t "$sess" -p '#{pane_current_path}' 2>/dev/null || echo "")
         if [[ -z "$wt_path" || ! -d "$wt_path/.git" ]]; then
           slug=$(_ag_slug "$sess")
+          repo=$(tmux show-environment -t "$sess" AG_REPO 2>/dev/null | sed 's/^AG_REPO=//' || true)
+          _archive_session "$slug" "${repo:-local}" "$sess" 2>/dev/null || true
           echo "  $slug (worktree missing)"
           tmux kill-session -t "$sess"
           found_orphan_sess=true
@@ -896,6 +1274,8 @@ RUNEOF
         [[ "$wt_path" == "$root" ]] && continue
         wt_name=$(basename "$wt_path")
         wt_slug="${wt_name#*-wt-}"
+        # fallback to old naming convention (--)
+        [[ "$wt_slug" == "$wt_name" ]] && wt_slug="${wt_name#*--}"
         expected_sess="ag-${repo}-${wt_slug}"
         # get branch: prefer tmux env (handles detached HEAD), fall back to git
         branch=$(_ag_branch "$expected_sess" "$wt_path")
@@ -917,6 +1297,8 @@ RUNEOF
         [[ "$wt_path" == "$root" ]] && continue
         wt_name=$(basename "$wt_path")
         wt_slug="${wt_name#*-wt-}"
+        # fallback to old naming convention (--)
+        [[ "$wt_slug" == "$wt_name" ]] && wt_slug="${wt_name#*--}"
         expected_sess="ag-${repo}-${wt_slug}"
         if ! tmux has-session -t "$expected_sess" 2>/dev/null; then
           branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "-")
@@ -937,9 +1319,18 @@ RUNEOF
           state_name=$(basename "$state_dir")
           expected_sess="ag-${repo}-${state_name}"
           if ! tmux has-session -t "$expected_sess" 2>/dev/null; then
-            echo "  $state_name"
-            found_stale=true
-            rm -rf "$state_dir"
+            # guard: skip if worktree still exists (Cursor may have active worktree without tmux)
+            has_wt=false
+            while read -r _wt_check; do
+              [[ "$_wt_check" == *"$state_name"* ]] && has_wt=true
+            done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
+            if [[ "$has_wt" == true ]]; then
+              echo "  $state_name (kept – worktree exists)"
+            else
+              echo "  $state_name"
+              found_stale=true
+              rm -rf "$state_dir"
+            fi
           fi
         done
         $found_stale || echo "  (none)"
@@ -960,8 +1351,10 @@ RUNEOF
           for wt_path in "${to_remove[@]}"; do
             wt_name=$(basename "$wt_path")
             wt_slug="${wt_name#*-wt-}"
+            [[ "$wt_slug" == "$wt_name" ]] && wt_slug="${wt_name#*--}"
             sess_name="ag-${repo}-${wt_slug}"
             branch=$(_ag_branch "$sess_name" "$wt_path")
+            _archive_session "$wt_slug" "$repo" "$sess_name" 2>/dev/null || true
             tmux kill-session -t "$sess_name" 2>/dev/null
             if git worktree remove "$wt_path" --force 2>/dev/null; then
               if [[ -n "$branch" && "$branch" != "HEAD" ]]; then
@@ -972,6 +1365,34 @@ RUNEOF
               echo "  failed to remove $wt_slug (dirty?)" >&2
             fi
           done
+        fi
+      fi
+    fi
+
+    # remote cleanup
+    if [[ -n "${AG_WORKSPACE_HOSTS:-}" ]]; then
+      if [[ "$clean_remote" == true ]]; then
+        echo ""
+        echo "=== remote cleanup ==="
+        IFS=',' read -ra _ws_hosts <<< "$AG_WORKSPACE_HOSTS"
+        for _wh in "${_ws_hosts[@]}"; do
+          echo "  $_wh:"
+          ssh -o ConnectTimeout=5 -o BatchMode=yes -- "$_wh" "ag clean --force" 2>&1 | sed 's/^/    /' || {
+            echo "    (failed to connect)" >&2
+          }
+        done
+      else
+        # probe for remote sessions and warn
+        _remote_count=0
+        IFS=',' read -ra _ws_hosts <<< "$AG_WORKSPACE_HOSTS"
+        for _wh in "${_ws_hosts[@]}"; do
+          _rc=$(ssh -o ConnectTimeout=3 -o BatchMode=yes -- "$_wh" \
+            'ls -d ~/.agents/state/*/ 2>/dev/null | wc -l | tr -d " "' 2>/dev/null || echo 0)
+          (( _remote_count += _rc )) || true
+        done
+        if (( _remote_count > 0 )); then
+          echo ""
+          echo "$_remote_count remote state dir(s) found. Run: ag clean --remote"
         fi
       fi
     fi
@@ -1004,6 +1425,9 @@ RUNEOF
       fi
       lines+="$line"$'\n'
     done <<< "$all_sessions"
+
+    # sort by slug so grouped sessions (project/feature) cluster together
+    lines=$(echo "$lines" | sort -t' ' -k1,1)
 
     if command -v fzf &>/dev/null; then
       pick=$(echo "$lines" | fzf \
@@ -1040,19 +1464,21 @@ RUNEOF
       echo "run 'ag --help' for usage" >&2
       exit 1
     fi
-    if [[ ! "$name" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
-      echo "error: name must be alphanumeric (hyphens/underscores ok): $name" >&2
+    if [[ ! "$name" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*(/[a-zA-Z0-9][a-zA-Z0-9_-]*)?$ ]]; then
+      echo "error: name must be alphanumeric (hyphens/underscores ok, one / for grouping): $name" >&2
       exit 1
     fi
     shift
 
-    cmd="$(_ag_executor "${AG_EXECUTOR:-claude}")"
+    cmd="$(_ag_executor "${AG_EXECUTE_MODEL:-claude}")"
     open_cursor=false
+    shell_only=false
     prompt=""
 
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --cursor) open_cursor=true; shift ;;
+        --shell)  shell_only=true; shift ;;
         --gemini) cmd="gemini"; shift ;;
         --claude) cmd="claude"; shift ;;
         --codex)  cmd="codex"; shift ;;
@@ -1063,29 +1489,42 @@ RUNEOF
       esac
     done
 
+    if [[ "$shell_only" == true && -n "$prompt" ]]; then
+      echo "error: --shell cannot be combined with -m" >&2
+      exit 1
+    fi
+
     command -v "$cmd" >/dev/null 2>&1 || { echo "$cmd not found on PATH" >&2; exit 1; }
 
     # resolve worktree: ag creates new branches (not checking out existing remote)
     if [[ -n "$prompt" || "$no_input" == true ]]; then
       # auto-confirm for background launch
-      worktree=$(WT_CREATE_MODE=new ~/tools/wt-resolve "$name") || exit 1
+      worktree=$(WT_CREATE_MODE=new ~/tools/wt resolve "$name") || exit 1
     elif [[ -t 0 ]]; then
       # interactive: confirm creation
       echo "will create worktree for '$name' if needed" >&2
-      worktree=$(WT_CREATE_MODE=new ~/tools/wt-resolve "$name") || exit 1
+      worktree=$(WT_CREATE_MODE=new ~/tools/wt resolve "$name") || exit 1
     else
-      worktree=$(WT_CREATE_MODE=new ~/tools/wt-resolve "$name") || exit 1
+      worktree=$(WT_CREATE_MODE=new ~/tools/wt resolve "$name") || exit 1
     fi
     local_repo=$(repo_name)
     session="ag-${local_repo}-${name}"
 
-    # if session exists, just attach
+    # if session exists, check for idle agent and possibly restart
     if tmux has-session -t "$session" 2>/dev/null; then
-      echo "attaching to $name"
-      echo "  ag             switch to another session"
-      echo "  ag status      see all agents"
-      echo "  C-a d          detach back to terminal"
-      attach_or_switch "$session"
+      pane_cmd=$(tmux display-message -t "$session" -p '#{pane_current_command}' 2>/dev/null || echo "")
+      ag_cmd=$(tmux show-environment -t "$session" AG_CMD 2>/dev/null | sed 's/^[^=]*=//' || true)
+      ag_manual=$(tmux show-environment -t "$session" AG_MANUAL 2>/dev/null | sed 's/^[^=]*=//' || true)
+
+      if [[ ("$pane_cmd" == "zsh" || "$pane_cmd" == "bash") && -n "$ag_cmd" && "$ag_manual" != "1" ]]; then
+        _restart_prompt "$session" "$name" "$ag_cmd"
+      else
+        echo "attaching to $name"
+        echo "  ag             switch to another session"
+        echo "  ag status      see all agents"
+        echo "  C-a d          detach back to terminal"
+        attach_or_switch "$session"
+      fi
       exit 0
     fi
 
@@ -1107,6 +1546,8 @@ RUNEOF
       exit 1
     fi
     _ag_set_env "$session" "$name" "$local_repo" "$name"
+    # store executor for restart (skip for --shell sessions)
+    [[ "$shell_only" != true ]] && tmux set-environment -t "$session" AG_CMD "$cmd"
 
     if [[ -n "$prompt" ]]; then
       # background agents get AG_BACKGROUND=1 so they know not to block on input
@@ -1125,6 +1566,8 @@ RUNEOF
       echo "  ag $name       attach to session"
       echo "  ag status      see all agents"
       echo "  ag             pick from list"
+    elif [[ "$shell_only" == true ]]; then
+      attach_or_switch "$session"
     else
       tmux send-keys -t "$session" "$cmd" Enter
       attach_or_switch "$session"

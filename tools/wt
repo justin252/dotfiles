@@ -1,0 +1,354 @@
+#!/usr/bin/env bash
+# wt - worktree helper
+# category: agent
+set -euo pipefail
+
+quiet=false
+
+log() {
+  [[ "$quiet" == true ]] || echo "$*" >&2
+}
+
+die() {
+  echo "wt: $*" >&2
+  exit 1
+}
+
+usage() {
+  cat <<'EOF'
+wt - worktree helper
+
+Usage:
+  wt resolve <branch>
+  wt list [--plain]
+  wt rm <branch|slug> [--force]
+  wt clean [--all] [--force]
+  wt migrate
+  wt -h | --help
+
+Naming:
+  branch chore/feed-atlas → worktree {repo}-wt-chore-feed-atlas
+
+Examples:
+  wt resolve chore/feed-atlas
+  wt list --plain
+  wt rm chore/feed-atlas
+  wt rm chore-feed-atlas
+  wt clean --all --force
+
+Environment:
+  WT_CREATE_MODE=new    create a new branch from main instead of fetching remote
+EOF
+}
+
+main_repo_root() {
+  local toplevel common git_dir
+  toplevel=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
+  common=$(git rev-parse --git-common-dir 2>/dev/null)
+  git_dir=$(git rev-parse --git-dir 2>/dev/null)
+  if [[ "$common" != ".git" && "$common" != "$git_dir" ]]; then
+    (cd "$(dirname "$common")" && pwd)
+  else
+    echo "$toplevel"
+  fi
+}
+
+default_branch() {
+  local branch
+  branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||')
+  echo "${branch:-main}"
+}
+
+sync_main_branch() {
+  local branch="$1"
+  local hook="${WT_HOOKS:-$HOME/.config/wt/hooks}/sync-branch"
+  if [[ -x "$hook" ]]; then
+    "$hook" "$branch" || die "sync hook failed for '$branch'"
+  else
+    git fetch origin "$branch" --quiet 2>/dev/null || die "git fetch failed for '$branch'; check network/auth"
+  fi
+}
+
+prune_tracking_branches() {
+  local hook="${WT_HOOKS:-$HOME/.config/wt/hooks}/prune"
+  [[ -x "$hook" ]] && "$hook" 2>/dev/null || true
+}
+
+slugify() {
+  echo "$1" | tr '/' '-'
+}
+
+existing_worktree_for_branch() {
+  local branch="$1"
+  git worktree list --porcelain 2>/dev/null | awk -v b="$branch" '
+    /^worktree / { wt=$2 }
+    /^branch / { if ($2 == "refs/heads/" b) print wt }
+  '
+}
+
+worktree_path_for_branch() {
+  local root="$1"
+  local branch="$2"
+  local repo slug
+  repo=$(basename "$root")
+  slug=$(slugify "$branch")
+  echo "${root}/../${repo}-wt-${slug}"
+}
+
+path_dirty() {
+  [[ -n "$(git -C "$1" status --porcelain 2>/dev/null)" ]]
+}
+
+confirm_remove() {
+  local label="$1"
+  if [[ ! -t 0 ]]; then
+    echo "use --force or run interactively to remove $label" >&2
+    return 1
+  fi
+  local reply
+  read -rp "remove $label? [y/N] " reply
+  [[ "$reply" =~ ^[Yy]$ ]]
+}
+
+warn_tmux_sessions_in() {
+  local target="$1"
+  local sess sess_path warned=false
+  while read -r sess; do
+    [[ -n "$sess" ]] || continue
+    sess_path=$(tmux display-message -t "$sess" -p '#{pane_current_path}' 2>/dev/null) || continue
+    if [[ "$sess_path" == "$target"* ]]; then
+      [[ "$warned" == false ]] && log "warning: tmux session(s) still point into $target"
+      log "  $sess"
+      warned=true
+    fi
+  done < <(tmux list-sessions -F '#{session_name}' 2>/dev/null || true)
+}
+
+remove_worktree_path() {
+  local wt_path="$1"
+  local root="$2"
+  local branch
+  branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+  warn_tmux_sessions_in "$wt_path"
+  if git worktree remove "$wt_path" --force 2>/dev/null; then
+    [[ -n "$branch" && "$branch" != "HEAD" ]] && git -C "$root" branch -d "$branch" 2>/dev/null || true
+    log "removed $(basename "$wt_path")"
+  else
+    die "failed to remove $(basename "$wt_path")"
+  fi
+}
+
+cmd_resolve() {
+  local ref="${1:-}"
+  [[ -n "$ref" ]] || die "usage: wt resolve <branch>"
+
+  local branch root existing dest slug lockdir create_mode default current_branch
+  branch="$ref"
+
+  root=$(main_repo_root) || die "not in a git repo"
+  create_mode="${WT_CREATE_MODE:-remote}"
+  if [[ "$create_mode" != "new" ]]; then
+    current_branch=$(git branch --show-current 2>/dev/null || true)
+    if [[ "$current_branch" == "$branch" ]]; then
+      pwd -P
+      return 0
+    fi
+  fi
+
+  existing=$(existing_worktree_for_branch "$branch")
+  if [[ -n "$existing" ]]; then
+    echo "$existing"
+    return 0
+  fi
+
+  dest=$(worktree_path_for_branch "$root" "$branch")
+  if [[ -d "$dest" ]]; then
+    echo "$dest"
+    return 0
+  fi
+
+  slug=$(slugify "$branch")
+  lockdir="/tmp/wt-${slug}.lock"
+  if ! mkdir "$lockdir" 2>/dev/null; then
+    die "another wt process is creating '$slug'"
+  fi
+  trap 'rmdir "$lockdir" 2>/dev/null || true' EXIT
+
+  if [[ "$create_mode" == "new" ]]; then
+    default=$(default_branch)
+    sync_main_branch "$default"
+    local output=""
+    output=$(git worktree add "$dest" -b "$branch" "origin/$default" 2>&1) || {
+      if [[ "$output" == *"already exists"* ]]; then
+        die "branch '$branch' already exists; use a different name or delete it first"
+      fi
+      die "failed to create worktree: $output"
+    }
+    log "created worktree: $dest (new branch from $default)"
+  else
+    git fetch origin "$branch" --quiet 2>/dev/null || die "could not fetch '$branch'; does it exist on origin?"
+    if git show-ref --verify --quiet "refs/heads/$branch"; then
+      git worktree add "$dest" "$branch" 2>/dev/null || die "could not create worktree for '$branch'"
+    else
+      git worktree add -b "$branch" "$dest" --track "origin/$branch" 2>/dev/null || die "could not create worktree for '$branch'"
+    fi
+    log "checked out $branch at $dest"
+  fi
+
+  echo "$dest"
+}
+
+cmd_list() {
+  local plain=false
+  case "${1:-}" in
+    --plain) plain=true ;;
+  esac
+
+  main_repo_root >/dev/null 2>&1 || die "not in a git repo"
+  if [[ "$plain" == true ]]; then
+    git worktree list --porcelain 2>/dev/null | awk '/^worktree / { print $2 }'
+  else
+    git worktree list 2>/dev/null
+  fi
+}
+
+resolve_rm_target() {
+  local target="$1" root="$2" by_branch
+  by_branch=$(existing_worktree_for_branch "$target")
+  if [[ -n "$by_branch" ]]; then
+    echo "$by_branch"
+    return
+  fi
+  local repo slug
+  repo=$(basename "$root")
+  slug=$(slugify "$target")
+  echo "${root}/../${repo}-wt-${slug}"
+}
+
+cmd_rm() {
+  local target="${1:-}"
+  shift || true
+  [[ -n "$target" ]] || die "usage: wt rm <branch|slug> [--force]"
+
+  local force=false arg root wt_path
+  for arg in "$@"; do
+    case "$arg" in
+      --force|-f) force=true ;;
+      *) die "unknown flag: $arg" ;;
+    esac
+  done
+
+  root=$(main_repo_root) || die "not in a git repo"
+  wt_path=$(resolve_rm_target "$target" "$root")
+  [[ -d "$wt_path" ]] || die "no worktree matches '$target'"
+
+  if path_dirty "$wt_path" && [[ "$force" != true ]]; then
+    log "warning: $(basename "$wt_path") has uncommitted changes"
+    confirm_remove "$(basename "$wt_path")" || return 1
+  fi
+
+  remove_worktree_path "$wt_path" "$root"
+  prune_tracking_branches
+}
+
+cmd_clean() {
+  local clean_all=false
+  local force=false
+  local arg root wt_path branch merged
+  local wt_paths=()
+  local to_remove=()
+
+  for arg in "$@"; do
+    case "$arg" in
+      --all) clean_all=true ;;
+      --force|-f) force=true ;;
+      *) die "unknown flag: $arg" ;;
+    esac
+  done
+
+  root=$(main_repo_root) || die "not in a git repo"
+  while read -r wt_path; do
+    [[ -n "$wt_path" ]] || continue
+    [[ "$wt_path" == "$root" ]] && continue
+    wt_paths+=("$wt_path")
+  done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree / { print $2 }')
+
+  if [[ ${#wt_paths[@]} -eq 0 ]]; then
+    log "no worktrees to clean"
+    return 0
+  fi
+
+  if [[ "$clean_all" == true ]]; then
+    to_remove=("${wt_paths[@]}")
+  else
+    log "checking worktrees..."
+    for wt_path in "${wt_paths[@]}"; do
+      branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+      [[ -n "$branch" && "$branch" != "HEAD" ]] || continue
+      merged=$(gh pr list --head "$branch" --state merged --no-interactive --json number --jq '.[0].number // empty' 2>/dev/null || true)
+      if [[ -n "$merged" ]]; then
+        log "$(basename "$wt_path") ($branch) - PR #$merged merged"
+        to_remove+=("$wt_path")
+      fi
+    done
+  fi
+
+  if [[ ${#to_remove[@]} -eq 0 ]]; then
+    log "nothing to clean"
+    return 0
+  fi
+
+  if [[ "$force" != true ]]; then
+    confirm_remove "${#to_remove[@]} worktree(s)" || return 0
+  fi
+
+  for wt_path in "${to_remove[@]}"; do
+    if path_dirty "$wt_path" && [[ "$force" != true ]]; then
+      log "warning: skipping dirty worktree $(basename "$wt_path")"
+      continue
+    fi
+    remove_worktree_path "$wt_path" "$root"
+  done
+
+  git worktree prune 2>/dev/null || true
+  prune_tracking_branches
+}
+
+cmd_migrate() {
+  local root repo old_path new_path moved=false
+  root=$(main_repo_root) || die "not in a git repo"
+  repo=$(basename "$root")
+
+  while read -r old_path; do
+    [[ -n "$old_path" ]] || continue
+    [[ "$(basename "$old_path")" == "${repo}--"* ]] || continue
+    new_path="${old_path/${repo}--/${repo}-wt-}"
+    [[ "$old_path" == "$new_path" ]] && continue
+    git worktree move "$old_path" "$new_path" 2>/dev/null || die "failed to migrate $(basename "$old_path")"
+    log "moved $(basename "$old_path") -> $(basename "$new_path")"
+    moved=true
+  done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree / { print $2 }')
+
+  [[ "$moved" == true ]] || log "nothing to migrate"
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --quiet|-q) quiet=true; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) break ;;
+  esac
+done
+
+subcommand="${1:-}"
+shift || true
+
+case "$subcommand" in
+  resolve) cmd_resolve "$@" ;;
+  list)    cmd_list "$@" ;;
+  rm)      cmd_rm "$@" ;;
+  clean)   cmd_clean "$@" ;;
+  migrate) cmd_migrate "$@" ;;
+  "")      usage ;;
+  *)       die "unknown subcommand: $subcommand" ;;
+esac

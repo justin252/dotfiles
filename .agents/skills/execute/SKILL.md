@@ -33,7 +33,7 @@ topic: <slug>
 status: active
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
-chain: problem.md → design.md → **plan.md**
+chain: [problem.md, design.md, plan.md, output.md, review.md]
 ---
 # Plan: <title>
 
@@ -101,3 +101,7 @@ When all phases are checked off:
 1. Update plan.md frontmatter: `status: done`
 2. If problem.md/design.md exist, update their status too
 3. Run /retro to capture session learnings
+
+## Next
+
+On completion, print: `🦅 Done. Next: /checkpoint (launches async review if output.md exists)`

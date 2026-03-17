@@ -25,19 +25,13 @@ else
 fi
 
 echo ""
-echo "=== Bug #2: /run SKILL.md – no duplicate step numbers ==="
+echo "=== Check #2: /run skill retired ==="
 
-# Extract numbered steps from Bootstrap section and check for duplicates
-step_numbers=$(awk '/^## Bootstrap/,/^## [^B]/' "$REPO_ROOT/.agents/skills/run/SKILL.md" | grep -oE '^[0-9]+' || true)
-if [[ -n "$step_numbers" ]]; then
-  dupes=$(echo "$step_numbers" | sort | uniq -d)
-  if [[ -z "$dupes" ]]; then
-    _pass "no duplicate step numbers in Bootstrap"
-  else
-    _fail "duplicate step numbers: $dupes"
-  fi
+# /run skill should no longer exist (retired in Phase 2e)
+if [[ -f "$REPO_ROOT/.agents/skills/run/SKILL.md" ]]; then
+  _fail "/run skill still exists (should be retired)"
 else
-  _fail "could not extract step numbers from Bootstrap section"
+  _pass "/run skill removed"
 fi
 
 echo ""
@@ -45,7 +39,7 @@ echo "=== Bug #3: tools/ag – no duplicate model resolution ==="
 
 # _display_model and _rm should not both exist computing the same thing
 # After fix: _rm should be replaced with _display_model
-rm_count=$(grep -c '_rm.*_ag_model.*AG_EXECUTOR\|_rm=""' "$REPO_ROOT/tools/ag" || true)
+rm_count=$(grep -c '_rm.*_ag_model.*AG_EXECUTE_MODEL\|_rm=""' "$REPO_ROOT/tools/ag" || true)
 if (( rm_count > 0 )); then
   _fail "_rm variable still exists (should use _display_model)"
 else
@@ -53,31 +47,28 @@ else
 fi
 
 echo ""
-echo "=== Bug #4: tools/ag – no extra space in tmux send-keys ==="
+echo "=== Check #4: ag run uses ag-orchestrate ==="
 
-# The tmux send-keys line should handle empty run_model_flag without double space
-tmux_line=$(grep 'tmux send-keys.*run_cmd.*run_model_flag\|tmux send-keys.*run_cmd.*run_prompt' "$REPO_ROOT/tools/ag" | grep -v '#' | head -1 || true)
-if [[ -n "$tmux_line" ]]; then
-  # Check for pattern that avoids double space: either conditional expansion or no bare $run_model_flag
-  if echo "$tmux_line" | grep -qE '\$\{run_model_flag:\+|run_model_flag\}'; then
-    _pass "tmux command handles empty model flag"
-  elif echo "$tmux_line" | grep -qE '"\$run_cmd \$run_model_flag'; then
-    _fail "bare \$run_model_flag causes double space when empty"
-  else
-    _pass "tmux command structure looks safe"
-  fi
+# ag run should launch ag-orchestrate (not tmux send-keys with /run)
+if grep -q 'ag-orchestrate' "$REPO_ROOT/tools/ag"; then
+  _pass "ag run wired to ag-orchestrate"
 else
-  _fail "could not find tmux send-keys line"
+  _fail "ag run not wired to ag-orchestrate"
+fi
+if grep -q 'tmux send-keys.*"/run' "$REPO_ROOT/tools/ag"; then
+  _fail "old /run tmux send-keys still present"
+else
+  _pass "no old /run launch pattern"
 fi
 
 echo ""
-echo "=== Bug #5: tools/ag-run-stages – review heuristic precision ==="
+echo "=== Bug #5: tools/ag-orchestrate – review heuristic precision ==="
 
-# Test the actual grep pattern used in ag-run-stages against known inputs
+# Test the actual grep pattern used in ag-orchestrate against known inputs
 _test_heuristic() {
   local input="$1" expected="$2" label="$3"
 
-  # Use the same pattern as ag-run-stages (structured severity markers)
+  # Use the same pattern as ag-orchestrate (structured severity markers)
   if echo "$input" | grep -qE '^#{1,3} .*(Blocker|Issue)|severity: *(blocker|issue)' 2>/dev/null; then
     actual="match"
   else

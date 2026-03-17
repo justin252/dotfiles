@@ -39,3 +39,20 @@ Self-contained workflow -- execute steps fully, don't inject extra confirmation 
 11. **Retro**: run /retro (mandatory epilogue, not a confirmation gate – always execute)
 
 **`checkpoint amend`** = amend last commit + force push + update PR body + async review handoff + retro.
+
+## Next
+
+After completion, print one of:
+
+If async review was launched (step 9):
+```
+🦉 Review launched (async)
+  tail -f ~/.agents/artifacts/<topic>/review-run.log
+  review --status
+  cat ~/.agents/artifacts/<topic>/review.md
+```
+
+If no review launched:
+```
+🦉 PR open: <url>. Next: review <topic> or wait for pipeline
+```
