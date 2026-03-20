@@ -83,7 +83,7 @@ Every animal learns. The elephant curates.
 
 ```
 Every animal:  skill epilogue (## Epilogue in SKILL.md)
-               → appends 1-3 lines to ~/.agents/circus/<animal>.learnings.md
+               → appends 1-3 lines to ~/.agents/learnings/<animal>.md
                → freeform dated entries, fast capture
 
 Elephant:      reads all animal learnings + INBOX.md
@@ -135,7 +135,7 @@ The elephant's decision tree:
 
 ### Learnings are local-only
 
-`~/.agents/circus/<animal>.learnings.md` – local, never synced. Same treatment as artifacts/. This avoids personal/work boundary issues. Everything is staging until the elephant promotes it to a versioned destination.
+`~/.agents/learnings/<animal>.md` – local, never synced. Same treatment as artifacts/. This avoids personal/work boundary issues. Everything is staging until the elephant promotes it to a versioned destination.
 
 Format: freeform append (dated entries). Elephant restructures into sections during triage (patterns that work, patterns that fail, cross-animal feedback).
 
@@ -200,7 +200,7 @@ Pipeline:    /lion run <topic>                 (lion sequences everything)
 Laptop is the durable state machine. Workspaces are ephemeral compute.
 
 - Learnings accumulate on workspace during session
-- `wss` disconnect hook auto-syncs `~/.agents/circus/` and `~/.agents/INBOX.md` back to laptop
+- `wss` disconnect hook auto-syncs `~/.agents/learnings/` and `~/.agents/INBOX.md` back to laptop
 - No manual sync needed – close session, learnings come home
 
 ---

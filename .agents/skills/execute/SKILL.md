@@ -1,6 +1,6 @@
 ---
 name: execute
-description: "🦊 Execute phased implementation plans. Creates or reads ~/.agents/artifacts/<topic>/plan.md, works through phases with testable checkpoints. Use when the user wants to implement something, execute a plan, build a feature, or says 'execute', 'build this', 'implement', 'exec'."
+description: "🐕 Execute phased implementation plans. Creates or reads ~/.agents/artifacts/<topic>/plan.md, works through phases with testable checkpoints. Use when the user wants to implement something, execute a plan, build a feature, or says 'execute', 'build this', 'implement', 'exec'."
 ---
 
 # /execute
@@ -101,6 +101,12 @@ When all phases are checked off:
 1. Update plan.md frontmatter: `status: done`
 2. If problem.md/design.md exist, update their status too
 3. Run /retro to capture session learnings
+
+## Next
+
+## Epilogue
+
+Append 1-3 lines to `~/.agents/learnings/dog.md`: what implementation patterns worked, what failed, what was underspecified in plan.md.
 
 ## Next
 

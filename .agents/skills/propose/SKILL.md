@@ -53,4 +53,10 @@ See `~/.agents/conventions/artifact-templates.md` for canonical templates. Key p
 
 ## Next
 
-On completion, print: `🦊 Plan ready. Next: ag run <topic> or /execute`
+## Epilogue
+
+Append 1-3 lines to `~/.agents/learnings/octopus.md`: what worked in the design process, what was underspecified, what surprised you.
+
+## Next
+
+On completion, print: `🐕 Plan ready. Next: ag run <topic> or /execute`
