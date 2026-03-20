@@ -58,7 +58,11 @@ batch_frontmatter() {
     ARGV.each do |path|
       content = File.read(path) rescue ""
       if content =~ /\A---\n(.*?\n)---/m
-        fm = YAML.safe_load($1, permitted_classes: [Date]) || {}
+        begin
+          fm = YAML.safe_load($1, permitted_classes: [Date]) || {}
+        rescue
+          fm = {}
+        end
         puts [path, fm["topic"], fm["repo"], fm["component"], fm["status"]].map(&:to_s).join("\t")
       else
         puts "#{path}\t\t\t\t"
