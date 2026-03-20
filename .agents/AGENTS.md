@@ -33,6 +33,7 @@
   - Always: stderr for messages, stdout for data. Exit 0/non-zero. Flags over positional args.
 - New tools must follow the skeleton in `conventions/cli-guidelines.md § Tool Skeleton`. Reference impl: `tools/dotfiles`.
 - CLI tool layering: lower layers never call higher layers. Each independently useful (e.g. `wt` never calls `ag`; `ag` composes `wt`).
+- CLI tools: explicit subcommands over positional fallthrough. First arg is always a verb.
 
 ## Agent
 
@@ -180,12 +181,14 @@ In all modes:
 - `gh pr create` always uses `--draft` unless repo-level AGENTS.md says otherwise. In worktrees, always pass `--head <branch>` (gh can't detect tracking branch).
 - New repos → always `.gitignore` with `.DS_Store` immediately.
 - In execute mode: never commit without user confirmation – show diff, summarize, wait for go-ahead.
-- Before committing, verify current branch matches intent – check for open PRs, whether the PR is already merged, and whether changes belong there.
+- Before branch operations (checkout, rebase): `git diff --stat` to confirm clean state.
+- Before committing, verify current branch matches intent – check for open PRs, whether the PR is already merged, and whether changes belong there. `git diff --cached --stat` to verify only intended files staged.
 - Feature branches: prefer rewriting history (reset + force push) over revert commits. Reverts only on main/shared branches.
 - Never `git reset --soft main` – local main drifts. Use `HEAD~N` (relative) for squashing branch commits.
 - Don't auto-squash branch commits at checkpoint – distinct logical commits (move, fix, feature) tell a story. Ask first.
 - Git hygiene aliases (`dotfiles/shell/zshrc`): `gm` (main + pull + full cleanup), `gsync` (rebase onto main), `gclean` (cleanup only). Self-healing fetch auto-recovers stale refs. For Graphite stacks, use `gtr` not `gsync`.
 - Hygiene aliases are safe anytime. Push operations (`gpush`, `gpushup`) only through /checkpoint.
+- First push on new branch: check `@{upstream}` – if unset, use `-u origin <branch>`.
 - Don't stash across branches when files differ. Make changes directly on target branch, or cherry-pick.
 - `--force-with-lease` fails after amend/rebase (tracking ref stale even after fetch). On personal feature branches, use `--force`. Alternative: `git push --force-with-lease=<branch>:<old-sha>` with SHA from `FETCH_HEAD`.
 - `gh` commands must run from the target repo's cwd. `--repo` flag alone is not enough; `git -C` works for git but not gh.
