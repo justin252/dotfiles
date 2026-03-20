@@ -260,6 +260,57 @@ fi
 printf '#!/bin/sh\nexit 0\n' > "$STUB_DIR/tmux"
 chmod +x "$STUB_DIR/tmux"
 
+# ━━━ artifacts ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+echo ""
+echo "=== artifacts ==="
+
+# Create test artifacts – good frontmatter
+mkdir -p "$HOME/.agents/artifacts/test-topic"
+cat > "$HOME/.agents/artifacts/test-topic/problem.md" <<'ARTEOF'
+---
+topic: test-topic
+repo: test-repo
+status: active
+---
+# Problem
+ARTEOF
+
+# Create artifact with YAML-hostile frontmatter (the exact bug: unquoted *)
+cat > "$HOME/.agents/artifacts/test-topic/plan.md" <<'ARTEOF'
+---
+topic: test-topic
+chain: **plan.md**
+status: active
+---
+# Plan
+ARTEOF
+
+# Extract batch_frontmatter for direct testing
+sed -n '/^batch_frontmatter()/,/^}/p' "$REPO_ROOT/tools/artifacts" > "$SANDBOX/.artifacts-funcs.sh"
+
+# batch_frontmatter should not crash on bad YAML
+fm_out=$(bash -c 'source "'"$SANDBOX/.artifacts-funcs.sh"'" && batch_frontmatter "'"$HOME/.agents/artifacts/test-topic/problem.md"'" "'"$HOME/.agents/artifacts/test-topic/plan.md"'"' 2>/dev/null)
+if [[ $? -eq 0 ]]; then
+  _pass "artifacts: batch_frontmatter survives bad YAML"
+else
+  _fail "artifacts: batch_frontmatter crashed on bad YAML"
+fi
+
+# Good file should still have parsed fields
+if echo "$fm_out" | grep -q "test-repo"; then
+  _pass "artifacts: good frontmatter parsed correctly"
+else
+  _fail "artifacts: good frontmatter not parsed"
+fi
+
+# Script should reach fzf (stub exits 0 → script exits 0)
+if ARTIFACTS_ROOT="$HOME/.agents/artifacts" "$REPO_ROOT/tools/artifacts" >/dev/null 2>&1; then
+  _pass "artifacts: runs without crash"
+else
+  _fail "artifacts: crashed before reaching fzf"
+fi
+
 # ━━━ Summary ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 echo ""
