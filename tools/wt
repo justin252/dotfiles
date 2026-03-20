@@ -19,8 +19,12 @@ usage() {
 wt - worktree helper
 
 Usage:
-  wt resolve <branch>
-  wt list [--plain]
+  wt <branch>             resolve branch to worktree (create if needed)
+  wt <PR#>                resolve PR number to worktree
+  wt <PR-URL>             resolve PR URL to worktree
+  wt                      interactive worktree picker (fzf)
+  wt list [--plain|--json]
+  wt resolve <branch>     explicit resolve (same as positional)
   wt rm <branch|slug> [--force]
   wt clean [--all] [--force]
   wt migrate
@@ -30,14 +34,15 @@ Naming:
   branch chore/feed-atlas → worktree {repo}-wt-chore-feed-atlas
 
 Examples:
-  wt resolve chore/feed-atlas
-  wt list --plain
+  wt feat/add-auth        create or navigate to worktree
+  wt 90                   resolve PR #90 to its branch worktree
+  wt list --json          machine-readable worktree list
   wt rm chore/feed-atlas
-  wt rm chore-feed-atlas
   wt clean --all --force
 
 Environment:
-  WT_CREATE_MODE=new    create a new branch from main instead of fetching remote
+  WT_CREATE_MODE=new      create a new branch from main instead of fetching remote
+  WT_WORKSPACE_MAP        repo:workspace pairs (e.g. "dd-source:dogbrew,web-ui:web-ui")
 EOF
 }
 
@@ -143,8 +148,57 @@ remove_worktree_path() {
     [[ -n "$branch" && "$branch" != "HEAD" ]] && git -C "$root" branch -d "$branch" 2>/dev/null || true
     log "removed $(basename "$wt_path")"
   else
-    die "failed to remove $(basename "$wt_path")"
+    die "failed to remove $(basename "$wt_path"); check if directory is in use or has open files"
   fi
+}
+
+resolve_pr_to_branch() {
+  local ref="$1"
+  # Numeric only → PR number
+  if [[ "$ref" =~ ^[0-9]+$ ]]; then
+    gh pr view "$ref" --json headRefName --jq '.headRefName' 2>/dev/null || die "could not resolve PR #$ref; check gh auth and PR number"
+    return
+  fi
+  # GitHub PR URL → extract number
+  if [[ "$ref" =~ github\.com/.*/pull/([0-9]+) ]]; then
+    local pr_num="${BASH_REMATCH[1]}"
+    gh pr view "$pr_num" --json headRefName --jq '.headRefName' 2>/dev/null || die "could not resolve PR #$pr_num from URL"
+    return
+  fi
+  return 1
+}
+
+hint_workspace() {
+  [[ "$(uname)" == "Darwin" ]] || return 0
+  local map="${WT_WORKSPACE_MAP:-}"
+  [[ -n "$map" ]] || return 0
+  local repo
+  repo=$(basename "$(main_repo_root 2>/dev/null)") || return 0
+  local pair
+  while IFS=',' read -ra pairs; do
+    for pair in "${pairs[@]}"; do
+      local key="${pair%%:*}"
+      local val="${pair#*:}"
+      if [[ "$key" == "$repo" ]]; then
+        log "hint: workspace '$val' available for $repo – consider: wss $val"
+        return 0
+      fi
+    done
+  done <<< "$map"
+}
+
+cmd_pick() {
+  command -v fzf >/dev/null 2>&1 || die "fzf required for interactive picker; run wt list instead"
+  main_repo_root >/dev/null 2>&1 || die "not in a git repo"
+
+  local selected
+  selected=$(git worktree list 2>/dev/null | tail -n+2 | fzf \
+    --prompt="worktree> " \
+    --preview='dir=$(echo {} | awk "{print \$1}"); git -C "$dir" log --oneline -5 2>/dev/null; echo "---"; git -C "$dir" status --short 2>/dev/null' \
+    --preview-window=right:50% \
+  ) || return 0
+
+  echo "$selected" | awk '{print $1}'
 }
 
 cmd_resolve() {
@@ -152,7 +206,9 @@ cmd_resolve() {
   [[ -n "$ref" ]] || die "usage: wt resolve <branch>"
 
   local branch root existing dest slug lockdir create_mode default current_branch
-  branch="$ref"
+
+  # Try PR resolution first (numeric or URL)
+  branch=$(resolve_pr_to_branch "$ref" 2>/dev/null) || branch="$ref"
 
   root=$(main_repo_root) || die "not in a git repo"
   create_mode="${WT_CREATE_MODE:-remote}"
@@ -204,18 +260,45 @@ cmd_resolve() {
     log "checked out $branch at $dest"
   fi
 
+  hint_workspace
   echo "$dest"
 }
 
 cmd_list() {
-  local plain=false
-  case "${1:-}" in
-    --plain) plain=true ;;
-  esac
+  local plain=false json=false
+  for arg in "$@"; do
+    case "$arg" in
+      --plain) plain=true ;;
+      --json)  json=true ;;
+    esac
+  done
 
-  main_repo_root >/dev/null 2>&1 || die "not in a git repo"
+  local root
+  root=$(main_repo_root) || die "not in a git repo"
+
   if [[ "$plain" == true ]]; then
     git worktree list --porcelain 2>/dev/null | awk '/^worktree / { print $2 }'
+  elif [[ "$json" == true ]]; then
+    local first=true
+    echo "["
+    while read -r wt_path; do
+      [[ -n "$wt_path" ]] || continue
+      local wt_branch wt_dirty
+      wt_branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "HEAD")
+      if [[ -n "$(git -C "$wt_path" status --porcelain 2>/dev/null)" ]]; then
+        wt_dirty=true
+      else
+        wt_dirty=false
+      fi
+      if [[ "$first" == true ]]; then
+        first=false
+      else
+        echo ","
+      fi
+      printf '  {"path": "%s", "branch": "%s", "dirty": %s}' "$wt_path" "$wt_branch" "$wt_dirty"
+    done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree / { print $2 }')
+    echo ""
+    echo "]"
   else
     git worktree list 2>/dev/null
   fi
@@ -358,6 +441,16 @@ case "$subcommand" in
   rm)      cmd_rm "$@" ;;
   clean)   cmd_clean "$@" ;;
   migrate) cmd_migrate "$@" ;;
-  "")      usage ;;
-  *)       die "unknown subcommand: $subcommand" ;;
+  "")
+    # No args: interactive picker if TTY, else list
+    if [[ -t 1 ]]; then
+      cmd_pick
+    else
+      cmd_list
+    fi
+    ;;
+  *)
+    # Default: treat as branch/PR ref (positional resolve)
+    cmd_resolve "$subcommand" "$@"
+    ;;
 esac
