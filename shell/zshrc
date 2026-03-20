@@ -205,9 +205,9 @@ alias s=session
 alias pen="cd ~/code/penny"
 tools() { cd "${TOOLS_PATH:-$HOME/tools}"; }
 alias sz='source ~/.zshrc && tmux source-file ~/.tmux.conf 2>/dev/null; true'
-unalias dot 2>/dev/null
-dot() { command dot "$@" && sz; }
+alias dot="cd ~/dotfiles"
 alias dotw="cd ~/dotfiles-work"
+dotfiles() { command dotfiles "$@" && sz; }
 
 # ─── Git Worktrees ───────────────────────────────────────────
 # Kill any tmux sessions whose working directory is inside a path (layer-agnostic)
