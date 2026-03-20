@@ -56,7 +56,16 @@ main_repo_root() {
 default_branch() {
   local branch
   branch=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||')
-  echo "${branch:-main}"
+  if [[ -z "$branch" ]]; then
+    if git show-ref --verify --quiet refs/remotes/origin/main 2>/dev/null; then
+      branch="main"
+    elif git show-ref --verify --quiet refs/remotes/origin/master 2>/dev/null; then
+      branch="master"
+    else
+      branch="main"
+    fi
+  fi
+  echo "$branch"
 }
 
 sync_main_branch() {
