@@ -53,12 +53,18 @@ _pull_repo() {
   if [[ ! -d "$repo/.git" ]]; then
     return 0
   fi
+  # Don't touch repos that already have a rebase in progress
+  if [[ -d "$repo/.git/rebase-merge" || -d "$repo/.git/rebase-apply" ]]; then
+    _yellow "warn: $name has rebase in progress; skipping pull"
+    warnings=$((warnings + 1))
+    return 0
+  fi
   echo "pulling $name..."
   if git -C "$repo" fetch origin main 2>/dev/null && \
      git -C "$repo" rebase --autostash origin/main 2>/dev/null; then
     pulled=$((pulled + 1))
   else
-    _yellow "warn: $name pull failed (conflict or network); skipping"
+    _yellow "warn: $name pull failed (conflict or network); aborting our rebase"
     git -C "$repo" rebase --abort 2>/dev/null || true
     warnings=$((warnings + 1))
   fi
