@@ -27,6 +27,7 @@
   - `--dry-run`: only for destructive operations on shared state.
   - Error messages: say what went wrong AND suggest a fix.
   - Always: stderr for messages, stdout for data. Exit 0/non-zero. Flags over positional args.
+- New tools must follow the skeleton in `conventions/cli-guidelines.md § Tool Skeleton`. Reference impl: `tools/dotfiles`.
 - CLI tool layering: lower layers never call higher layers. Each independently useful (e.g. `wt` never calls `ag`; `ag` composes `wt`).
 
 ## Agent
@@ -80,6 +81,22 @@ Default to higher blast radius when uncertain. The cost of context-switching is 
 
 Branch naming: `<type>/<slug>` (e.g. `feat/add-grep-tool`). All changes to main require a PR.
 Checkpoint is the only release path – route through /checkpoint skill. After completing a task or set of changes, always run /checkpoint. Never bare commit+push.
+
+### Pipeline (The Circus)
+
+Agents are specialists. Each handles one stage, then hands off via artifacts.
+
+```
+🐙 design (/propose)  → plan.md
+🦊 implement (/execute) → code + tests
+🦅 ship (/checkpoint)  → PR, output.md
+🦉 review (review)     → review.md
+🐘 learn (/retro)      → INBOX.md → AGENTS.md
+```
+
+`ag run <topic>` orchestrates the full pipeline: discovers `plan.md`, creates worktree, sequences stages with per-model config (`AG_*_MODEL` env vars). Each stage is a separate agent session.
+
+Full spec (model selection, build order, future architecture): `~/.agents/docs/circus.md`
 
 ### Splitting changes
 Prefer splitting logically independent changes (refactor, bug fix, feature) into stacked PRs.
@@ -276,7 +293,7 @@ Cursor skills: copied (not symlinked) because Cursor doesn't follow symlinks for
 
 All on PATH via `~/tools` symlink:
 - `h` – fzf alias browser. `h suggest` surfaces forgotten aliases from history.
-- `dot` – unified dotfiles sync: pull repos, verify/repair symlinks, refresh skills, sync configs, re-source shell. `dot install` for full rebuild. `dot doctor` for read-only diagnostics.
+- `dotfiles` – unified dotfiles sync: pull repos, verify/repair symlinks, refresh skills, sync configs, re-source shell. `dotfiles setup` for full rebuild. `dotfiles doctor` for read-only diagnostics.
 - `sz` – re-source zshrc after edits
 - `rebase-wip` – stash local edits, fetch/rebase onto a target branch, then reapply the stash. Useful when dotfiles change mid-task
 - `ag` – agent session manager (stage 6-7 orchestrator). One command for parallel work: `ag <name>` auto-creates worktree + launches agent. `ag <name> -m MSG` with initial task (background launch; prints guided output, doesn't attach). `ag` fzf dashboard (all repos). `ag status` cross-repo view. `ag kill <name>` kill session. `ag clean` dead sessions + merged worktrees (`--force` skips prompt, `--all` nuclear reset). Name flows everywhere: branch, session, worktree, tmux status bar. Tmux status shows `name●` (active) / `name○` (idle). `C-a a` for popup dashboard.
@@ -286,6 +303,22 @@ All on PATH via `~/tools` symlink:
 - `review` – Codex code review for any PR or branch. `review` (auto-detect), `review 123` (PR), `review --status` (check progress), `review --json` (machine output). Always async; writes `review.md` + `review-state.json` to auto-discovered topic dir, notifies on completion.
 - `session` (`s`) – session notes browser (fzf). Sources: `~/.agents/sessions/`. Curated .md summaries for context handoff to new sessions. `session <query>` pre-filters.
 - `t` – tools browser (fzf). Discovers all tools in `~/tools/`, grouped by `# category:` comment. Preview pane shows `--help`. `t <query>` pre-filters.
+
+### Reference library
+
+On-demand context. Read when triggered; never auto-load.
+
+Docs (`~/.agents/docs/`):
+- `circus.md` – agent pipeline architecture, model selection, build order. Read when working on ag, skills, orchestration, or pipeline design.
+
+Conventions (`~/.agents/conventions/`):
+- `shell-scripts.md` – strict mode, quoting, BSD/GNU traps. MUST read before writing shell scripts.
+- `cli-guidelines.md` – clig.dev applied. MUST read before writing CLI tools.
+- `skill-guidelines.md` – skill structure, frontmatter, testing. Read before writing or modifying skills.
+- `artifact-templates.md` – artifact frontmatter, templates. Consult when creating artifacts.
+- `workflow.md` – full workflow reference, skill composability. Read on demand.
+
+AGENTS-work.md extends this library with work-specific entries.
 
 ### Testing dotfiles changes
 
