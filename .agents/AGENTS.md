@@ -88,7 +88,7 @@ Animal = identity + memory. Skill = behavior. Each stage self-reflects via epilo
 
 ```
 🐙 design (/propose)    → plan.md
-🦫 branch (/beaver)     → healthy stack
+🦫 branch (/tidy)       → healthy stack
 🐕 implement (/execute) → code + tests
 🦅 ship (/checkpoint)   → PR, output.md
 🦉 review (/review)     → review.md
