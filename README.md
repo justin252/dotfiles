@@ -82,7 +82,7 @@ tools/dotfiles                # Unified dotfiles sync: pull, verify, refresh, he
 tools/ag                     # Agent session manager (ag run/review/info/status/kill/clean, multi-source plan picker)
 tools/ag-orchestrate         # Multi-stage pipeline orchestrator (background, per-stage models, pipeline.json)
 tools/ag-preview             # fzf preview for ag picker (PR info, plan/review paths)
-tools/ag-status-line         # tmux status bar: pipeline phase icons with timing (🦊3m, polled every 5s)
+tools/ag-status-line         # tmux status bar: pipeline phase icons with timing (🐕3m, polled every 5s)
 tools/wt                     # Worktree CLI: resolve/list/rm/clean/migrate
 tools/artifacts              # Unified artifact browser: ~/.agents/artifacts/ (frontmatter-aware, typed actions)
 tools/review                 # Codex code review: review [PR] --status --json (async, writes review.md)

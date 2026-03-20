@@ -339,7 +339,7 @@ RUNEOF
         if [[ -f "$phase_file" ]]; then
           local phase; phase=$(cat "$phase_file" 2>/dev/null)
           case "$phase" in
-            executing) status="🦊 run" ;;
+            executing) status="🐕 run" ;;
             shipping)  status="🦅 ship" ;;
             reviewing) status="🦉 rev" ;;
             fixing)    status="🔧 fix" ;;
@@ -969,7 +969,7 @@ INFOEOF
 
     # phase display
     case "$info_phase" in
-      executing) info_phase_display="executing 🦊" ;;
+      executing) info_phase_display="executing 🐕" ;;
       shipping)  info_phase_display="shipping 🦅" ;;
       reviewing) info_phase_display="reviewing 🦉" ;;
       fixing)    info_phase_display="fixing 🔧" ;;
@@ -1151,7 +1151,7 @@ INFOEOF
       while read -r sess branch state slug tasks_info; do
         pr_state=$(cat "$tmpdir/pr-${sess}" 2>/dev/null || echo "-")
         case "$state" in
-          executing) display_state="🦊 executing" ;;
+          executing) display_state="🐕 executing" ;;
           shipping)  display_state="🦅 shipping" ;;
           reviewing) display_state="🦉 reviewing" ;;
           fixing)    display_state="🔧 fixing" ;;

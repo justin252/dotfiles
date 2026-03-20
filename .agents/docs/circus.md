@@ -49,25 +49,11 @@ An animal is a role with accumulated experience. A skill is a specific thing tha
 
 The animal carries identity and memory across all its skills. Adding a new capability to an existing animal = add a skill; the animal's learnings inform it automatically.
 
-### Skill manifests
+### Circus.md is the registry
 
-Circus metadata lives in SKILL.md frontmatter. Machine-readable for pipeline discovery.
+This file is the single source of truth for pipeline metadata – animal assignments, ordering, handoffs, model selection. Individual SKILL.md files stay minimal (name + description only). No frontmatter manifests in skills.
 
-```yaml
----
-name: execute
-animal: dog
-emoji: 🐕
-role: Implements code and tests from plan.md
-position: 3
-receives_from: [octopus, beaver]
-hands_off_to: [eagle]
-model_env: AG_EXECUTE_MODEL
-default_model: claude:opus
----
-```
-
-`ag circus` renders the live pipeline from manifests. No hardcoded pipeline – add a skill with frontmatter, the system discovers it.
+Why: skills are independently useful outside the pipeline. Encoding pipeline position in skill frontmatter couples them to circus orchestration. Keeping the registry here means one place to update when animals/ordering change.
 
 ### Non-circus skills
 
@@ -403,20 +389,19 @@ The top 5 models on SWE-bench Verified score within 1.3 points. **Harness and pr
 | 1 | ~~`/run` skill + `ag run`~~ | shipped | - |
 | 2 | ~~Smart `ag status` + tmux bar~~ | shipped | - |
 | 3 | ~~Reference library + pipeline in AGENTS.md~~ | shipped | - |
-| 4 | Circus.md v2 (this rewrite) | this session | - |
-| 5 | Skill manifests (frontmatter) + epilogues | next | circus.md v2 |
-| 6 | 🦫 Beaver skill | next | skill manifests |
-| 7 | 🦁 Lion skill (dispatch) | next | beaver, manifests |
-| 8 | `wt` environment awareness | independent | nothing |
-| 9 | `wss` disconnect sync (learnings) | independent | nothing |
-| 10 | 🐘 Elephant upgrade (three-scope triage) | after learnings exist | skill epilogues |
-| 11 | 🐕 Dog rename (fox → dog across codebase) | whenever | nothing |
+| 4 | ~~Circus.md v2 (this rewrite)~~ | shipped | - |
+| 5 | ~~Skill epilogues~~ | shipped (7/10 skills) | - |
+| 6 | ~~🦫 Beaver (/tidy)~~ | shipped | - |
+| 7 | ~~🐕 Dog rename (fox → dog)~~ | shipped | - |
+| 8 | ~~🦁 Lion skill (dispatch)~~ | shipped | - |
+| 9 | `wt` environment awareness | next | nothing |
+| 10 | `wss` disconnect sync (learnings) | next | nothing |
+| 11 | 🐘 Elephant upgrade (three-scope triage) | next | skill epilogues |
 | 12 | GUPP-lite (crash safety) | when needed | nothing |
 | 13 | 🐝 Bee (swarm) | later | 🦁 + 🦫 |
-| 14 | `ag circus` (auto-generated spec from manifests) | after manifests | skill manifests |
 
 ```
-Today:    ag run <topic>. Full pipeline, per-stage models.
-Next:     Skill manifests + epilogues. Beaver. Lion.
+Today:    ag run <topic>. Full pipeline, per-stage models. Lion dispatches.
+Next:     wt/wss improvements. Elephant upgrade.
 Future:   You only design and approve.
 ```
