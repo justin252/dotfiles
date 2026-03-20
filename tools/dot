@@ -203,8 +203,6 @@ _sync_codex_config() {
   mkdir -p "$config_dir"
   [[ -f "$config_file" ]] || touch "$config_file"
 
-  trap 'rm -f "$tmp_file"' RETURN
-
   awk '
     BEGIN { entered_section = 0; found_approval = 0; found_sandbox = 0 }
     function print_missing() {
