@@ -19,12 +19,11 @@ usage() {
 wt - worktree helper
 
 Usage:
-  wt <branch>             resolve branch to worktree (create if needed)
-  wt <PR#>                resolve PR number to worktree
-  wt <PR-URL>             resolve PR URL to worktree
+  wt new <branch>         create or navigate to worktree (idempotent)
+  wt new <PR#>            resolve PR number to worktree
+  wt new <PR-URL>         resolve PR URL to worktree
   wt                      interactive worktree picker (fzf)
   wt list [--plain|--json]
-  wt resolve <branch>     explicit resolve (same as positional)
   wt rm <branch|slug> [--force]
   wt clean [--all] [--force]
   wt migrate
@@ -34,8 +33,8 @@ Naming:
   branch chore/feed-atlas → worktree {repo}-wt-chore-feed-atlas
 
 Examples:
-  wt feat/add-auth        create or navigate to worktree
-  wt 90                   resolve PR #90 to its branch worktree
+  wt new feat/add-auth    create or navigate to worktree
+  wt new 90               resolve PR #90 to its branch worktree
   wt list --json          machine-readable worktree list
   wt rm chore/feed-atlas
   wt clean --all --force
@@ -201,9 +200,9 @@ cmd_pick() {
   echo "$selected" | awk '{print $1}'
 }
 
-cmd_resolve() {
+cmd_new() {
   local ref="${1:-}"
-  [[ -n "$ref" ]] || die "usage: wt resolve <branch>"
+  [[ -n "$ref" ]] || die "usage: wt new <branch|PR#|PR-URL>"
 
   local branch root existing dest slug lockdir create_mode default current_branch
 
@@ -436,13 +435,13 @@ subcommand="${1:-}"
 shift || true
 
 case "$subcommand" in
-  resolve) cmd_resolve "$@" ;;
+  new)     cmd_new "$@" ;;
+  resolve) cmd_new "$@" ;;  # backward compat alias
   list)    cmd_list "$@" ;;
   rm)      cmd_rm "$@" ;;
   clean)   cmd_clean "$@" ;;
   migrate) cmd_migrate "$@" ;;
   "")
-    # No args: interactive picker if TTY, else list
     if [[ -t 1 ]]; then
       cmd_pick
     else
@@ -450,7 +449,8 @@ case "$subcommand" in
     fi
     ;;
   *)
-    # Default: treat as branch/PR ref (positional resolve)
-    cmd_resolve "$subcommand" "$@"
+    echo "wt: unknown subcommand: $subcommand" >&2
+    echo "  Run 'wt --help' for usage" >&2
+    exit 1
     ;;
 esac
