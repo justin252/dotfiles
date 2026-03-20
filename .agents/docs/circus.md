@@ -2,38 +2,215 @@
 topic: circus
 status: active
 created: 2025-06-01
-updated: 2026-03-16
+updated: 2026-03-20
 ---
 # Design: The Circus
 
 Your brain decides what to build. The circus handles everything else.
 
-Each animal is a specialist. 🦊 doesn't become 🦅 – it finishes and hands off. Artifacts are the interfaces between them.
+Each animal is a specialist with its own identity and memory. 🐕 doesn't become 🦅 – it finishes, self-reflects, and hands off. Artifacts are the interfaces. Learning is continuous.
+
+## Animals
 
 ```
-Coordinators (one each):
-  🐙 you            /propose         problem.md → design.md → plan.md
-  🦁 dispatch        (future)         decompose plan, monitor + nudge workers
-  🦫 branch mgmt     (future)         rebase, restack, detect conflicts → delegate to 🦊
+Pipeline (work production):
+  🐙 octopus    /propose         design: problem.md → design.md → plan.md
+  🦫 beaver      /beaver          branch health: diagnose, rebase, restack
+  🐕 dog         /execute         implement: code changes, tests, fixes
+  🐝 bee         (future)         swarm: repetitive sub-tasks at scale
+  🦅 eagle       /checkpoint      ship: build, test, PR, output.md
+  🦉 owl         /review          review: review.md
 
-Workers (many, parallel):
-  🦊 implement       /execute         code changes, tests, fixes
-  🐝 swarm           (future)         repetitive sub-tasks (rename across 40 files, migrate 20 services)
+Coordinator:
+  🦁 lion        /lion            dispatch: reads manifests, picks animal + environment, drives ag/wt
 
-Per-pipeline (scale with workers):
-  🦅 ship            /checkpoint      build, test, PR, output.md (automatic, no human gate)
-  🦉 review          review (async)   review.md
-  🐘 learn           /retro, /triage  INBOX.md → AGENTS.md
+Curator:
+  🐘 elephant    /triage          evaluate + graduate learnings across all animals
 ```
+
+Each animal is independently useful. The pipeline is one way to compose them.
 
 ---
 
-## Today: The Multi-Stage Pipeline (`ag-orchestrate`)
+## Core Model
+
+### Animal = identity. Skill = behavior.
+
+An animal is a role with accumulated experience. A skill is a specific thing that role does. One animal can own multiple skills.
+
+```
+🐘 elephant
+  └─ /triage (skill: sort and graduate learnings)
+
+🐕 dog
+  └─ /execute (skill: implement from plan.md)
+  └─ (future: /hotfix, /resolve-conflict)
+```
+
+The animal carries identity and memory across all its skills. Adding a new capability to an existing animal = add a skill; the animal's learnings inform it automatically.
+
+### Skill manifests
+
+Circus metadata lives in SKILL.md frontmatter. Machine-readable for pipeline discovery.
+
+```yaml
+---
+name: execute
+animal: dog
+emoji: 🐕
+role: Implements code and tests from plan.md
+position: 3
+receives_from: [octopus, beaver]
+hands_off_to: [eagle]
+model_env: AG_EXECUTE_MODEL
+default_model: claude:opus
+---
+```
+
+`ag circus` renders the live pipeline from manifests. No hardcoded pipeline – add a skill with frontmatter, the system discovers it.
+
+### Non-circus skills
+
+`explain`, `poc`, `ticket` stay outside the circus. Utilities, not pipeline stages. No animal, no manifest, no learnings.
+
+---
+
+## Learning
+
+Every animal learns. The elephant curates.
+
+### How it works
+
+```
+Every animal:  skill epilogue (## Epilogue in SKILL.md)
+               → appends 1-3 lines to ~/.agents/circus/<animal>.learnings.md
+               → freeform dated entries, fast capture
+
+Elephant:      reads all animal learnings + INBOX.md
+               → evaluates significance
+               → sees cross-animal patterns no individual can see
+               → graduates knowledge to permanent homes
+               → consolidates/compresses what's left
+```
+
+### Retro is universal
+
+Retro is not a pipeline stage. It's a behavior every animal has – self-reflection after each run. The elephant taught the method (the epilogue template); each animal applies it.
+
+The pipeline is pure work production:
+```
+🐙 design → 🦫 branch → 🐕 implement → 🦅 ship → 🦉 review
+```
+Learning happens orthogonally, at every stage.
+
+### Elephant as professor
+
+The elephant doesn't just route – it evaluates. Raw learnings are lab reports. The elephant reads across all students and decides:
+
+- Significant finding → graduate (SKILL.md rule, AGENTS.md, AGENTS-work.md)
+- Recurring cross-animal pattern → systemic fix (route feedback between animals)
+- Noise → compress or discard
+
+### Three triage scopes
+
+**Per-animal:** "Dog keeps hitting stale imports after refactors"
+→ graduates to dog's SKILL.md as a checklist item
+
+**Cross-animal:** "Owl keeps finding error handling gaps that dog misses"
+→ routes feedback from owl to dog's learnings
+→ or updates execute SKILL.md to include error handling pass
+
+**Project-level:** "Auth-related work always takes 3x longer than planned"
+→ updates octopus's learnings ("scope auth work at 3x")
+→ or AGENTS.md rule if universal
+
+### Promotion destinations
+
+The elephant's decision tree:
+
+1. Universal (any animal could hit this)? → AGENTS.md
+2. Specific to one animal's domain, proven (3+ occurrences)? → that animal's SKILL.md
+3. Specific but unproven (1-2 occurrences)? → stays in learnings.md
+4. Work-specific? → AGENTS-work.md (regardless of tier)
+
+### Learnings are local-only
+
+`~/.agents/circus/<animal>.learnings.md` – local, never synced. Same treatment as artifacts/. This avoids personal/work boundary issues. Everything is staging until the elephant promotes it to a versioned destination.
+
+Format: freeform append (dated entries). Elephant restructures into sections during triage (patterns that work, patterns that fail, cross-animal feedback).
+
+### Capture context
+
+Where a learning is captured determines its initial association:
+
+- **Inside a skill** (epilogue): auto-associates with that animal's learnings.md
+- **Regular session** (/retro or manual): goes to INBOX.md. Elephant routes to the right animal during triage.
+
+---
+
+## Infrastructure
+
+### Layers
+
+```
+Git aliases       (gm, gsync, gclean – raw git ops, stay dumb)
+  → wt            (worktree mgmt – smart branch navigation, environment-aware)
+  → wss           (workspace SSH + tmux)
+  → ag            (session lifecycle – create, kill, status, dashboard)
+  → Lion skill    (dispatch – reads manifests, picks animal + environment, calls ag/wt)
+  → Animal skills (execute, review, beaver, etc.)
+```
+
+Lower layers never call higher layers. Each independently useful. The lion composes everything below it, but you can always drive manually.
+
+### ag = plumbing
+
+`ag` handles session and worktree infrastructure:
+- `ag <name>` – create session + worktree
+- `ag kill/clean/restart` – session lifecycle
+- `ag status` – dashboard
+- `ag pr` – checkout PR into worktree
+
+`ag run <topic>` becomes a thin shell wrapper that launches `/lion`. Dispatch intelligence moves from `ag-orchestrate` to the lion skill. The lion reads manifests, sequences stages, calls ag/wt as needed.
+
+### wt = smart branch navigation
+
+`wt <branch>` is the universal "get me to this branch" command:
+- Existing worktree? Navigate there (zero cost)
+- Workspace (Linux)? Always create worktree (disk is cheap)
+- Laptop (macOS) + small repo? Create worktree
+- Laptop + large repo? Warn about disk, suggest workspace
+
+`wt clean` removes merged/stale worktrees. `wt list` shows all with status. Beaver includes worktree hygiene in its diagnostics.
+
+### Environments
+
+A skill doesn't know or care where it runs. The orchestration layer decides.
+
+```
+Local:       cc → /execute                     (runs on laptop)
+Worktree:    ag <name>                         (isolated branch, same machine)
+Workspace:   wss <workspace> → /execute        (remote EC2)
+Background:  ag <name> -m "implement plan.md"  (detached tmux)
+Pipeline:    /lion run <topic>                 (lion sequences everything)
+```
+
+### Workspace state
+
+Laptop is the durable state machine. Workspaces are ephemeral compute.
+
+- Learnings accumulate on workspace during session
+- `wss` disconnect hook auto-syncs `~/.agents/circus/` and `~/.agents/INBOX.md` back to laptop
+- No manual sync needed – close session, learnings come home
+
+---
+
+## Today: The Multi-Stage Pipeline
 
 One command. Full pipeline. Per-stage models. Background orchestration.
 
 ```bash
-# 🐙 Design (still interactive)
+# 🐙 Design (interactive)
 ccplan
 /propose feed-atlas                       # iterate until plan.md exists
 
@@ -44,23 +221,20 @@ ag run feed-atlas --test                  # integration test with stubs
 ag review                                 # standalone review (current branch)
 ```
 
-`ag run <topic>` finds `~/.agents/artifacts/<topic>/plan.md`, creates a worktree + tmux session, and launches `ag-orchestrate` in the background. Each stage gets its own agent session with the configured model.
-
-`ag-orchestrate` is the ringmaster. 🦅 is automatic. The only human gate is **merge**.
+`ag run <topic>` finds `~/.agents/artifacts/<topic>/plan.md`, creates a worktree + tmux session, and launches `ag-orchestrate` in the background.
 
 ```
 ag run feed-atlas
   │
   ag-orchestrate (background):
-  ├─ 🦊 claude --model opus '/execute plan.md'
+  ├─ 🐕 claude --model opus '/execute plan.md'
   ├─ 🦅 claude --model sonnet '/checkpoint'
   ├─ 🦉 review --topic feed-atlas (async Codex)
-  │     └─ if blockers:  🦊 reads review.md, pushes fixes (1 cycle max)
-  ├─ 🐘 claude --model haiku '/retro'
+  │     └─ if blockers: 🐕 reads review.md, pushes fixes (1 cycle max)
   └─ NOTIFY  "pipeline complete: feed-atlas"
 ```
 
-State tracked in `~/.agents/state/<slug>/pipeline.json`. Monitor with `ag status`.
+Each stage self-reflects via epilogue. Learnings accumulate locally. State tracked in `~/.agents/state/<slug>/pipeline.json`. Monitor with `ag status`.
 
 ### Configuration
 
@@ -70,60 +244,53 @@ Per-stage executor/model via `AG_*` env vars in `shell/zshrc`. Format: `executor
 # ─── Agent Stages (executor:model) ───────────────────────────
 # Claude: --model (opus, sonnet, haiku)
 # Codex: -m (gpt-5.4, gpt-5.3-codex, gpt-5.3-codex-spark)
-export AG_EXECUTE_MODEL="claude:opus"      # 🦊 execute
+export AG_EXECUTE_MODEL="claude:opus"      # 🐕 execute
 export AG_SHIP_MODEL="claude:sonnet"       # 🦅 ship
 export AG_REVIEW_MODEL="codex:gpt-5.4"    # 🦉 review
-export AG_RETRO_MODEL="claude:haiku"       # 🐘 retro
-```
-
-**CLI flags** (override env):
-```bash
-ag run feed-atlas --codex --skip review    # executor + stage skipping
+export AG_RETRO_MODEL="claude:haiku"       # 🐘 triage
 ```
 
 Priority: CLI flag > stage env var > default (`claude`).
-
-`ag run` passes `AG_*_MODEL` vars to `ag-orchestrate` which builds per-stage commands. Derives `CLAUDE_CODE_SUBAGENT_MODEL` from `AG_RETRO_MODEL` for Task delegation.
 
 ### Status reporting
 
 ```
 $ ag status
-  auth      🦊 implementing (3/7 tasks)     feat/auth
+  auth      🐕 implementing (3/7 tasks)     feat/auth
   config    🦅 shipping                      feat/config
   middleware 🦉 reviewing (async)            feat/middleware  PR #47
   cache     ✅ done                           feat/cache      PR #42 merged
 ```
 
-Tmux status bar: `auth🦊● config🦅● middleware🦉○`. At scale, this is how you stay oriented without attaching to each session.
+Tmux status bar: `auth🐕● config🦅● middleware🦉○`.
 
 ---
 
-## The Full Picture (future)
+## The Full Picture
 
 ```
 You (🐙 design)
   │  /propose → plan.md
   ▼
-🦁 decomposes plan, dispatches + monitors workers:
-  ├──▶ ag run feature-a  ──▶ 🦊→🦅→🦉→(🦊 fix)→🦉→🐘
-  ├──▶ ag run feature-b  ──▶ 🦊→🦅→🦉→🐘
+🦁 lion dispatches + monitors:
+  ├──▶ ag run feature-a  ──▶ 🐕→🦅→🦉→(🐕 fix)→🦉
+  ├──▶ ag run feature-b  ──▶ 🐕→🦅→🦉
   └──▶ ag run config     ──▶ 🐝→🦅
               │
   🦫 keeps PRs mergeable (background, event-driven):
   │   ├─ rebase onto latest main
   │   ├─ restack stacked PRs after parent merges
   │   ├─ resolve trivial text-level conflicts
-  │   └─ CI failure / semantic conflict? → delegate to 🦊
+  │   └─ CI failure / semantic conflict? → delegate to 🐕
               │
-  🐘 captures learning from each pipeline
+  🐘 reads all learnings, graduates knowledge
               │
   Teammate reviews + merges
               │
   ◄──── AGENTS.md feeds back to you ────╯
 ```
 
-🦁 dispatches AND monitors (no separate Wolf – at this scale, dispatch + nudge is one job). Each `ag run` is a complete pipeline. 🦫 never writes code – it manages branches/stacks and delegates code fixes to 🦊. Merge queue is infrastructure (GitHub), not 🦫. Teammate reviews and merges. 🐘 closes the learning loop.
+🦁 is a skill that composes ag/wt. Each `ag run` is a complete pipeline. 🦫 never writes code – manages branches/stacks and delegates code fixes to 🐕. Merge queue is infrastructure (GitHub), not 🦫. 🐘 is the curator: reads all animal learnings, graduates to SKILL.md/AGENTS.md/AGENTS-work.md.
 
 ---
 
@@ -140,7 +307,7 @@ Which model for which animal. The key insight: different benchmarks measure diff
 | Aider Polyglot | Multi-lang coding, 6 languages | GPT-5 high 88.0% | 16pt over Opus 4 (72.0%) |
 | Terminal-Bench 2.0 | Autonomous terminal execution | Gemini 3.1 Pro 78.4% | GPT-5.3-Codex 77.3%, Opus 4.6 74.7% |
 
-SWE-bench Verified (where Claude leads) has confirmed training data contamination across all frontier models. SWE-bench Pro and Aider Polyglot are cleaner signals. Terminal-Bench measures the autonomous agent loop that `ag-orchestrate` actually uses.
+SWE-bench Verified (where Claude leads) has confirmed training data contamination across all frontier models. SWE-bench Pro and Aider Polyglot are cleaner signals. Terminal-Bench measures the autonomous agent loop that the pipeline actually uses.
 
 Sources: [SWE-bench](https://www.marc0.dev/en/leaderboard), [Aider](https://aider.chat/docs/leaderboards/), [Interconnects: Opus 4.6 vs Codex 5.3](https://www.interconnects.ai/p/opus-46-vs-codex-53).
 
@@ -148,69 +315,67 @@ Sources: [SWE-bench](https://www.marc0.dev/en/leaderboard), [Aider](https://aide
 
 **🐙 Octopus – Design** → **Opus 4.6** via Claude Code (interactive)
 
-Design needs deep architectural reasoning over multiple turns, understanding vague intent, and ingesting entire codebases before proposing structure. This is Opus's genuine differentiator. Extended thinking dynamically scales reasoning depth – shallow for quick questions, deep for "how should we decompose this service." 1M context holds an entire codebase in working memory. Outperforms GPT-5.2 by ~144 Elo on GDPval-AA (economically valuable knowledge work). o3-pro with high compute matches on isolated reasoning but is weaker at multi-turn conversational iteration – design is a conversation, not a single prompt.
+Design needs deep architectural reasoning over multiple turns, understanding vague intent, and ingesting entire codebases before proposing structure. Extended thinking dynamically scales reasoning depth. 1M context holds an entire codebase in working memory. Outperforms GPT-5.2 by ~144 Elo on GDPval-AA.
 
 Runner-up: o3-pro (high). Strong isolated reasoning, less conversational.
 
 **🦁 Lion – Dispatch** → **Sonnet 4.6 or Haiku 4.5** via Claude Code subagent
 
-Orchestration doesn't need frontier intelligence. It needs fast, reliable structured output (JSON task decomposition), good tool use for monitoring agent status, and low latency for frequent small calls. Sonnet 4.6 at 79.6% SWE-bench Verified is massive overkill for "parse plan.md and fan out tasks." Haiku would work and respond faster. The quality ceiling is your plan.md structure, not the model – dispatch is prompt-engineering-dominated.
+Orchestration doesn't need frontier intelligence. Needs fast, reliable structured output and good tool use. The quality ceiling is your plan.md structure, not the model – dispatch is prompt-engineering-dominated.
 
-Runner-up: GPT-4o. Fast structured output, but different tool-use format adds integration friction without meaningful quality gain.
+Runner-up: GPT-4o. Fast structured output, different tool-use format adds friction.
 
 **🦫 Beaver – Branch Mgmt** → **GPT-5.3-Codex** via Codex CLI (sandboxed)
 
-Beaver is pure terminal execution: rebase, restack, detect conflicts, run git commands autonomously. Terminal-Bench 2.0 measures exactly this – GPT-5.3-Codex scores 77.3%, Opus 4.6 74.7%. But the decisive advantage is architectural, not benchmark: Codex CLI runs each task in an isolated cloud sandbox. Autonomous git operations (force-push, rebase, restack) are dangerous – sandbox isolation means a bad rebase can't corrupt your local worktree. Claude Code runs in your terminal with full filesystem access, making autonomous git ops riskier. Beaver is the strongest case for Codex over Claude regardless of model benchmarks.
+Beaver is pure terminal execution: rebase, restack, detect conflicts. Terminal-Bench 2.0: GPT-5.3-Codex 77.3%, Opus 4.6 74.7%. The decisive advantage is architectural: Codex CLI sandbox isolation means a bad rebase can't corrupt your local worktree.
 
-Runner-up: Gemini 3.1 Pro (78.4% Terminal-Bench – highest score – but no equivalent sandboxed CLI tool exists).
+Runner-up: Gemini 3.1 Pro (78.4% Terminal-Bench, no sandboxed CLI equivalent).
 
-**🦊 Fox – Implement** → **GPT-5 high / GPT-5.3-Codex** via Codex CLI (autonomous)
+**🐕 Dog – Implement** → **GPT-5 high / GPT-5.3-Codex** via Codex CLI (autonomous)
 
-The largest gap in the data. Aider Polyglot: GPT-5 high 88.0% vs Opus 4 72.0% (16pt). SWE-bench Pro: GPT-5.3-Codex 56.8% vs Opus 4.5 45.9% (11pt). Both benchmarks are less contaminated than SWE-bench Verified. GPT-5's raw multi-language coding ability is measurably stronger on the cleaner evaluations. Codex CLI's parallel sandbox model lets you run multiple Fox instances without local state conflicts. Codex excels specifically at following clear, scoped specs – which is exactly what Fox gets from 🐙's plan.md. "Make the authentication better" fails on Codex; "implement JWT refresh with 15-min expiry per design.md section 3" succeeds.
+The largest gap in the data. Aider Polyglot: GPT-5 high 88.0% vs Opus 4 72.0% (16pt). SWE-bench Pro: GPT-5.3-Codex 56.8% vs Opus 4.5 45.9% (11pt). Codex CLI's parallel sandbox model lets you run multiple Dog instances. Excels at following clear, scoped specs – exactly what plan.md provides.
 
-Claude Opus compensates with better multi-file refactoring and understanding ambiguous specs. If plan.md is vague or requires reasoning about the full codebase beyond what's written down, Claude wins. But the whole point of 🐙 is to write a good plan – if 🐙 does its job, Fox needs execution precision, not intent-guessing.
+Claude Opus compensates with better multi-file refactoring and ambiguous specs. If plan.md is vague, Claude wins. But the whole point of 🐙 is to write a good plan.
 
-Runner-up: Opus 4.6 via Claude Code. Better when plan is ambiguous or deep codebase reasoning is needed mid-implementation.
+Runner-up: Opus 4.6 via Claude Code. Better when plan is ambiguous.
 
 **🐝 Bee – Swarm** → **Haiku 4.5** via Claude Code subagent
 
-High fan-out, low complexity per task. Renaming across 40 files, migrating 20 API calls. The dominant factor is throughput, not intelligence. Haiku 4.5 has the lowest initial latency among capable coding models. Gemini 2.5 Flash matches Sonnet-class coding quality at 1/3 the cost with 1M context. DeepSeek V3.2 (74.2% Aider Polyglot, ~30x cheaper than GPT-5) is viable if self-hosting. For the tasks Bee handles, even a mid-tier model is overkill – the ceiling is the task, not the model.
+High fan-out, low complexity per task. The dominant factor is throughput, not intelligence.
 
-Runner-up: Gemini 2.5 Flash. Best value if cost ever matters.
+Runner-up: Gemini 2.5 Flash. Best value if cost matters.
 
 **🦅 Eagle – Ship** → **Sonnet 4.6** via Claude Code subagent
 
-Eagle needs reliable tool use (build commands, test runners, `gh` CLI) and good writing (PR descriptions, output.md). Sonnet 4.6 at 79.6% SWE-bench Verified delivers Opus-class capability at Sonnet speed. PR descriptions need prose quality – Claude consistently beats GPT in blind writing comparisons (67% win rate). Eagle also runs `/retro`, which needs pattern recognition over session history. Writing and synthesis are Claude strengths independent of coding benchmarks.
+Reliable tool use (build, test, `gh` CLI) and good writing (PR descriptions, output.md). Claude consistently beats GPT in blind writing comparisons (67% win rate).
 
-Runner-up: GPT-5.3-Codex. Strong on terminal execution, weaker on prose composition.
+Runner-up: GPT-5.3-Codex. Strong on terminal execution, weaker on prose.
 
 **🦉 Owl – Review** → **Sonnet 4.6** via Claude Code, or **existing Codex `review` tool**
 
-Code review needs deep reading comprehension and architectural awareness across large diffs. Sonnet 4.6 "delivers Opus-class code review quality at Sonnet pricing" (multiple independent reports). 1M context lets it hold entire PRs with surrounding context. Dedicated review tools (Propel F-score 64%, CodeRabbit) outperform raw models on review benchmarks by using specialized prompting – the existing `review` tool (Codex-based, async, artifact-aware) already does this.
+Deep reading comprehension across large diffs. 1M context holds entire PRs with surrounding context. The existing `review` tool (Codex-based, async, artifact-aware) already uses specialized prompting.
 
-Runner-up: Opus 4.6 for complex architectural reviews. Overkill for most PRs.
+Runner-up: Opus 4.6 for complex architectural reviews.
 
-**🐘 Elephant – Learn** → **Haiku 4.5 or Sonnet 4.5** via Claude Code subagent
+**🐘 Elephant – Curator** → **Sonnet 4.6** via Claude Code subagent
 
-Pattern recognition over session history, writing INBOX.md entries, identifying signal vs noise. Doesn't need frontier reasoning – needs good summarization. Claude models are consistently strong at synthesis. Haiku handles simple retros; Sonnet for end-of-session deep reflection. Learning quality depends more on what context you feed it than model capability.
+Cross-animal pattern recognition, evaluating significance of learnings, deciding what graduates where. Needs good judgment and synthesis, not raw coding ability. Sonnet balances quality with speed for periodic triage passes.
 
-Runner-up: any mid-tier model.
+Runner-up: Haiku for light triage, Opus for deep project-level synthesis.
 
 ### Two-tool architecture
-
-The recommendations naturally split into two execution environments:
 
 ```
 Claude Code (conversational backbone)     Codex CLI (autonomous executor)
   🐙 Design      Opus 4.6                  🦫 Branch    GPT-5.3-Codex
-  🦁 Dispatch    Sonnet/Haiku               🦊 Implement  GPT-5 (high)
+  🦁 Dispatch    Sonnet/Haiku               🐕 Implement  GPT-5 (high)
   🐝 Swarm       Haiku 4.5
   🦅 Ship         Sonnet 4.6
   🦉 Review       Sonnet 4.6 or Codex
-  🐘 Learn        Haiku/Sonnet
+  🐘 Curator      Sonnet 4.6
 ```
 
-Pipeline flow: **Claude designs** (🐙) → **Codex builds** (🦊) → **Claude ships and reviews** (🦅🦉). Artifacts (plan.md, output.md, review.md) are the interface – no API-level integration needed.
+Pipeline flow: **Claude designs** (🐙) → **Codex builds** (🐕) → **Claude ships and reviews** (🦅🦉). Artifacts (plan.md, output.md, review.md) are the interface.
 
 ### What's configurable today
 
@@ -219,46 +384,39 @@ Pipeline flow: **Claude designs** (🐙) → **Codex builds** (🦊) → **Claud
 | `AG_EXECUTE_MODEL` env var | executor:model for execute stage | working |
 | `AG_SHIP_MODEL` env var | executor:model for ship stage | working |
 | `AG_REVIEW_MODEL` env var | executor:model for review stage | working |
-| `AG_RETRO_MODEL` env var | executor:model for retro stage | working |
+| `AG_RETRO_MODEL` env var | executor:model for triage stage | working |
 | `ag run --claude/--codex` | executor override | working |
-| `CLAUDE_CODE_SUBAGENT_MODEL` | subagent model (auto-derived from AG_RETRO_MODEL) | working |
-| `agent:` in plan.md frontmatter | executor per pipeline | working (legacy) |
+| `CLAUDE_CODE_SUBAGENT_MODEL` | subagent model (auto-derived) | working |
 | `tools/ag-orchestrate` | multi-executor stage orchestrator | wired into ag run |
 | `ag review` | first-class review subcommand | working |
 
-**Default path**: `ag run <topic>` launches `ag-orchestrate` in the background, which sequences stages with per-stage models from `AG_*_MODEL` env vars.
-
-### Extension points (not yet built)
-
-**`ag status --remote`** – live SSH query for cross-machine status visibility.
-
-**State file sync** – rsync `~/.agents/state/` from workspace on `dot` or `ag status`.
-
 ### What matters more than model choice
 
-The top 5 models on SWE-bench Verified score within 1.3 points. This means **harness and prompt design dominate model choice** for most coding tasks. Your plan.md quality (🐙), your skill prompts (/execute, /checkpoint), and your artifact interfaces determine more of the outcome than whether Fox runs Opus or GPT-5. The model selection above optimizes the margins – real gains come from the pipeline design.
+The top 5 models on SWE-bench Verified score within 1.3 points. **Harness and prompt design dominate model choice** for most coding tasks. Your plan.md quality (🐙), your skill prompts, and your artifact interfaces determine more of the outcome than model selection. The recommendations above optimize the margins.
 
 ---
 
 ## Build Order
 
-| # | What | Why | Depends on |
-|---|------|-----|------------|
-| 1 | ~~`/run` skill + `ag run`~~ | Full single-agent pipeline. The atomic unit everything scales from. | Composes existing skills |
-| 2 | ~~Smart `ag status` + tmux bar~~ | Phase-aware status + tmux dashboard (`C-a a`). | `ag run` |
-| 3 | 🦫 Branch/stack management | Already hitting stale bases + conflicts with parallel agents. | Nothing |
-| 4 | GUPP-lite (crash safety) | Work survives context exhaustion. Agent resumes from checkpoint. | Nothing |
-| 5 | 🦁 Dispatch + monitor | Decomposes plan.md, fans out `ag run`, nudges stuck. Plan in, PRs out. | GUPP-lite, better with 🦫 |
-| 6 | 🐝 Swarm | Ephemeral workers for high-fan-out sub-tasks (renames, migrations). | 🦁 + 🦫 |
+| # | What | Status | Depends on |
+|---|------|--------|------------|
+| 1 | ~~`/run` skill + `ag run`~~ | shipped | - |
+| 2 | ~~Smart `ag status` + tmux bar~~ | shipped | - |
+| 3 | ~~Reference library + pipeline in AGENTS.md~~ | shipped | - |
+| 4 | Circus.md v2 (this rewrite) | this session | - |
+| 5 | Skill manifests (frontmatter) + epilogues | next | circus.md v2 |
+| 6 | 🦫 Beaver skill | next | skill manifests |
+| 7 | 🦁 Lion skill (dispatch) | next | beaver, manifests |
+| 8 | `wt` environment awareness | independent | nothing |
+| 9 | `wss` disconnect sync (learnings) | independent | nothing |
+| 10 | 🐘 Elephant upgrade (three-scope triage) | after learnings exist | skill epilogues |
+| 11 | 🐕 Dog rename (fox → dog across codebase) | whenever | nothing |
+| 12 | GUPP-lite (crash safety) | when needed | nothing |
+| 13 | 🐝 Bee (swarm) | later | 🦁 + 🦫 |
+| 14 | `ag circus` (auto-generated spec from manifests) | after manifests | skill manifests |
 
 ```
-Stage 6.5 (today): ag run <topic>. Full pipeline, learning everywhere.
-Stage 7 (🦁):      Dispatch fans out ag run. 🦫 keeps PRs healthy.
-Stage 7+ (full):   You only design and approve.
+Today:    ag run <topic>. Full pipeline, per-stage models.
+Next:     Skill manifests + epilogues. Beaver. Lion.
+Future:   You only design and approve.
 ```
-
----
-
-## Active Plans
-
-- **[ag system redesign](~/.cursor/plans/ag_system_redesign_afad05a2.plan.md)** – remaining: worktree foundations, beaver (branch mgmt), artifact linking, session management, observability. Pipeline + workspace routing shipped.
