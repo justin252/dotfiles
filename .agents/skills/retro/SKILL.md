@@ -51,4 +51,10 @@ After writing, check INBOX.md size. If >10 items, nudge toward /triage.
 
 ## Next
 
+## Epilogue
+
+Append 1-3 lines to `~/.agents/learnings/elephant.md`: retro effectiveness, signal-to-noise ratio, items that recur across sessions.
+
+## Next
+
 On completion, print: `Done. ag clean <topic> when ready`

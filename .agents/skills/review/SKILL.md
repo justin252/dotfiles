@@ -63,4 +63,10 @@ Headless/pipeline reviews use the `review` CLI (Codex) which writes the same art
 
 ## Next
 
-On completion, print: `🦊 Review at <path>. Blockers? Fix and re-checkpoint`
+## Epilogue
+
+Append 1-3 lines to `~/.agents/learnings/owl.md`: recurring code patterns found, review heuristics that worked, false positives to avoid.
+
+## Next
+
+On completion, print: `🐕 Review at <path>. Blockers? Fix and re-checkpoint`
