@@ -84,6 +84,13 @@ _verify_symlinks() {
     [[ -n "$target" ]] || continue
     mkdir -p "$(dirname "$target")"
 
+    # Skip if source doesn't exist (stale manifest entry)
+    if [[ ! -e "$source" ]]; then
+      _yellow "  warn: source missing: $source"
+      warnings=$((warnings + 1))
+      continue
+    fi
+
     if [[ -L "$target" ]]; then
       local current
       current="$(readlink "$target")"
@@ -146,19 +153,23 @@ _refresh_skills() {
     for skill in "$source_dir"/*/; do
       [[ -d "$skill" ]] || continue
       skill_name="$(basename "$skill")"
-      local existing=""
       local found=0
-      for existing in "${managed_names[@]:-}"; do
-        [[ "$existing" == "$skill_name" ]] && found=1 && break
-      done
+      if [[ ${#managed_names[@]} -gt 0 ]]; then
+        local existing
+        for existing in "${managed_names[@]}"; do
+          [[ "$existing" == "$skill_name" ]] && found=1 && break
+        done
+      fi
       [[ $found -eq 0 ]] && managed_names+=("$skill_name")
     done
   done
 
   # Clean managed skills
-  for skill_name in "${managed_names[@]:-}"; do
-    rm -rf "$HOME/.agents/skills/$skill_name" "$HOME/.claude/skills/$skill_name" "$HOME/.cursor/skills/$skill_name" "$HOME/.gemini/commands/$skill_name.toml"
-  done
+  if [[ ${#managed_names[@]} -gt 0 ]]; then
+    for skill_name in "${managed_names[@]}"; do
+      rm -rf "$HOME/.agents/skills/$skill_name" "$HOME/.claude/skills/$skill_name" "$HOME/.cursor/skills/$skill_name" "$HOME/.gemini/commands/$skill_name.toml"
+    done
+  fi
 
   # Rebuild from sources
   for source_dir in "${skill_sources[@]}"; do
@@ -226,7 +237,7 @@ _sync_codex_config() {
       print
     }
     END { if (!entered_section) print_missing() }
-  ' "$config_file" >"$tmp_file"
+  ' "$config_file" >"$tmp_file" || { rm -f "$tmp_file"; return 1; }
 
   mv "$tmp_file" "$config_file"
   echo "  codex: defaults synced"
