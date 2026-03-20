@@ -66,9 +66,26 @@ if [[ "$OSTYPE" == darwin* ]]; then
 fi
 
 # Dirs
-for d in .agents/artifacts .agents/skills .agents/sessions .agents/state; do
+for d in .agents/artifacts .agents/skills .agents/sessions .agents/state .agents/conventions .agents/docs; do
   [[ -d "$HOME/$d" ]] && _pass "dir: ~/$d" || _fail "missing dir: ~/$d"
 done
+
+# Conventions + docs: must be real dirs (not symlinks) with per-file symlinks inside
+if [[ -d "$HOME/.agents/conventions" && ! -L "$HOME/.agents/conventions" ]]; then
+  _pass "conventions: real dir (not symlink)"
+else
+  _fail "conventions: should be real dir with per-file symlinks, got symlink or missing"
+fi
+if [[ -L "$HOME/.agents/conventions/shell-scripts.md" ]]; then
+  _pass "conventions: per-file symlink (shell-scripts.md)"
+else
+  _fail "conventions: shell-scripts.md should be a symlink"
+fi
+if [[ -d "$HOME/.agents/docs" && ! -L "$HOME/.agents/docs" ]]; then
+  _pass "docs: real dir (not symlink)"
+else
+  _fail "docs: should be real dir with per-file symlinks, got symlink or missing"
+fi
 
 # Seeded files
 [[ -f "$HOME/.agents/INBOX.md" ]] && _pass "seeded: INBOX.md" || _fail "missing: INBOX.md"
@@ -212,6 +229,71 @@ result=$(bash -c 'cd "'"$base/main-repo"'" && source "'"$SANDBOX/.wt-funcs.sh"'"
 [[ "$result" == "main" ]] \
   && _pass "default_branch: main repo (no origin/HEAD) -> 'main'" \
   || _fail "default_branch: expected 'main', got '$result'"
+
+# wt integration: positional branch creates worktree
+wt_repo="$base/main-repo"
+wt_branch="feat/wt-sandbox-$$"  # unique per PID to avoid lock collisions
+rmdir "/tmp/wt-$(echo "$wt_branch" | tr '/' '-').lock" 2>/dev/null || true
+result=$(cd "$wt_repo" && WT_CREATE_MODE=new "$REPO_ROOT/tools/wt" --quiet resolve "$wt_branch" 2>/dev/null) || true
+if [[ -n "$result" ]] && [[ -d "$result" ]]; then
+  _pass "wt resolve: creates worktree"
+else
+  _fail "wt resolve: failed to create worktree (got '$result')"
+fi
+
+# wt integration: positional branch (default handler)
+result2=$(cd "$wt_repo" && WT_CREATE_MODE=new "$REPO_ROOT/tools/wt" --quiet "$wt_branch" 2>/dev/null) || true
+# Normalize paths (resolve may return ../relative, existing returns absolute)
+result_norm=$(cd "$result" 2>/dev/null && pwd -P)
+result2_norm=$(cd "$result2" 2>/dev/null && pwd -P)
+if [[ "$result_norm" == "$result2_norm" ]]; then
+  _pass "wt positional: returns same path (idempotent)"
+else
+  _fail "wt positional: expected '$result', got '$result2'"
+fi
+
+# wt list --json: produces valid JSON array
+json_out=$(cd "$wt_repo" && "$REPO_ROOT/tools/wt" list --json 2>/dev/null)
+if echo "$json_out" | grep -q '"path"'; then
+  _pass "wt list --json: produces JSON with path field"
+else
+  _fail "wt list --json: no path field in output"
+fi
+
+# wt: PR resolution (mock gh to return branch name)
+cat > "$STUB_DIR/gh" <<'STUBEOF'
+#!/bin/bash
+if [[ "$1" == "pr" && "$2" == "view" ]]; then
+  echo "feat/from-pr"
+  exit 0
+fi
+exit 0
+STUBEOF
+chmod +x "$STUB_DIR/gh"
+
+# Verify resolve_pr_to_branch parses numeric input
+sed -n '/^resolve_pr_to_branch()/,/^}/p' "$REPO_ROOT/tools/wt" > "$SANDBOX/.wt-pr.sh"
+pr_result=$(bash -c 'export PATH="'"$STUB_DIR"':$PATH"; source "'"$SANDBOX/.wt-pr.sh"'" && resolve_pr_to_branch "42"')
+if [[ "$pr_result" == "feat/from-pr" ]]; then
+  _pass "wt PR resolve: numeric -> calls gh, gets branch"
+else
+  _fail "wt PR resolve: expected 'feat/from-pr', got '$pr_result'"
+fi
+
+# Restore gh stub
+printf '#!/bin/sh\nexit 0\n' > "$STUB_DIR/gh"
+chmod +x "$STUB_DIR/gh"
+
+# wt rm: removes worktree
+if cd "$wt_repo" && "$REPO_ROOT/tools/wt" --quiet rm "$wt_branch" --force 2>/dev/null; then
+  if [[ ! -d "$result" ]]; then
+    _pass "wt rm --force: removes worktree"
+  else
+    _fail "wt rm: dir still exists after rm"
+  fi
+else
+  _fail "wt rm: command failed"
+fi
 
 # ━━━ ag ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

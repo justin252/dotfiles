@@ -237,7 +237,7 @@ cmd_resolve() {
   if ! mkdir "$lockdir" 2>/dev/null; then
     die "another wt process is creating '$slug'"
   fi
-  trap 'rmdir "$lockdir" 2>/dev/null || true' EXIT
+  trap "rmdir '$lockdir' 2>/dev/null || true" EXIT
 
   if [[ "$create_mode" == "new" ]]; then
     default=$(default_branch)
