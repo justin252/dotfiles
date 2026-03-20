@@ -1,7 +1,6 @@
 ---
 name: triage
 description: "🐘 Sort and execute INBOX.md items. Promotes stable patterns to AGENTS.md or tool-specific rules."
-
 ---
 
 Fully autonomous. Auto-accept all INBOX.md reads/writes. Create PR for dotfiles changes – never merge without user confirmation.
@@ -43,6 +42,10 @@ Refined item format:
 - Refined items: `### <title>` with Priority/Approach/Context fields
 - Resolved items: single-line bullets – `YYYY-MM-DD HH:MM` – **title** – summary. **Disposition** [PR](url)
 - No sensitive content to AGENTS.md
+
+## Epilogue
+
+Append 1-3 lines to `~/.agents/learnings/elephant.md`: triage routing accuracy, items that should have been caught earlier, cross-animal patterns observed.
 
 ## Next
 
