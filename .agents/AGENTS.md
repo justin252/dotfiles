@@ -270,16 +270,13 @@ Repo-root AGENTS.md          <- per-project, auto-discovered by both tools
 
 Cursor does NOT follow @import or read `~/.agents/` directly. User Rules (plain text in Settings UI) is the only global mechanism; no file-based auto-load. Paste both AGENTS.md and AGENTS-work.md into User Rules for full context.
 
-Cursor skills: copied (not symlinked) because Cursor doesn't follow symlinks for skill discovery (known bug). Run `refresh-skills` after editing skills, or `pull-dot` (which calls it automatically). `refresh-skills` rebuilds `~/.agents/skills` from dotfiles sources first, then re-syncs Claude/Cursor from that shared layer.
+Cursor skills: copied (not symlinked) because Cursor doesn't follow symlinks for skill discovery (known bug). Run `dot` to rebuild skills (it refreshes automatically). `dot` rebuilds `~/.agents/skills` from dotfiles sources, then re-syncs Claude/Cursor from that shared layer.
 
 ### Key tools
 
 All on PATH via `~/tools` symlink:
 - `h` – fzf alias browser. `h suggest` surfaces forgotten aliases from history.
-- `pull-dot` – pull dotfiles + re-source zshrc (work version pulls both repos + refreshes shared skills + Codex defaults)
-- `reset-dot` – rebuild dotfiles-managed symlinks/copies/config scaffolding, then re-source zshrc. Preserve local-only state
-- `refresh-skills` – rebuild `~/.agents/skills` from dotfiles sources, then re-sync Claude skill symlinks and re-copy Cursor skills (run after editing skills)
-- `sync-codex-config` – sync top-level Codex autonomy defaults without replacing auth/trust state or profile-specific settings
+- `dot` – unified dotfiles sync: pull repos, verify/repair symlinks, refresh skills, sync configs, re-source shell. `dot install` for full rebuild. `dot doctor` for read-only diagnostics.
 - `sz` – re-source zshrc after edits
 - `rebase-wip` – stash local edits, fetch/rebase onto a target branch, then reapply the stash. Useful when dotfiles change mid-task
 - `ag` – agent session manager (stage 6-7 orchestrator). One command for parallel work: `ag <name>` auto-creates worktree + launches agent. `ag <name> -m MSG` with initial task (background launch; prints guided output, doesn't attach). `ag` fzf dashboard (all repos). `ag status` cross-repo view. `ag kill <name>` kill session. `ag clean` dead sessions + merged worktrees (`--force` skips prompt, `--all` nuclear reset). Name flows everywhere: branch, session, worktree, tmux status bar. Tmux status shows `name●` (active) / `name○` (idle). `C-a a` for popup dashboard.

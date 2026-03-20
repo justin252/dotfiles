@@ -99,12 +99,12 @@ ln -sf "$DOTFILES/.claude/CLAUDE.md" ~/.claude/CLAUDE.md
 ln -sf "$DOTFILES/.claude/settings.json" ~/.claude/settings.json
 
 # Cursor/Claude shared skill sync (Codex reads ~/.agents/skills/ directly)
-DOTFILES="$DOTFILES" WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}" "$DOTFILES/tools/refresh-skills"
+DOTFILES="$DOTFILES" WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}" "$DOTFILES/tools/dot" _refresh-skills
 ln -sfn "$DOTFILES/.cursor/rules" ~/.cursor/rules
 
 # Codex CLI defaults (keep auth/local trust state in ~/.codex/)
 if command -v codex &> /dev/null; then
-  "$DOTFILES/tools/sync-codex-config" || echo "Warning: could not sync Codex defaults"
+  "$DOTFILES/tools/dot" _sync-codex || echo "Warning: could not sync Codex defaults"
 fi
 
 # RTK Claude Code hook (generates local hook script + RTK.md)
@@ -153,22 +153,5 @@ if ! git config --global --get-all include.path 2>/dev/null | grep -qF '.gitconf
   git config --global --add include.path '~/.gitconfig.dotfiles'
 fi
 
-echo "Done. Symlinked:"
-echo "  ~/tools → $DOTFILES/tools"
-echo "  ~/.agents/AGENTS.md → $DOTFILES/.agents/AGENTS.md"
-echo "  ~/.gemini/GEMINI.md → $DOTFILES/.gemini/GEMINI.md (@imports AGENTS.md)"
-echo "  ~/.agents/skills/*/ → $DOTFILES/.agents/skills/*/ (per-skill, mergeable)"
-echo "  ~/.agents/conventions/ → $DOTFILES/.agents/conventions/"
-echo "  ~/.agents/docs/ → $DOTFILES/.agents/docs/"
-echo "  ~/.claude/CLAUDE.md → $DOTFILES/.claude/CLAUDE.md"
-echo "  ~/.claude/settings.json → $DOTFILES/.claude/settings.json"
-echo "  ~/.claude/agents/ → $DOTFILES/.claude/agents/"
-echo "  ~/.claude/skills/*/ → ~/.agents/skills/*/ (per-skill, merged)"
-echo "  ~/.cursor/skills/*/ ← ~/.agents/skills/*/ (copied; Cursor doesn't follow symlinks)"
-command -v codex &>/dev/null && echo "  ~/.codex/config.toml updated with workspace-write + never-ask defaults"
-echo "  ~/.cursor/rules/ → $DOTFILES/.cursor/rules/"
-echo "  ~/.gitconfig.dotfiles → $DOTFILES/git/config (included from ~/.gitconfig)"
-echo "  ~/.zshrc → $DOTFILES/shell/zshrc"
-echo "  ~/.tmux.conf → $DOTFILES/shell/tmux.conf"
-[[ "$OSTYPE" == darwin* ]] && echo "  ~/.config/karabiner/karabiner.json ← $DOTFILES/karabiner/karabiner.json (copied, Karabiner breaks symlinks)"
+echo "Done. Run 'dot doctor' to verify, 'dot' to sync ongoing."
 true
