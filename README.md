@@ -19,7 +19,7 @@ bash ~/dotfiles/install.sh
 ## Sync (existing machine)
 
 ```bash
-dot
+dotfiles
 ```
 
 One command: pulls repos, verifies/repairs symlinks, refreshes skills + configs, re-sources shell. Idempotent, self-healing, cross-platform.
@@ -27,15 +27,15 @@ One command: pulls repos, verifies/repairs symlinks, refreshes skills + configs,
 ## Repair (drifted machine state)
 
 ```bash
-dot install
+dotfiles setup
 ```
 
-Full rebuild via `install.sh`. For first-time setup or when `dot` can't self-heal (binary installs, structural changes).
+Full rebuild via `install.sh`. For first-time setup or when `dotfiles` can't self-heal (binary installs, structural changes).
 
 ## Diagnostics
 
 ```bash
-dot doctor
+dotfiles doctor
 ```
 
 Read-only health check: repo state, symlink health, skills count, platform info.
@@ -78,7 +78,7 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 shell/zshrc                  # Universal shell config (aliases, functions, env)
 shell/tmux.conf              # tmux config (C-a prefix, vim nav, agent status bar)
 tools/                       # CLI scripts on PATH (symlinked to ~/tools)
-tools/dot                    # Unified dotfiles sync: pull, verify, refresh, heal (replaces pull-dot, reset-dot, refresh-skills, sync-codex-config)
+tools/dotfiles                # Unified dotfiles sync: pull, verify, refresh, heal (replaces pull-dot, reset-dot, refresh-skills, sync-codex-config)
 tools/ag                     # Agent session manager (ag run/review/info/status/kill/clean, multi-source plan picker)
 tools/ag-orchestrate         # Multi-stage pipeline orchestrator (background, per-stage models, pipeline.json)
 tools/ag-preview             # fzf preview for ag picker (PR info, plan/review paths)
@@ -99,14 +99,14 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 
 - `shell/zshrc` – universal config (this repo), works anywhere
 - `tools/` – CLI scripts, symlinked to `~/tools` (on PATH)
-- `tools/dot` – unified sync: `dot` (pull + verify + refresh), `dot install` (full rebuild), `dot doctor` (diagnostics)
+- `tools/dotfiles` – unified sync: `dotfiles` (pull + verify + refresh), `dotfiles setup` (full rebuild), `dotfiles doctor` (diagnostics)
 - `~/.zshrc.work` – work-specific overlay (sourced if present; typically managed by a work dotfiles repo)
 - `~/.zshrc.personal` – machine-specific personal overrides (local only)
 - `~/.agents/AGENTS.md` – shared agent instructions, symlinked to this repo
-- `~/.agents/skills/` – shared runtime skill layer rebuilt by `dot` from base + optional work-overlay skills; Codex reads it directly, Claude symlinks to it, Cursor copies from it, Gemini uses generated slash commands in `~/.gemini/commands/`
+- `~/.agents/skills/` – shared runtime skill layer rebuilt by `dotfiles` from base + optional work-overlay skills; Codex reads it directly, Claude symlinks to it, Cursor copies from it, Gemini uses generated slash commands in `~/.gemini/commands/`
 - `~/.claude/CLAUDE.md` – Claude Code config, symlinked to this repo (@imports shared AGENTS.md)
 - `~/.gemini/GEMINI.md` – Gemini global context, @imports shared AGENTS.md (same pattern as Claude's CLAUDE.md)
-- `~/.codex/config.toml` – local Codex config. `install.sh` / `dot` adds top-level autonomy defaults without replacing auth, trust, or profile-specific entries
+- `~/.codex/config.toml` – local Codex config. `install.sh` / `dotfiles` adds top-level autonomy defaults without replacing auth, trust, or profile-specific entries
 - **Cursor global prefs** – paste AGENTS.md content into Cursor Settings > Rules > User Rules (no file-based auto-load for global prefs; per-project prefs use `AGENTS.md` at project root, auto-discovered natively)
 - `~/.config/karabiner/karabiner.json` is copied from this repo (Karabiner breaks symlinks)
 - `sz` re-sources zshrc + tmux.conf after edits

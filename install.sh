@@ -99,12 +99,12 @@ ln -sf "$DOTFILES/.claude/CLAUDE.md" ~/.claude/CLAUDE.md
 ln -sf "$DOTFILES/.claude/settings.json" ~/.claude/settings.json
 
 # Cursor/Claude shared skill sync (Codex reads ~/.agents/skills/ directly)
-DOTFILES="$DOTFILES" WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}" "$DOTFILES/tools/dot" _refresh-skills
+DOTFILES="$DOTFILES" WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}" "$DOTFILES/tools/dotfiles" _refresh-skills
 ln -sfn "$DOTFILES/.cursor/rules" ~/.cursor/rules
 
 # Codex CLI defaults (keep auth/local trust state in ~/.codex/)
 if command -v codex &> /dev/null; then
-  "$DOTFILES/tools/dot" _sync-codex || echo "Warning: could not sync Codex defaults"
+  "$DOTFILES/tools/dotfiles" _sync-codex || echo "Warning: could not sync Codex defaults"
 fi
 
 # RTK Claude Code hook (generates local hook script + RTK.md)
@@ -153,5 +153,5 @@ if ! git config --global --get-all include.path 2>/dev/null | grep -qF '.gitconf
   git config --global --add include.path '~/.gitconfig.dotfiles'
 fi
 
-echo "Done. Run 'dot doctor' to verify, 'dot' to sync ongoing."
+echo "Done. Run 'dotfiles doctor' to verify, 'dotfiles' to sync ongoing."
 true

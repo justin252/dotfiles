@@ -102,3 +102,49 @@ Human-first design. Simple composable parts. Consistency across commands. Discov
 
 - Never phone home without consent
 - Prefer opt-in; if opt-out, announce prominently and make disabling trivial
+
+## Tool Skeleton
+
+Canonical boilerplate for `~/dotfiles/tools/` scripts. Reference impl: `tools/dotfiles`.
+
+```bash
+#!/usr/bin/env bash
+# category: <category>
+# <tool> - <one-line description>
+set -euo pipefail
+
+die() { echo "error: $1" >&2; [[ -n "${2:-}" ]] && echo "  → $2" >&2; exit 1; }
+
+usage() {
+  cat <<'EOF'
+<tool> - <one-line description>
+
+Usage:
+  <tool> [command] [flags]
+
+Commands:
+  <cmd>       <description>
+
+Flags:
+  -h, --help  Show this help
+EOF
+}
+
+cmd_<name>() { ... }
+
+case "${1:-}" in
+  ""       ) <default action or usage> ;;
+  <cmd>    ) shift; cmd_<name> "$@" ;;
+  -h|--help) usage ;;
+  *        ) die "unknown command: $1" "Run '<tool> --help' for usage" ;;
+esac
+```
+
+Rules:
+- `die()` with optional second arg for actionable suggestion
+- `cmd_` prefix for subcommand functions
+- Unknown commands → `die` with help pointer
+- No-args: useful default if one exists, else brief usage + examples
+- Internal subcommands: `_prefix` (hidden from help, for composition by install.sh etc.)
+- `# category:` comment on line 2 for `t` browser discovery
+- `# <tool> - <desc>` comment on line 3 for grep/preview

@@ -90,7 +90,7 @@ else
   _fail "double-source has errors"
 fi
 
-for fn in gclean gsync gm killport openplan dot; do
+for fn in gclean gsync gm killport openplan dotfiles; do
   if zsh -c 'source "$HOME/.zshrc" 2>/dev/null; whence -f '"$fn"' >/dev/null 2>&1' 2>/dev/null; then
     _pass "function exists: $fn"
   else
@@ -130,40 +130,40 @@ else
   _fail "openplan: empty dir should say 'no plans'"
 fi
 
-# ━━━ dot ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ━━━ dotfiles ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 echo ""
-echo "=== dot ==="
+echo "=== dotfiles ==="
 
-# dot --help should show usage
-dot_help=$("$REPO_ROOT/tools/dot" --help 2>&1)
+# dotfiles --help should show usage
+dot_help=$("$REPO_ROOT/tools/dotfiles" --help 2>&1)
 if [[ "$dot_help" == *"unified dotfiles sync"* ]]; then
-  _pass "dot: --help shows usage"
+  _pass "dotfiles: --help shows usage"
 else
-  _fail "dot: --help should show usage"
+  _fail "dotfiles: --help should show usage"
 fi
 
-# dot doctor should run without error in sandbox
-if DOTFILES="$REPO_ROOT" "$REPO_ROOT/tools/dot" doctor >/dev/null 2>&1; then
-  _pass "dot doctor: completes in sandbox"
+# dotfiles doctor should run without error in sandbox
+if DOTFILES="$REPO_ROOT" "$REPO_ROOT/tools/dotfiles" doctor >/dev/null 2>&1; then
+  _pass "dotfiles doctor: completes in sandbox"
 else
-  _fail "dot doctor: failed in sandbox"
+  _fail "dotfiles doctor: failed in sandbox"
 fi
 
-# dot _refresh-skills should work (internal subcommand for install.sh)
-if DOTFILES="$REPO_ROOT" "$REPO_ROOT/tools/dot" _refresh-skills >/dev/null 2>&1; then
-  _pass "dot _refresh-skills: completes"
+# dotfiles _refresh-skills should work (internal subcommand for install.sh)
+if DOTFILES="$REPO_ROOT" "$REPO_ROOT/tools/dotfiles" _refresh-skills >/dev/null 2>&1; then
+  _pass "dotfiles _refresh-skills: completes"
 else
-  _fail "dot _refresh-skills: failed"
+  _fail "dotfiles _refresh-skills: failed"
 fi
 
-# dot: verify symlink repair – break a symlink, run verify, check it's fixed
+# dotfiles: verify symlink repair – break a symlink, run verify, check it's fixed
 ln -sfn /nonexistent "$HOME/.agents/AGENTS.md"
-dot_out=$(DOTFILES="$REPO_ROOT" "$REPO_ROOT/tools/dot" 2>&1 || true)
+dot_out=$(DOTFILES="$REPO_ROOT" "$REPO_ROOT/tools/dotfiles" 2>&1 || true)
 if [[ -L "$HOME/.agents/AGENTS.md" ]] && [[ "$(readlink "$HOME/.agents/AGENTS.md")" == "$REPO_ROOT/.agents/AGENTS.md" ]]; then
-  _pass "dot: self-heals broken symlink"
+  _pass "dotfiles: self-heals broken symlink"
 else
-  _fail "dot: should repair broken symlink"
+  _fail "dotfiles: should repair broken symlink"
 fi
 
 # ━━━ wt ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

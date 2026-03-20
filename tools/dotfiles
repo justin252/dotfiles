@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # category: config
-# dot - unified dotfiles sync: pull, verify, refresh, heal
+# dotfiles - unified dotfiles sync: pull, verify, refresh, heal
 set -euo pipefail
 
 DOTFILES="${DOTFILES:-$HOME/dotfiles}"
@@ -301,8 +301,8 @@ SEEDEOF
   _bold "done: $pulled repos pulled, $repaired links repaired, $warnings warnings"
 }
 
-cmd_install() {
-  _bold "dot install: full rebuild"
+cmd_setup() {
+  _bold "dotfiles setup: full rebuild"
   echo ""
 
   [[ -f "$DOTFILES/install.sh" ]] || { _red "$DOTFILES/install.sh not found"; exit 1; }
@@ -319,7 +319,7 @@ cmd_install() {
 }
 
 cmd_doctor() {
-  _bold "dot doctor"
+  _bold "dotfiles doctor"
   echo ""
 
   # Repos
@@ -385,12 +385,12 @@ cmd_doctor() {
 
 usage() {
   cat <<'EOF'
-dot - unified dotfiles sync
+dotfiles - unified dotfiles sync
 
 Usage:
-  dot             Pull repos, verify symlinks, refresh skills, sync configs
-  dot install     Full rebuild via install.sh (first-time setup, binary installs)
-  dot doctor      Read-only health check
+  dotfiles            Pull repos, verify symlinks, refresh skills, sync configs
+  dotfiles setup      Full rebuild via install.sh (first-time setup, binary installs)
+  dotfiles doctor     Read-only health check
 
 Replaces pull-dot, reset-dot, refresh-skills, sync-codex-config.
 Shell reload happens automatically via the zshrc wrapper.
@@ -401,14 +401,14 @@ EOF
 
 case "${1:-}" in
   ""              ) cmd_default ;;
-  install         ) cmd_install ;;
+  setup           ) cmd_setup ;;
   doctor          ) cmd_doctor ;;
   _refresh-skills ) _refresh_skills ;;
   _sync-codex     ) _sync_codex_config ;;
   -h|--help       ) usage ;;
   *)
-    _red "unknown command: $1"
-    usage >&2
+    echo "error: unknown command: $1" >&2
+    echo "  → Run 'dotfiles --help' for usage" >&2
     exit 1
     ;;
 esac
