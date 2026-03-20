@@ -84,19 +84,21 @@ Checkpoint is the only release path – route through /checkpoint skill. After c
 
 ### Pipeline (The Circus)
 
-Agents are specialists. Each handles one stage, then hands off via artifacts.
+Animal = identity + memory. Skill = behavior. Each stage self-reflects via epilogue, then hands off. Artifacts are the interfaces.
 
 ```
-🐙 design (/propose)  → plan.md
-🦊 implement (/execute) → code + tests
-🦅 ship (/checkpoint)  → PR, output.md
-🦉 review (review)     → review.md
-🐘 learn (/retro)      → INBOX.md → AGENTS.md
+🐙 design (/propose)    → plan.md
+🦫 branch (/beaver)     → healthy stack
+🐕 implement (/execute) → code + tests
+🦅 ship (/checkpoint)   → PR, output.md
+🦉 review (/review)     → review.md
+🦁 dispatch (/lion)     → orchestrates pipeline
+🐘 curator (/triage)    → graduates learnings across all animals
 ```
 
-`ag run <topic>` orchestrates the full pipeline: discovers `plan.md`, creates worktree, sequences stages with per-model config (`AG_*_MODEL` env vars). Each stage is a separate agent session.
+Each independently useful. `ag run <topic>` composes them into a pipeline. Learning is continuous – every animal captures; elephant curates.
 
-Full spec (model selection, build order, future architecture): `~/.agents/docs/circus.md`
+Full spec (model selection, learning model, build order): `~/.agents/docs/circus.md`
 
 ### Splitting changes
 Prefer splitting logically independent changes (refactor, bug fix, feature) into stacked PRs.
