@@ -232,7 +232,7 @@ Pipeline flow: **Claude designs** (🐙) → **Codex builds** (🦊) → **Claud
 
 **`ag status --remote`** – live SSH query for cross-machine status visibility.
 
-**State file sync** – rsync `~/.agents/state/` from workspace on `pull-dot` or `ag status`.
+**State file sync** – rsync `~/.agents/state/` from workspace on `dot` or `ag status`.
 
 ### What matters more than model choice
 

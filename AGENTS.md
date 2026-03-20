@@ -4,9 +4,11 @@ Repo-level instructions for all agents working in this dotfiles repo.
 
 "Set up my dotfiles" → `bash ~/dotfiles/install.sh` then `source ~/.zshrc`. Done.
 
-"Update dotfiles" → `pull-dot` (pulls, refreshes shared skills + Codex defaults, re-sources). Done.
+"Update dotfiles" → `dot` (pulls repos, verifies symlinks, refreshes skills + configs, re-sources). Done.
 
-"Repair dotfiles state" → `reset-dot` (repairs managed dotfiles state, then re-sources). Done.
+"Repair dotfiles state" → `dot install` (full rebuild via install.sh). Done.
+
+"Check dotfiles health" → `dot doctor` (read-only diagnostics). Done.
 
 Tell user after: create `~/.zshrc.work` / `~/.zshrc.personal` for machine-specific config (auto-sourced if present).
 

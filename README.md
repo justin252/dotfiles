@@ -16,21 +16,29 @@ bash ~/dotfiles/install.sh
 - Personal/universal machine: install `~/dotfiles`, then optionally create `~/.zshrc.personal` for machine-specific overrides.
 - Work machine: install `~/dotfiles` first, then run `~/dotfiles-work/install.sh` to layer work-specific shell config, skills, and agent rules on top.
 
-## Update (existing machine)
+## Sync (existing machine)
 
 ```bash
-pull-dot
+dot
 ```
 
-One command: pulls latest dotfiles, refreshes shared skills + Codex defaults, and re-sources zshrc.
+One command: pulls repos, verifies/repairs symlinks, refreshes skills + configs, re-sources shell. Idempotent, self-healing, cross-platform.
 
 ## Repair (drifted machine state)
 
 ```bash
-reset-dot
+dot install
 ```
 
-Repairs the dotfiles-managed layer without touching local-only state like auth, `~/.agents/artifacts`, `INBOX.md`, `~/.zshrc.work`, or `~/.zshrc.personal`.
+Full rebuild via `install.sh`. For first-time setup or when `dot` can't self-heal (binary installs, structural changes).
+
+## Diagnostics
+
+```bash
+dot doctor
+```
+
+Read-only health check: repo state, symlink health, skills count, platform info.
 
 **Interactive learning path** – explore the repo with [Claude Code](https://docs.anthropic.com/en/docs/claude-code):
 
@@ -70,6 +78,7 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 shell/zshrc                  # Universal shell config (aliases, functions, env)
 shell/tmux.conf              # tmux config (C-a prefix, vim nav, agent status bar)
 tools/                       # CLI scripts on PATH (symlinked to ~/tools)
+tools/dot                    # Unified dotfiles sync: pull, verify, refresh, heal (replaces pull-dot, reset-dot, refresh-skills, sync-codex-config)
 tools/ag                     # Agent session manager (ag run/review/info/status/kill/clean, multi-source plan picker)
 tools/ag-orchestrate         # Multi-stage pipeline orchestrator (background, per-stage models, pipeline.json)
 tools/ag-preview             # fzf preview for ag picker (PR info, plan/review paths)
@@ -77,12 +86,9 @@ tools/ag-status-line         # tmux status bar: pipeline phase icons with timing
 tools/wt                     # Worktree CLI: resolve/list/rm/clean/migrate
 tools/artifacts              # Unified artifact browser: ~/.agents/artifacts/ (frontmatter-aware, typed actions)
 tools/review                 # Codex code review: review [PR] --status --json (async, writes review.md)
-tools/sync-codex-config      # Set Codex CLI autonomy defaults (workspace-write + never ask)
-tools/reset-dot              # Rebuild dotfiles-managed symlinks/copies/config scaffolding
 tools/rebase-wip             # Stash current work, fetch/rebase, then restore work
 tools/session                # Session notes browser: ~/.agents/sessions/ (curated .md)
 tools/t                      # Tools browser: fzf picker for all tools with --help preview
-tools/refresh-skills         # Rebuild shared skills, sync Claude/Gemini/Cursor adapters
 karabiner/karabiner.json     # Karabiner-Elements config (Joy-Con L → Claude Code controls)
 karabiner/joycon-karabiner.md # Joy-Con mapping spec
 install.sh                   # Sets up symlinks, seeds local files, installs fzf + tmux
@@ -93,23 +99,19 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 
 - `shell/zshrc` – universal config (this repo), works anywhere
 - `tools/` – CLI scripts, symlinked to `~/tools` (on PATH)
+- `tools/dot` – unified sync: `dot` (pull + verify + refresh), `dot install` (full rebuild), `dot doctor` (diagnostics)
 - `~/.zshrc.work` – work-specific overlay (sourced if present; typically managed by a work dotfiles repo)
 - `~/.zshrc.personal` – machine-specific personal overrides (local only)
 - `~/.agents/AGENTS.md` – shared agent instructions, symlinked to this repo
-- `~/.agents/skills/` – shared runtime skill layer rebuilt by `refresh-skills` from base + optional work-overlay skills; Codex reads it directly, Claude symlinks to it, Cursor copies from it, Gemini uses generated slash commands in `~/.gemini/commands/`
+- `~/.agents/skills/` – shared runtime skill layer rebuilt by `dot` from base + optional work-overlay skills; Codex reads it directly, Claude symlinks to it, Cursor copies from it, Gemini uses generated slash commands in `~/.gemini/commands/`
 - `~/.claude/CLAUDE.md` – Claude Code config, symlinked to this repo (@imports shared AGENTS.md)
 - `~/.gemini/GEMINI.md` – Gemini global context, @imports shared AGENTS.md (same pattern as Claude's CLAUDE.md)
-- `~/.codex/config.toml` – local Codex config. `install.sh` / `sync-codex-config` adds top-level autonomy defaults without replacing auth, trust, or profile-specific entries
+- `~/.codex/config.toml` – local Codex config. `install.sh` / `dot` adds top-level autonomy defaults without replacing auth, trust, or profile-specific entries
 - **Cursor global prefs** – paste AGENTS.md content into Cursor Settings > Rules > User Rules (no file-based auto-load for global prefs; per-project prefs use `AGENTS.md` at project root, auto-discovered natively)
 - `~/.config/karabiner/karabiner.json` is copied from this repo (Karabiner breaks symlinks)
-- `pull-dot` pulls, refreshes shared skills + Codex defaults, and re-sources zshrc
-- `reset-dot` repairs dotfiles-managed state and re-sources zshrc
 - `sz` re-sources zshrc + tmux.conf after edits
 - `ag` – agent session manager: one command for parallel agent work. `ag run` picks a plan from all sources (artifacts, cursor, claude) sorted by last modified and runs the full pipeline (execute, ship, review, learn). `ag run -a` filters to artifact plans. `ag run <slug>` resolves an artifact plan. `ag run <plan> --skip review --skip retro` skips stages. Plan frontmatter (`skip:`, `agent:`) configures the pipeline; CLI flags override. `ag <name>` auto-creates worktree + launches an agent (defaults to Claude; use `--gemini` or `--codex` to switch). `ag <name> --shell` creates the worktree + tmux session but leaves you at a shell prompt. `ag <name> -m MSG` launches in background. `ag pr <number>` checks out a PR into a worktree (`--review` for diff-only). `ag info <topic>` shows per-topic dashboard (artifacts, chain, pipeline state, PR, branch, worktree; `--json` for scripts). `ag` fzf dashboard. `ag status` cross-repo view with pipeline phase + task progress (`--json`). `ag kill <name>` kill session. `ag clean` comprehensive cleanup (`--all` nuclear reset). `AG_NO_INPUT=1` for scripting.
 - `wt` – worktree CLI and shell wrapper. Branch is the canonical input; `chore/feed-atlas` → worktree `{repo}-wt-chore-feed-atlas`. `wt <branch>` finds an existing worktree, reuses the current dir if already on that branch, or creates one. `wt` fzf switch. `wt list` show all. `wt rm` or `wt -d` delete (by branch or slug). `wt clean` remove merged worktrees. `wt clean --all` remove all worktrees. `wt migrate` renames old worktree paths to the current convention. Work shell overlay adds workspace routing via `REPO_WORKSPACE_MAP` – primitives route transparently over SSH, interactive commands (`wt <branch>`, bare `wt`) attach a remote tmux session.
-- `refresh-skills` – rebuild `~/.agents/skills` from dotfiles sources, then re-sync Claude symlinks, re-copy Cursor skills, and generate Gemini slash commands with real SKILL.md descriptions (run after editing skills, or via `pull-dot`)
-- `sync-codex-config` – sync top-level Codex autonomy defaults without replacing auth, trust, or profile-specific settings
-- `reset-dot` – rebuild the managed dotfiles layer after migrations or drift while preserving local-only state; leaves a real `~/tools` directory alone
 - `review` – Codex code review for any PR or branch. `review` auto-detects current branch's PR, `review 123` targets a specific PR, falls back to branch diff against main. Always async; writes `review.md` to auto-discovered topic dir (`~/.agents/artifacts/<branch-slug>/`, e.g. `feat/auth-flow` → `auth-flow`), notifies on completion. `--status` checks all reviews (table or `--json` array); self-heals stale pids. `--topic` to override auto-discovery.
 - `rebase-wip` – stash local edits, fetch/rebase onto the target branch, then reapply the stash. Useful when dotfiles change mid-task
 - `artifacts` (`a`) – unified artifact browser: `~/.agents/artifacts/` with frontmatter-aware picker. Actions: edit, view, execute, propose, review, claude, gemini, plan, cursor. `artifacts <query>` pre-filters.
