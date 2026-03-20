@@ -32,6 +32,13 @@ Auto-consult when writing or modifying shell scripts (bash/zsh).
 - `for x in $(cmd)` splits on whitespace – use `while IFS= read -r line` for line-by-line
 - Unquoted globs expand: `var=*` assigns matching filenames, not the literal `*`
 
+### `set -e` traps
+
+- `2>/dev/null` on fallible commands hides the cause of death – rescue errors inside the command or don't suppress stderr
+- `[[ cond ]] && action` exits the script when condition is false (returns 1). Use `if [[ cond ]]; then action; fi` or append `|| true`. Safe inside loops/if bodies; dangerous at top level or in function bodies.
+- `trap ... RETURN` referencing local vars crashes under `set -u` – locals are destroyed before the trap fires. Use EXIT trap (script-level) or explicit cleanup.
+- `${arr[@]:-}` on an empty array produces one empty string, not zero iterations. Before destructive ops: `[[ ${#arr[@]} -gt 0 ]] || return`
+
 ## Cross-Platform
 
 - Linux support is required, not optional

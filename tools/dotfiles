@@ -111,7 +111,7 @@ _verify_symlinks() {
   done < <(_managed_links)
 }
 
-# ━━━ Refresh skills ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ━━━ Refresh agent dirs ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 _prune_broken_links() {
   local dir="$1"
@@ -122,6 +122,40 @@ _prune_broken_links() {
       rm -f "$link"
     fi
   done
+}
+
+# Merge flat files from personal + work dotfiles into a target dir.
+# Converts directory symlinks to real dirs with per-file symlinks.
+# Usage: _refresh_flat_dir <subpath> <label>
+#   e.g. _refresh_flat_dir ".agents/conventions" "conventions"
+_refresh_flat_dir() {
+  local subpath="$1" label="$2"
+  local target="$HOME/$subpath"
+
+  # Convert directory symlink to real dir (migration from old layout)
+  if [[ -L "$target" ]]; then
+    rm -f "$target"
+  fi
+  mkdir -p "$target"
+  _prune_broken_links "$target"
+
+  # Collect sources
+  local sources=()
+  [[ -d "$DOTFILES/$subpath" ]] && sources+=("$DOTFILES/$subpath")
+  [[ -d "$WORK_DOTFILES/$subpath" ]] && sources+=("$WORK_DOTFILES/$subpath")
+
+  # Symlink each file (work wins on collision)
+  local count=0 source_dir f fname
+  for source_dir in "${sources[@]}"; do
+    for f in "$source_dir"/*; do
+      [[ -f "$f" ]] || continue
+      fname="$(basename "$f")"
+      ln -sf "$f" "$target/$fname"
+      ((count++)) || true
+    done
+  done
+
+  echo "  $label: $count files synced"
 }
 
 _refresh_skills() {
@@ -276,6 +310,8 @@ cmd_default() {
 
   echo ""
   echo "refreshing..."
+  _refresh_flat_dir ".agents/conventions" "conventions"
+  _refresh_flat_dir ".agents/docs" "docs"
   _refresh_skills
   _sync_codex_config
   _sync_karabiner
@@ -404,6 +440,7 @@ case "${1:-}" in
   setup           ) cmd_setup ;;
   doctor          ) cmd_doctor ;;
   _refresh-skills ) _refresh_skills ;;
+  _refresh-flat-dir ) shift; _refresh_flat_dir "$@" ;;
   _sync-codex     ) _sync_codex_config ;;
   -h|--help       ) usage ;;
   *)

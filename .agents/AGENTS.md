@@ -173,6 +173,8 @@ In all modes:
 - Hygiene aliases are safe anytime. Push operations (`gpush`, `gpushup`) only through /checkpoint.
 - Don't stash across branches when files differ. Make changes directly on target branch, or cherry-pick.
 - `--force-with-lease` fails after amend/rebase (tracking ref stale even after fetch). On personal feature branches, use `--force`. Alternative: `git push --force-with-lease=<branch>:<old-sha>` with SHA from `FETCH_HEAD`.
+- `gh` commands must run from the target repo's cwd. `--repo` flag alone is not enough; `git -C` works for git but not gh.
+- After `git mv`, `git add` both old and new paths to ensure rename detection.
 
 ## Pull Requests
 

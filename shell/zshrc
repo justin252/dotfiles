@@ -241,7 +241,7 @@ wt() {
       return ;;
     *)
       local dest
-      dest=$(~/tools/wt resolve "$1") || return 1
+      dest=$(~/tools/wt new "$1") || return 1
       cd "$dest"
       echo "→ $(git -C "$dest" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "$1") at $dest" ;;
   esac
