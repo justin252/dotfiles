@@ -9,6 +9,7 @@ Self-contained workflow -- execute steps fully, don't inject extra confirmation 
 
 ## Steps
 
+0. **State guard**: check for in-progress rebase (`-d .git/rebase-merge` or `-d .git/rebase-apply`) or merge (`-f .git/MERGE_HEAD`). If found, abort: "finish or abort the rebase/merge first."
 1. **Tidy**: run `/tidy` to diagnose branch/stack health. If P0 issues found, run `/tidy fix` before continuing. This handles branch guard, staged file audit, unstaged leaks, stack health, and scope check.
 2. **Build + test**: scope to affected targets. Skip if:
    - Docs-only change (no source files modified)
@@ -16,7 +17,7 @@ Self-contained workflow -- execute steps fully, don't inject extra confirmation 
    - Pure config change (no executable code modified). Note: shell scripts and tools ARE executable code – always test those
 3. **README**: update if changes affect it
 4. **Config review**: if any config files changed (CLAUDE.md, settings.json, zshrc, AGENTS.md), summarize what changed and why before committing
-5. **Commit + push + PR**: clean up history (squash/reword). Show diff, summarize, confirm before committing. Push and create/update PR. Use Graphite only when repo-level config enables it; default to git+gh. Always `--draft`.
+5. **Commit + push + PR**: squash/reword history before the first push – not after. Show diff, summarize, confirm before committing. Push and create/update PR. Use Graphite only when repo-level config enables it; default to git+gh. Always `--draft`.
 
    PR body:
    ```
