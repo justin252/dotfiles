@@ -15,7 +15,7 @@ Each animal is a specialist with its own identity and memory. 🐕 doesn't becom
 ```
 Pipeline (work production):
   🐙 octopus    /propose         design: problem.md → design.md → plan.md
-  🦫 beaver      /beaver          branch health: diagnose, rebase, restack
+  🦫 beaver      /tidy            branch health: diagnose, rebase, restack
   🐕 dog         /execute         implement: code changes, tests, fixes
   🐝 bee         (future)         swarm: repetitive sub-tasks at scale
   🦅 eagle       /checkpoint      ship: build, test, PR, output.md
