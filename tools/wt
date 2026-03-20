@@ -300,6 +300,23 @@ cmd_list() {
     echo "]"
   else
     git worktree list 2>/dev/null
+
+    # Stale worktree hint (human output only)
+    local stale=0 wt_path wt_branch last_commit_epoch now_epoch cutoff
+    now_epoch=$(date +%s)
+    cutoff=$((now_epoch - 7 * 86400))
+    while read -r wt_path; do
+      [[ -n "$wt_path" ]] || continue
+      [[ "$wt_path" == "$root" ]] && continue
+      last_commit_epoch=$(git -C "$wt_path" log -1 --format=%ct 2>/dev/null || echo "0")
+      if [[ "$last_commit_epoch" -lt "$cutoff" ]]; then
+        stale=$((stale + 1))
+      fi
+    done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree / { print $2 }')
+    if [[ $stale -gt 0 ]]; then
+      echo "" >&2
+      echo "hint: $stale stale worktree(s) (no commits in 7+ days). Run: wt clean" >&2
+    fi
   fi
 }
 
