@@ -200,28 +200,13 @@ alias cxe="codex exec"
 alias cxr="codex resume"
 
 # ─── Shell ────────────────────────────────────────────────────
-alias dot="cd ~/dotfiles"
 alias a=artifacts
 alias s=session
 alias pen="cd ~/code/penny"
 tools() { cd "${TOOLS_PATH:-$HOME/tools}"; }
 alias sz='source ~/.zshrc && tmux source-file ~/.tmux.conf 2>/dev/null; true'
-unalias pull-dot 2>/dev/null
-function pull-dot {
-  git -C ~/dotfiles fetch origin main && git -C ~/dotfiles rebase --autostash origin/main
-  [[ -d ~/dotfiles-work/.git ]] && git -C ~/dotfiles-work pull --rebase
-  # migrate docs → artifacts (one-time, idempotent)
-  [[ -d ~/.agents/docs && ! -d ~/.agents/artifacts ]] && mv ~/.agents/docs ~/.agents/artifacts && echo "migrated ~/.agents/docs → ~/.agents/artifacts"
-  [[ -d ~/.agents/docs && -d ~/.agents/artifacts ]] && echo "warn: both ~/.agents/docs and ~/.agents/artifacts exist; merge manually" >&2
-  command -v refresh-skills &>/dev/null && refresh-skills
-  command -v sync-codex-config &>/dev/null && { sync-codex-config || true; }
-  source ~/.zshrc
-}
-unalias reset-dot 2>/dev/null
-function reset-dot {
-  command reset-dot
-  source ~/.zshrc
-}
+unalias dot 2>/dev/null
+dot() { command dot "$@" && sz; }
 alias dotw="cd ~/dotfiles-work"
 
 # ─── Git Worktrees ───────────────────────────────────────────

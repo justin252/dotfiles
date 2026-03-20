@@ -90,7 +90,7 @@ else
   _fail "double-source has errors"
 fi
 
-for fn in gclean gsync gm killport openplan; do
+for fn in gclean gsync gm killport openplan dot; do
   if zsh -c 'source "$HOME/.zshrc" 2>/dev/null; whence -f '"$fn"' >/dev/null 2>&1' 2>/dev/null; then
     _pass "function exists: $fn"
   else
@@ -128,6 +128,42 @@ if [[ "$op_out" == *"no plans"* ]]; then
   _pass "openplan: empty dir -> 'no plans' message"
 else
   _fail "openplan: empty dir should say 'no plans'"
+fi
+
+# ━━━ dot ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+echo ""
+echo "=== dot ==="
+
+# dot --help should show usage
+dot_help=$("$REPO_ROOT/tools/dot" --help 2>&1)
+if [[ "$dot_help" == *"unified dotfiles sync"* ]]; then
+  _pass "dot: --help shows usage"
+else
+  _fail "dot: --help should show usage"
+fi
+
+# dot doctor should run without error in sandbox
+if DOTFILES="$REPO_ROOT" "$REPO_ROOT/tools/dot" doctor >/dev/null 2>&1; then
+  _pass "dot doctor: completes in sandbox"
+else
+  _fail "dot doctor: failed in sandbox"
+fi
+
+# dot _refresh-skills should work (internal subcommand for install.sh)
+if DOTFILES="$REPO_ROOT" "$REPO_ROOT/tools/dot" _refresh-skills >/dev/null 2>&1; then
+  _pass "dot _refresh-skills: completes"
+else
+  _fail "dot _refresh-skills: failed"
+fi
+
+# dot: verify symlink repair – break a symlink, run verify, check it's fixed
+ln -sfn /nonexistent "$HOME/.agents/AGENTS.md"
+dot_out=$(DOTFILES="$REPO_ROOT" "$REPO_ROOT/tools/dot" 2>&1 || true)
+if [[ -L "$HOME/.agents/AGENTS.md" ]] && [[ "$(readlink "$HOME/.agents/AGENTS.md")" == "$REPO_ROOT/.agents/AGENTS.md" ]]; then
+  _pass "dot: self-heals broken symlink"
+else
+  _fail "dot: should repair broken symlink"
 fi
 
 # ━━━ wt ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

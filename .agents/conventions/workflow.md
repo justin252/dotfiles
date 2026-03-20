@@ -88,7 +88,7 @@ dotfiles repo → install.sh → symlinks (zshrc, tmux.conf, agents, skills, cla
                             → seeds (INBOX.md, wins.md, ~/.agents/artifacts/)
 ```
 
-`pull-dot` – pull both repos, refresh shared skills, sync Codex defaults, re-source zshrc.
+`dot` – pull repos, verify/repair symlinks, refresh skills, sync configs, re-source shell.
 
 ## Memory Model
 
