@@ -35,14 +35,14 @@ ag - agent session manager
   ag run <plan> --skip review   skip pipeline stages
   ag run <plan> --resume        resume from last incomplete stage
   ag run <plan> --test          integration test (stubs in /tmp)
-  ag <name>                 launch agent in worktree (executor from AG_EXECUTE_MODEL)
-  ag proj/feature           grouped session (display-only grouping by prefix)
-  ag <name> --shell         create worktree + tmux, drop to shell
-  ag <name> -m MSG          launch with initial task
-  ag <name> --cursor        cursor + agent in worktree
-  ag <name> --claude        force using claude
-  ag <name> --gemini        force using gemini
-  ag <name> --codex         force using codex
+  ag new <name>             launch agent in worktree (create or reattach)
+  ag new proj/feature       grouped session (display-only grouping by prefix)
+  ag new <name> --shell     create worktree + tmux, drop to shell
+  ag new <name> -m MSG      launch with initial task (background)
+  ag new <name> --cursor    cursor + agent in worktree
+  ag new <name> --claude    force using claude
+  ag new <name> --gemini    force using gemini
+  ag new <name> --codex     force using codex
   ag pr <number|url>        checkout PR into worktree + attach
   ag pr <number|url> -m MSG checkout PR + launch agent with task
   ag pr <number|url> --review  review PR (alias for ag review)
@@ -1477,9 +1477,14 @@ INFOEOF
       echo "$lines"
     fi
     ;;
-  *)
-    # launch: ag <name> [flags]
-    name="$1"
+  new)
+    shift
+    # ag new <name> [flags] – create or reattach session
+    name="${1:-}"
+    if [[ -z "$name" ]]; then
+      echo "usage: ag new <name> [-m MSG] [--shell] [--cursor]" >&2
+      exit 1
+    fi
     if [[ "$name" == -* ]]; then
       echo "error: name cannot start with '-': $name" >&2
       echo "run 'ag --help' for usage" >&2
@@ -1504,7 +1509,7 @@ INFOEOF
         --claude) cmd="claude"; shift ;;
         --codex)  cmd="codex"; shift ;;
         --no-input) no_input=true; shift ;;
-        -m)       [[ -z "${2:-}" ]] && { echo "usage: ag <name> -m MSG" >&2; exit 1; }
+        -m)       [[ -z "${2:-}" ]] && { echo "usage: ag new <name> -m MSG" >&2; exit 1; }
                   prompt="$2"; shift 2 ;;
         *)        echo "unknown flag: $1" >&2; exit 1 ;;
       esac
@@ -1595,5 +1600,11 @@ INFOEOF
       tmux send-keys -t "$session" "$cmd" Enter
       attach_or_switch "$session"
     fi
+    ;;
+  *)
+    echo "ag: unknown subcommand: $1" >&2
+    echo "  Did you mean: ag new $1?" >&2
+    echo "  Run 'ag --help' for usage" >&2
+    exit 1
     ;;
 esac

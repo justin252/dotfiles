@@ -18,6 +18,10 @@
 - Before proposing new tools/aliases, grep existing config to avoid duplicating what's already there.
 - Verify platform capabilities before designing around them – don't assume features exist at system boundaries.
 - Shell scripts: MUST read `.agents/conventions/shell-scripts.md` before writing or modifying shell scripts. Covers strict mode, quoting, cross-platform traps (BSD vs GNU), error handling, security, testing.
+- Batch file processors: rescue/catch per item, not per batch. One bad file must not crash the tool.
+- Don't embed volatile counts (test count, line count, file count) in docs or README. Describe what, not how many.
+- When implementing from plan, challenge correctness of stateful operations (counters, file naming, sequencing). Plans are proposals, not specs.
+- Platform-specific commands (`open`, `pbcopy`, `stat -f`, `date -j`): grep before shipping shell scripts. Guard with `command -v`.
 - Flag performance when it matters – hot paths, large datasets, repeated calls. Don't optimize prematurely.
 - Go: default to unexported (lowercase). Only export when cross-package usage is confirmed.
 - CLI tools: MUST read `.agents/conventions/cli-guidelines.md` before writing code. clig.dev is a menu, not a checklist – apply recommendations to the tool's actual use case:
@@ -55,6 +59,13 @@
 - Permission denial in autonomous mode: don't retry the same operation. Identify what was blocked, explain what permission it needs, and offer the manual command or suggest user run it interactively. Continue with remaining work that doesn't require the blocked permission.
 - Autonomous session end: summarize completed work + remaining items. Send terminal notification so user knows the run finished.
 - Background agents (`AG_BACKGROUND=1`): never block on clarification. If stuck after 3 turns with no progress, write `~/.agents/artifacts/<topic>/stuck.md` (what's blocked, what was tried) and exit.
+- After design decisions that rename or remove concepts, grep all docs for the old concept before considering it done.
+- Start minimal, add when needed. Don't design for consumers that don't exist yet.
+- When designing skill boundaries, ask user to describe the full workflow before splitting responsibilities.
+- Renames: confirm final name before editing files. Name churn with partial edits costs O(files × renames).
+- Cross-repo tasks: create branches in all target repos before making any edits.
+- At checkpoint, challenge whether TDD scaffolding (greps, pattern checks) should ship as permanent tests.
+- When work spans repos, write session note with exact change specs for the second repo before ending.
 
 ### Interruption routing
 
@@ -144,6 +155,9 @@ Use as reference frame – draw analogies to these when explaining new tech or m
 - "be thorough" = add integration tests, edge cases, error paths
 - After adding input validation, grep test call sites – verify existing test inputs still pass.
 - At review-to-execute transitions, re-read Testing section – analysis mindset skips TDD.
+- `bash -n` is syntax only; mentally trace execution context, platform, and edge cases before shipping.
+- TDD greps/pattern checks are scaffolding; ship behavioral tests that verify output, not source patterns.
+- If a test needs a workaround to pass, fix the code under test, not the test.
 
 ## Safety
 
@@ -154,6 +168,7 @@ In all modes:
 - Never delete branches without confirming they're merged.
 - Flag sensitive values (API keys, tokens) in files before committing/pushing – even if user is driving.
 - Before creating repos in an org, verify permissions and constraints (branch protection, deletion, visibility).
+- Public repos: never reference employer, internal tools, or "leaking" in commits, PRs, or comments. Use neutral language.
 
 ## Git
 
@@ -175,6 +190,8 @@ In all modes:
 - `--force-with-lease` fails after amend/rebase (tracking ref stale even after fetch). On personal feature branches, use `--force`. Alternative: `git push --force-with-lease=<branch>:<old-sha>` with SHA from `FETCH_HEAD`.
 - `gh` commands must run from the target repo's cwd. `--repo` flag alone is not enough; `git -C` works for git but not gh.
 - After `git mv`, `git add` both old and new paths to ensure rename detection.
+- Nested rebase conflicts: `git show <branch>:<file>` to get final intended content from the branch tip. Works when rebasing onto a new base with same content.
+- "Verify platform capabilities" means try the command or read source, not just check `--help`. Tools with plumbing/porcelain split hide commands from help text.
 
 ## Pull Requests
 
@@ -243,6 +260,8 @@ Capture:
 ## Dotfiles
 
 Personal dotfiles repo (`justin252/dotfiles`): universal base layer. A separate work dotfiles repo can overlay on top (shell, agent rules, skills) via its own `install.sh`. Overlays are optional; this repo works standalone.
+
+- `~/.zprofile` is machine-local (tool installers like brew, pipx, volta own it). Dotfiles manage zshrc, not zprofile.
 
 ### Shell config layering
 
