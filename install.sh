@@ -3,6 +3,12 @@ set -e
 
 DOTFILES="$(cd "$(dirname "$0")" && pwd)"
 
+# Seed ~/.zprofile on macOS if missing (homebrew PATH must be set at login, not per-shell)
+if [[ "$OSTYPE" == darwin* && ! -f ~/.zprofile && -x /opt/homebrew/bin/brew ]]; then
+  echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' > ~/.zprofile
+  echo "Created ~/.zprofile (homebrew)"
+fi
+
 # Install fzf if missing
 _install_fzf_binary() {
   echo "Downloading fzf binary from GitHub..."
