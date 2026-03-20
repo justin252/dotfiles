@@ -5,15 +5,7 @@ plugins=(z)
 [[ -f $ZSH/oh-my-zsh.sh ]] && source $ZSH/oh-my-zsh.sh
 
 # ─── Environment ──────────────────────────────────────────────
-# Homebrew (macOS only)
-if [[ "$OSTYPE" == darwin* && -d /opt/homebrew ]]; then
-  export HOMEBREW_PREFIX="/opt/homebrew"
-  export HOMEBREW_CELLAR="/opt/homebrew/Cellar"
-  export HOMEBREW_REPOSITORY="/opt/homebrew"
-  export PATH="/opt/homebrew/bin:/opt/homebrew/sbin${PATH+:$PATH}"
-  export MANPATH="/opt/homebrew/share/man${MANPATH+:$MANPATH}:"
-  export INFOPATH="/opt/homebrew/share/info:${INFOPATH:-}"
-fi
+# Package manager PATH: set in ~/.zprofile (login, once), not here (per-shell)
 export EDITOR="vim"
 export VISUAL="vim"
 export PATH="$HOME/tools:$HOME/.local/bin:$PATH"
@@ -94,8 +86,8 @@ _git_fetch_clean() {
 # Delete gone, merged, and squash-merged branches
 _gclean_branches() {
   local default=$(_git_default_branch)
-  git branch -vv | grep 'origin/.*: gone]' | awk '{print $1}' | xargs git branch -D 2>/dev/null
-  git branch --merged "$default" | grep -v "\*\|$default" | xargs git branch -d 2>/dev/null
+  git branch -vv | grep 'origin/.*: gone]' | awk '{print $1}' | grep . | xargs git branch -D 2>/dev/null
+  git branch --merged "$default" | grep -v "\*\|$default" | grep . | xargs git branch -d 2>/dev/null
   local branch
   for branch in $(git branch --format='%(refname:short)' | grep -v "^${default}$"); do
     local state=$(gh pr list --head "$branch" --state merged --json state --jq '.[0].state' 2>/dev/null)
@@ -143,7 +135,7 @@ alias ip="curl -s ifconfig.me"
 if [[ "$OSTYPE" == darwin* ]]; then
   alias flushdns="sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder"
 fi
-killport() { lsof -ti:$1 | xargs kill -9; }
+killport() { [[ -n "${1:-}" ]] || { echo "usage: killport <port>" >&2; return 1; }; lsof -ti:"$1" | xargs kill -9; }
 
 # ─── GitHub ──────────────────────────────────────────────────
 alias gopen="gh browse"
@@ -190,7 +182,9 @@ ccplanadd() { local a=(); for d; do a+=(--add-dir "$d"); done; claude --permissi
 # Plans
 openplan() {
   command -v cursor &>/dev/null || { echo "cursor not installed" >&2; return 1; }
-  cursor "$(ls -t ~/.claude/plans/*.md 2>/dev/null | head -1)"
+  local f; f="$(ls -t ~/.claude/plans/*.md 2>/dev/null | head -1)"
+  [[ -n "$f" ]] || { echo "no plans found" >&2; return 1; }
+  cursor "$f"
 }
 
 # ─── Gemini ───────────────────────────────────────────────────
@@ -214,7 +208,7 @@ tools() { cd "${TOOLS_PATH:-$HOME/tools}"; }
 alias sz='source ~/.zshrc && tmux source-file ~/.tmux.conf 2>/dev/null; true'
 unalias pull-dot 2>/dev/null
 function pull-dot {
-  git -C ~/dotfiles fetch origin main && git -C ~/dotfiles rebase origin/main
+  git -C ~/dotfiles fetch origin main && git -C ~/dotfiles rebase --autostash origin/main
   [[ -d ~/dotfiles-work/.git ]] && git -C ~/dotfiles-work pull --rebase
   # migrate docs → artifacts (one-time, idempotent)
   [[ -d ~/.agents/docs && ! -d ~/.agents/artifacts ]] && mv ~/.agents/docs ~/.agents/artifacts && echo "migrated ~/.agents/docs → ~/.agents/artifacts"

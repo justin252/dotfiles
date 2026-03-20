@@ -116,12 +116,20 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `session` (`s`) – session notes browser: `~/.agents/sessions/` (curated .md summaries for context handoff). `session <query>` pre-filters.
 - `t` – tools browser: fzf picker for all `~/tools/` scripts, grouped by category, with `--help` preview. `t <query>` pre-filters.
 
+## Testing
+
+```bash
+bash tests/sandbox.sh
+```
+
+Creates a temp `HOME`, stubs external deps, runs `install.sh`, sources zshrc, and verifies symlinks, functions, and tool behavior. Zero side effects on your real machine.
+
 ## Contributing
 
 - `install.sh`: clean-machine-first; create dirs before scanning them; optional integrations should warn, not abort; only delete clearly managed paths
 - `tools/`: keep `-h`/`--help`, idempotent defaults, and macOS/Linux shell compatibility
 - `skills/`: keep YAML frontmatter valid and update workflow docs when behavior changes
-- Smoke-test install/repair changes with a temp `HOME`, not just your live machine
+- Run `bash tests/sandbox.sh` before pushing
 
 ## Preference distribution
 

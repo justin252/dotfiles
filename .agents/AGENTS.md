@@ -293,9 +293,10 @@ All on PATH via `~/tools` symlink:
 ### Testing dotfiles changes
 
 ```bash
-zsh -n <file>                                    # syntax check
-zsh -c 'source ~/.zshrc && echo OK'              # clean source
-bash ~/dotfiles/install.sh                       # idempotent re-run
-zsh -c 'source ~/.zshrc; source ~/.zshrc'        # double-source (catches alias conflicts)
-bash -c 'HOME="$(mktemp -d)" bash ~/dotfiles/install.sh'   # clean-machine smoke test
+# Sandbox test (isolated HOME, stubs, behavioral)
+bash ~/dotfiles/tests/sandbox.sh
+
+# Quick checks (no sandbox needed)
+zsh -n <file>                               # syntax check
+zsh -c 'source ~/.zshrc; source ~/.zshrc'   # double-source
 ```
