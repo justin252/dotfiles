@@ -85,9 +85,9 @@ for d in ~/.agents/skills ~/.claude/skills; do
   done
 done
 
-# Shared source of truth
-ln -sfn "$DOTFILES/.agents/conventions" ~/.agents/conventions
-ln -sfn "$DOTFILES/.agents/docs" ~/.agents/docs
+# Shared source of truth (conventions + docs use merge pattern like skills)
+DOTFILES="$DOTFILES" WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}" "$DOTFILES/tools/dotfiles" _refresh-flat-dir ".agents/conventions" "conventions"
+DOTFILES="$DOTFILES" WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}" "$DOTFILES/tools/dotfiles" _refresh-flat-dir ".agents/docs" "docs"
 ln -sf "$DOTFILES/.agents/AGENTS.md" ~/.agents/AGENTS.md
 mkdir -p ~/.gemini
 ln -sf "$DOTFILES/.gemini/GEMINI.md" ~/.gemini/GEMINI.md
@@ -127,12 +127,17 @@ fi
 
 # Seed local-only files (never synced via git)
 # Migrate old docs → artifacts (one-time, pre-docs-tier)
-# Skip if ~/.agents/docs is already a symlink (new docs tier from dotfiles repo)
+# Skip if docs dir contains symlinks (already managed by refresh) or is a symlink itself
 if [[ ! -L ~/.agents/docs && -d ~/.agents/docs && ! -d ~/.agents/artifacts ]]; then
-  mv ~/.agents/docs ~/.agents/artifacts
-  echo "Migrated ~/.agents/docs → ~/.agents/artifacts"
+  # Only migrate if dir has real files, not managed symlinks
+  if ! find ~/.agents/docs -maxdepth 1 -type l -print -quit 2>/dev/null | grep -q .; then
+    mv ~/.agents/docs ~/.agents/artifacts
+    echo "Migrated ~/.agents/docs → ~/.agents/artifacts"
+  fi
 elif [[ ! -L ~/.agents/docs && -d ~/.agents/docs && -d ~/.agents/artifacts ]]; then
-  echo "Warning: both ~/.agents/docs and ~/.agents/artifacts exist; merge manually" >&2
+  if ! find ~/.agents/docs -maxdepth 1 -type l -print -quit 2>/dev/null | grep -q .; then
+    echo "Warning: both ~/.agents/docs and ~/.agents/artifacts exist; merge manually" >&2
+  fi
 fi
 mkdir -p ~/.agents/artifacts ~/.agents/sessions ~/.agents/state ~/.agents/learnings
 if [[ ! -f ~/.agents/INBOX.md ]]; then

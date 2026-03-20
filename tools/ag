@@ -599,7 +599,7 @@ RUNEOF
     echo "  📋 plan: $run_plan" >&2
 
     # create worktree + session
-    worktree=$(WT_CREATE_MODE=new ~/tools/wt resolve "$run_topic") || exit 1
+    worktree=$(WT_CREATE_MODE=new ~/tools/wt new "$run_topic") || exit 1
 
     if tmux has-session -t "$session" 2>/dev/null; then
       echo "session already exists: $session" >&2
@@ -737,8 +737,8 @@ RUNEOF
       cd "$local_repo"
     fi
 
-    # resolve worktree via wt resolve (handles fetch, existing worktree, creation)
-    dest=$(~/tools/wt resolve "$pr_branch") || exit 1
+    # resolve worktree via wt new (handles fetch, existing worktree, creation)
+    dest=$(~/tools/wt new "$pr_branch") || exit 1
     slug=$(echo "$pr_branch" | tr '/' '-')
     local_repo=$(repo_name)
     session="ag-${local_repo}-${slug}"
@@ -1520,13 +1520,13 @@ INFOEOF
     # resolve worktree: ag creates new branches (not checking out existing remote)
     if [[ -n "$prompt" || "$no_input" == true ]]; then
       # auto-confirm for background launch
-      worktree=$(WT_CREATE_MODE=new ~/tools/wt resolve "$name") || exit 1
+      worktree=$(WT_CREATE_MODE=new ~/tools/wt new "$name") || exit 1
     elif [[ -t 0 ]]; then
       # interactive: confirm creation
       echo "will create worktree for '$name' if needed" >&2
-      worktree=$(WT_CREATE_MODE=new ~/tools/wt resolve "$name") || exit 1
+      worktree=$(WT_CREATE_MODE=new ~/tools/wt new "$name") || exit 1
     else
-      worktree=$(WT_CREATE_MODE=new ~/tools/wt resolve "$name") || exit 1
+      worktree=$(WT_CREATE_MODE=new ~/tools/wt new "$name") || exit 1
     fi
     local_repo=$(repo_name)
     session="ag-${local_repo}-${name}"
