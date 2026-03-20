@@ -184,7 +184,7 @@ In all modes:
 - Feature branches: prefer rewriting history (reset + force push) over revert commits. Reverts only on main/shared branches.
 - Never `git reset --soft main` – local main drifts. Use `HEAD~N` (relative) for squashing branch commits.
 - Don't auto-squash branch commits at checkpoint – distinct logical commits (move, fix, feature) tell a story. Ask first.
-- Git hygiene aliases (`dotfiles/shell/zshrc`): `gm` (main + pull + full cleanup), `gsync` (rebase onto main), `gclean` (cleanup only). Self-healing fetch auto-recovers stale refs. For Graphite stacks, use `gtr` not `gsync`.
+- Git hygiene aliases (`dotfiles/shell/zshrc`): `gm` (go to main + sync + cleanup; auto-stashes dirty changes), `gsync` (rebase onto main), `gclean` (cleanup only). Self-healing fetch auto-recovers stale refs. For Graphite stacks, use `gtr` not `gsync`.
 - Hygiene aliases are safe anytime. Push operations (`gpush`, `gpushup`) only through /checkpoint.
 - Don't stash across branches when files differ. Make changes directly on target branch, or cherry-pick.
 - `--force-with-lease` fails after amend/rebase (tracking ref stale even after fetch). On personal feature branches, use `--force`. Alternative: `git push --force-with-lease=<branch>:<old-sha>` with SHA from `FETCH_HEAD`.

@@ -51,7 +51,7 @@ _repo() { compadd -M 'm:{a-zA-Z}={A-Za-z}' $(ls "$REPO_ROOT") }
 compdef _repo repo
 
 # ─── Git ──────────────────────────────────────────────────────
-# Hygiene: gm (main + cleanup), gsync (rebase onto main), gclean (cleanup only), gnew (fresh branch)
+# Hygiene: gm (go to main + sync + cleanup; auto-stashes), gsync (rebase onto main), gclean (cleanup only), gnew (fresh branch)
 # All use self-healing fetch – auto-rebuilds refs on stale packed-ref conflicts
 # Worktrees: wt <branch|PR#|URL>. Graphite stacks: gtr not gsync
 alias gs="git status"
@@ -101,10 +101,17 @@ gsync() {
   _git_fetch_clean && git rebase "origin/$default"
 }
 gm() {
+  local dirty=false prev_branch
+  prev_branch=$(git branch --show-current)
+  if ! git diff-index --quiet HEAD -- 2>/dev/null; then
+    git stash push -m "gm: auto-stash from $prev_branch"
+    dirty=true
+  fi
   _git_fetch_clean
   git checkout "$(_git_default_branch)" && git pull --rebase
   _gclean_branches
   ~/tools/wt clean --force 2>/dev/null || true
+  $dirty && echo "Stashed changes from $prev_branch:" && git stash show
 }
 gfresh() {
   local branch=$(git branch --show-current)
