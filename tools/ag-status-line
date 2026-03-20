@@ -42,7 +42,7 @@ while read -r sess; do
 
   if [[ -n "$phase" && "$phase" != "done" ]]; then
     case "$phase" in
-      executing) icon="🦊" ;;
+      executing) icon="🐕" ;;
       shipping)  icon="🦅" ;;
       reviewing) icon="🦉" ;;
       fixing)    icon="🔧" ;;
