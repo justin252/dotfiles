@@ -16,6 +16,7 @@ Human-first design. Simple composable parts. Consistency across commands. Discov
 - Flags, args, subcommands should be order-independent where feasible
 - Never read secrets from flags (visible in `ps`, shell history). Use `--password-file`, stdin, or credential stores
 - Support `-` for stdin/stdout in file arguments
+- Auto-detect piped stdin when `--input` is omitted: `stat.Mode()&os.ModeCharDevice == 0`. Don't force users to pass `-i -` for pipe workflows
 
 ## Output
 
