@@ -34,24 +34,8 @@ alias ...="cd ../.."
 alias c="clear"
 alias ll="ls -lAh"
 
-repo() {
-  if [[ -z "$1" ]]; then
-    ls "$REPO_ROOT"
-    return
-  fi
-  local target="$REPO_ROOT/$1"
-  if [[ -d "$target" ]]; then
-    cd "$target"
-  else
-    echo "no repo '$1' in $REPO_ROOT" >&2
-    return 1
-  fi
-}
-_repo() { compadd -M 'm:{a-zA-Z}={A-Za-z}' $(ls "$REPO_ROOT") }
-compdef _repo repo
-
 # ─── Git ──────────────────────────────────────────────────────
-# Hygiene: gm (main + cleanup), gsync (rebase onto main), gclean (cleanup only), gnew (fresh branch)
+# Hygiene: gm (main + auto-stash + cleanup), gsync (rebase onto main), gclean (cleanup only), gnew (fresh branch)
 # All use self-healing fetch – auto-rebuilds refs on stale packed-ref conflicts
 # Worktrees: wt <branch|PR#|URL>. Graphite stacks: gtr not gsync
 alias gs="git status"
@@ -211,14 +195,6 @@ alias dotw="cd ~/dotfiles-work"
 dotfiles() { command dotfiles "$@" && sz; }
 
 # ─── Git Worktrees ───────────────────────────────────────────
-# Kill any tmux sessions whose working directory is inside a path (layer-agnostic)
-_wt_kill_sessions_in() {
-  local target="$1" sess sess_path
-  while read -r sess; do
-    sess_path=$(tmux display-message -t "$sess" -p '#{pane_current_path}' 2>/dev/null) || continue
-    [[ "$sess_path" == "$target"* ]] && tmux kill-session -t "$sess" 2>/dev/null
-  done < <(tmux list-sessions -F '#{session_name}' 2>/dev/null)
-}
 
 wt() {
   case "${1:-}" in

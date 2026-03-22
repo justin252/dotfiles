@@ -167,11 +167,11 @@ else
   _fail "dotfiles doctor: failed in sandbox"
 fi
 
-# dotfiles _refresh-skills should work (internal subcommand for install.sh)
+# dotfiles: unknown subcommand should fail
 if DOTFILES="$REPO_ROOT" "$REPO_ROOT/tools/dotfiles" _refresh-skills >/dev/null 2>&1; then
-  _pass "dotfiles _refresh-skills: completes"
+  _fail "dotfiles: unknown subcommand should error"
 else
-  _fail "dotfiles _refresh-skills: failed"
+  _pass "dotfiles: unknown subcommand errors"
 fi
 
 # dotfiles: verify symlink repair – break a symlink, run verify, check it's fixed

@@ -73,41 +73,10 @@ if ! command -v codex &>/dev/null; then
   fi
 fi
 
-# Symlink tools
+# Bootstrap: symlink tools first so dotfiles tool is available
 ln -sfn "$DOTFILES/tools" ~/tools
 
-mkdir -p ~/.claude ~/.cursor ~/.agents ~/.agents/skills ~/.claude/skills
-
-# Clean broken symlinks in dirs we manage with per-item symlinks
-for d in ~/.agents/skills ~/.claude/skills; do
-  find "$d" -maxdepth 1 -type l 2>/dev/null | while read -r link; do
-    [[ -e "$link" ]] || rm -f "$link"
-  done
-done
-
-# Shared source of truth (conventions + docs use merge pattern like skills)
-DOTFILES="$DOTFILES" WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}" "$DOTFILES/tools/dotfiles" _refresh-flat-dir ".agents/conventions" "conventions"
-DOTFILES="$DOTFILES" WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}" "$DOTFILES/tools/dotfiles" _refresh-flat-dir ".agents/docs" "docs"
-ln -sf "$DOTFILES/.agents/AGENTS.md" ~/.agents/AGENTS.md
-mkdir -p ~/.gemini
-ln -sf "$DOTFILES/.gemini/GEMINI.md" ~/.gemini/GEMINI.md
-[[ -L ~/GEMINI.md ]] && rm -f ~/GEMINI.md
-
-# Shared skill sync: rebuild ~/.agents/skills, then sync Claude/Cursor views from it.
-ln -sfn "$DOTFILES/.claude/agents" ~/.claude/agents
-ln -sf "$DOTFILES/.claude/CLAUDE.md" ~/.claude/CLAUDE.md
-ln -sf "$DOTFILES/.claude/settings.json" ~/.claude/settings.json
-
-# Cursor/Claude shared skill sync (Codex reads ~/.agents/skills/ directly)
-DOTFILES="$DOTFILES" WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}" "$DOTFILES/tools/dotfiles" _refresh-skills
-ln -sfn "$DOTFILES/.cursor/rules" ~/.cursor/rules
-
-# Codex CLI defaults (keep auth/local trust state in ~/.codex/)
-if command -v codex &> /dev/null; then
-  "$DOTFILES/tools/dotfiles" _sync-codex || echo "Warning: could not sync Codex defaults"
-fi
-
-# RTK Claude Code hook (generates local hook script + RTK.md)
+# RTK Claude Code hook (one-time; generates local hook script + RTK.md)
 if command -v rtk &> /dev/null && [[ ! -f ~/.claude/hooks/rtk-rewrite.sh ]]; then
   if rtk init --global --auto-patch --hook-only; then
     echo "RTK hook initialized for Claude Code"
@@ -116,47 +85,7 @@ if command -v rtk &> /dev/null && [[ ! -f ~/.claude/hooks/rtk-rewrite.sh ]]; the
   fi
 fi
 
-ln -sf "$DOTFILES/shell/zshrc" ~/.zshrc
-ln -sf "$DOTFILES/shell/tmux.conf" ~/.tmux.conf
-
-# Karabiner (macOS only)
-if [[ "$OSTYPE" == darwin* ]]; then
-  mkdir -p ~/.config/karabiner
-  cp "$DOTFILES/karabiner/karabiner.json" ~/.config/karabiner/karabiner.json
-fi
-
-# Seed local-only files (never synced via git)
-# Migrate old docs → artifacts (one-time, pre-docs-tier)
-# Skip if docs dir contains symlinks (already managed by refresh) or is a symlink itself
-if [[ ! -L ~/.agents/docs && -d ~/.agents/docs && ! -d ~/.agents/artifacts ]]; then
-  # Only migrate if dir has real files, not managed symlinks
-  if ! find ~/.agents/docs -maxdepth 1 -type l -print -quit 2>/dev/null | grep -q .; then
-    mv ~/.agents/docs ~/.agents/artifacts
-    echo "Migrated ~/.agents/docs → ~/.agents/artifacts"
-  fi
-elif [[ ! -L ~/.agents/docs && -d ~/.agents/docs && -d ~/.agents/artifacts ]]; then
-  if ! find ~/.agents/docs -maxdepth 1 -type l -print -quit 2>/dev/null | grep -q .; then
-    echo "Warning: both ~/.agents/docs and ~/.agents/artifacts exist; merge manually" >&2
-  fi
-fi
-mkdir -p ~/.agents/artifacts ~/.agents/sessions ~/.agents/state ~/.agents/learnings
-if [[ ! -f ~/.agents/INBOX.md ]]; then
-  cat > ~/.agents/INBOX.md <<'EOF'
-## Refined
-
-## Inbox
-
-## Resolved
-EOF
-  echo "Created ~/.agents/INBOX.md"
-fi
-[[ ! -f ~/.agents/wins.md ]] && touch ~/.agents/wins.md && echo "Created ~/.agents/wins.md"
-
-# Managed git preferences (declarative; overrides DD-provisioned defaults for these keys)
-ln -sf "$DOTFILES/git/config" ~/.gitconfig.dotfiles
-if ! git config --global --get-all include.path 2>/dev/null | grep -qF '.gitconfig.dotfiles'; then
-  git config --global --add include.path '~/.gitconfig.dotfiles'
-fi
+# Delegate all managed state (symlinks, skills, configs, dirs, seeds) to dotfiles tool
+DOTFILES="$DOTFILES" WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}" "$DOTFILES/tools/dotfiles"
 
 echo "Done. Run 'dotfiles doctor' to verify, 'dotfiles' to sync ongoing."
-true

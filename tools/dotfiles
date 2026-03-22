@@ -12,11 +12,13 @@ OS="$(uname -s)"
 _green()  { printf '\033[32m%s\033[0m\n' "$*"; }
 _yellow() { printf '\033[33m%s\033[0m\n' "$*" >&2; }
 _red()    { printf '\033[31m%s\033[0m\n' "$*" >&2; }
-_bold()   { printf '\033[1m%s\033[0m\n' "$*"; }
+_bold()   { printf '\033[1m%s\033[0m\n' "$*" >&2; }
+die()     { printf 'error: %s\n' "$1" >&2; [[ -n "${2:-}" ]] && printf '  → %s\n' "$2" >&2; exit 1; }
 
 repaired=0
 warnings=0
 pulled=0
+DRYRUN=false
 
 # ━━━ Symlink manifest ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -27,8 +29,6 @@ $HOME/tools|$DOTFILES/tools
 $HOME/.zshrc|$DOTFILES/shell/zshrc
 $HOME/.tmux.conf|$DOTFILES/shell/tmux.conf
 $HOME/.agents/AGENTS.md|$DOTFILES/.agents/AGENTS.md
-$HOME/.agents/conventions|$DOTFILES/.agents/conventions
-$HOME/.agents/docs|$DOTFILES/.agents/docs
 $HOME/.gemini/GEMINI.md|$DOTFILES/.gemini/GEMINI.md
 $HOME/.claude/CLAUDE.md|$DOTFILES/.claude/CLAUDE.md
 $HOME/.claude/settings.json|$DOTFILES/.claude/settings.json
@@ -59,7 +59,7 @@ _pull_repo() {
     warnings=$((warnings + 1))
     return 0
   fi
-  echo "pulling $name..."
+  echo "pulling $name..." >&2
   if git -C "$repo" fetch origin main 2>/dev/null && \
      git -C "$repo" rebase --autostash origin/main 2>/dev/null; then
     pulled=$((pulled + 1))
@@ -76,15 +76,29 @@ _pull_repos() {
   _pull_repo "$HOME/workspaces-dotfiles" "workspaces-dotfiles"
 }
 
-# ━━━ Verify + repair symlinks ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# ━━━ Helpers ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-_verify_symlinks() {
-  local target source
+_prune_broken_links() {
+  local dir="$1"
+  [[ -d "$dir" ]] || return 0
+  local link
+  for link in "$dir"/*; do
+    if [[ -L "$link" && ! -e "$link" ]]; then
+      $DRYRUN && _yellow "  broken symlink: $link" || rm -f "$link"
+    fi
+  done
+}
+
+# ━━━ Ensure functions ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Each _ensure_* checks + fixes one concern. DRYRUN=true skips mutations.
+
+_ensure_symlinks() {
+  echo "symlinks:" >&2
+  local target source ok=0
   while IFS='|' read -r target source; do
     [[ -n "$target" ]] || continue
-    mkdir -p "$(dirname "$target")"
+    $DRYRUN || mkdir -p "$(dirname "$target")"
 
-    # Skip if source doesn't exist (stale manifest entry)
     if [[ ! -e "$source" ]]; then
       _yellow "  warn: source missing: $source"
       warnings=$((warnings + 1))
@@ -95,74 +109,111 @@ _verify_symlinks() {
       local current
       current="$(readlink "$target")"
       if [[ "$current" == "$source" ]]; then
+        ((ok++)) || true
         continue
       fi
-      ln -sfn "$source" "$target"
-      echo "  repaired: $target (was → $current)"
-      repaired=$((repaired + 1))
+      if $DRYRUN; then
+        _yellow "  wrong: $target → $current (expected $source)"
+        warnings=$((warnings + 1))
+      else
+        ln -sfn "$source" "$target"
+        echo "  repaired: $target (was → $current)" >&2
+        repaired=$((repaired + 1))
+      fi
     elif [[ -e "$target" ]]; then
-      _yellow "  warn: $target exists as real file (expected symlink to $source)"
+      _yellow "  blocked: $target exists as real file (expected symlink to $source)"
       warnings=$((warnings + 1))
     else
-      ln -sfn "$source" "$target"
-      echo "  created: $target → $source"
-      repaired=$((repaired + 1))
+      if $DRYRUN; then
+        _yellow "  missing: $target"
+        warnings=$((warnings + 1))
+      else
+        ln -sfn "$source" "$target"
+        echo "  created: $target → $source" >&2
+        repaired=$((repaired + 1))
+      fi
     fi
   done < <(_managed_links)
+  $DRYRUN && echo "  $ok ok, $warnings issues" >&2 || true
 }
 
-# ━━━ Refresh agent dirs ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+_ensure_flat_dirs() {
+  echo "flat dirs:" >&2
+  local subpath label target
+  for subpath in .agents/conventions .agents/docs; do
+    label="${subpath##*/}"
+    target="$HOME/$subpath"
 
-_prune_broken_links() {
-  local dir="$1"
-  [[ -d "$dir" ]] || return 0
-  local link
-  for link in "$dir"/*; do
-    if [[ -L "$link" && ! -e "$link" ]]; then
-      rm -f "$link"
+    if $DRYRUN; then
+      # Check: dir exists, each source file has a valid symlink
+      if [[ ! -d "$target" ]]; then
+        _yellow "  $label: directory missing"
+        warnings=$((warnings + 1))
+        continue
+      fi
+      local count=0 broken=0
+      for link in "$target"/*; do
+        [[ -L "$link" ]] || continue
+        if [[ -e "$link" ]]; then
+          ((count++)) || true
+        else
+          ((broken++)) || true
+        fi
+      done
+      if [[ $broken -gt 0 ]]; then
+        _yellow "  $label: $broken broken symlinks"
+        warnings=$((warnings + 1))
+      else
+        echo "  $label: $count files ok" >&2
+      fi
+    else
+      mkdir -p "$target"
+      _prune_broken_links "$target"
+
+      # Collect sources
+      local sources=()
+      [[ -d "$DOTFILES/$subpath" ]] && sources+=("$DOTFILES/$subpath")
+      [[ -d "$WORK_DOTFILES/$subpath" ]] && sources+=("$WORK_DOTFILES/$subpath")
+
+      # Symlink each file (work wins on collision; skip existing regular files)
+      local count=0 source_dir f fname
+      for source_dir in "${sources[@]}"; do
+        for f in "$source_dir"/*; do
+          [[ -f "$f" ]] || continue
+          fname="$(basename "$f")"
+          if [[ -f "$target/$fname" && ! -L "$target/$fname" ]]; then
+            _yellow "  $label: skipping $fname (local file exists)"
+            warnings=$((warnings + 1))
+            continue
+          fi
+          ln -sf "$f" "$target/$fname"
+          ((count++)) || true
+        done
+      done
+      echo "  $label: $count files synced" >&2
     fi
   done
 }
 
-# Merge flat files from personal + work dotfiles into a target dir.
-# Converts directory symlinks to real dirs with per-file symlinks.
-# Usage: _refresh_flat_dir <subpath> <label>
-#   e.g. _refresh_flat_dir ".agents/conventions" "conventions"
-_refresh_flat_dir() {
-  local subpath="$1" label="$2"
-  local target="$HOME/$subpath"
-
-  # Convert directory symlink to real dir (migration from old layout)
-  if [[ -L "$target" ]]; then
-    rm -f "$target"
-  fi
-  mkdir -p "$target"
-  _prune_broken_links "$target"
-
-  # Collect sources
-  local sources=()
-  [[ -d "$DOTFILES/$subpath" ]] && sources+=("$DOTFILES/$subpath")
-  [[ -d "$WORK_DOTFILES/$subpath" ]] && sources+=("$WORK_DOTFILES/$subpath")
-
-  # Symlink each file (work wins on collision)
-  local count=0 source_dir f fname
-  for source_dir in "${sources[@]}"; do
-    for f in "$source_dir"/*; do
-      [[ -f "$f" ]] || continue
-      fname="$(basename "$f")"
-      ln -sf "$f" "$target/$fname"
-      ((count++)) || true
+_ensure_skills() {
+  echo "skills:" >&2
+  if $DRYRUN; then
+    local count=0 broken=0
+    for s in "$HOME/.agents/skills"/*/; do
+      [[ -d "$s" ]] || continue
+      if [[ -L "$s" && ! -e "$s" ]]; then
+        ((broken++)) || true
+      else
+        ((count++)) || true
+      fi
     done
-  done
-
-  echo "  $label: $count files synced"
-}
-
-_refresh_skills() {
-  # Remove stale top-level symlinks (from old layout)
-  [[ -L "$HOME/.agents/skills" ]] && rm -f "$HOME/.agents/skills" || true
-  [[ -L "$HOME/.claude/skills" ]] && rm -f "$HOME/.claude/skills" || true
-  [[ -L "$HOME/.cursor/skills" ]] && rm -f "$HOME/.cursor/skills" || true
+    if [[ $broken -gt 0 ]]; then
+      _yellow "  $broken broken skill symlinks"
+      warnings=$((warnings + 1))
+    fi
+    echo "  $count skills ok" >&2
+    return 0
+  fi
 
   mkdir -p "$HOME/.agents/skills" "$HOME/.claude/skills" "$HOME/.cursor/skills" "$HOME/.gemini/commands"
 
@@ -175,7 +226,7 @@ _refresh_skills() {
   [[ -d "$DOTFILES/.agents/skills" ]] && skill_sources+=("$DOTFILES/.agents/skills")
   [[ -d "$WORK_DOTFILES/.agents/skills" ]] && skill_sources+=("$WORK_DOTFILES/.agents/skills")
   if [[ ${#skill_sources[@]} -eq 0 ]]; then
-    _yellow "warn: no skill sources found"
+    _yellow "  warn: no skill sources found"
     warnings=$((warnings + 1))
     return 0
   fi
@@ -238,16 +289,34 @@ GEMEOF
     ((count++)) || true
   done
 
-  echo "  skills: $count synced"
+  echo "  $count synced" >&2
 }
 
-# ━━━ Sync Codex config ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-_sync_codex_config() {
+_ensure_codex() {
   command -v codex &>/dev/null || return 0
+  echo "codex:" >&2
+
+  local config_file="$HOME/.codex/config.toml"
+
+  if $DRYRUN; then
+    if [[ ! -f "$config_file" ]]; then
+      _yellow "  config missing"
+      warnings=$((warnings + 1))
+      return 0
+    fi
+    local missing=0
+    grep -q '^approval_policy *= *"never"' "$config_file" 2>/dev/null || ((missing++)) || true
+    grep -q '^sandbox_mode *= *"workspace-write"' "$config_file" 2>/dev/null || ((missing++)) || true
+    if [[ $missing -gt 0 ]]; then
+      _yellow "  $missing defaults need sync"
+      warnings=$((warnings + 1))
+    else
+      echo "  defaults ok" >&2
+    fi
+    return 0
+  fi
 
   local config_dir="$HOME/.codex"
-  local config_file="$config_dir/config.toml"
   local tmp_file
   tmp_file="$(mktemp "${TMPDIR:-/tmp}/codex-config.XXXXXX")"
 
@@ -274,149 +343,185 @@ _sync_codex_config() {
   ' "$config_file" >"$tmp_file" || { rm -f "$tmp_file"; return 1; }
 
   mv "$tmp_file" "$config_file"
-  echo "  codex: defaults synced"
+  echo "  defaults synced" >&2
 }
 
-# ━━━ Platform-specific ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-_sync_karabiner() {
+_ensure_karabiner() {
   [[ "$OS" == "Darwin" ]] || return 0
-  [[ -f "$DOTFILES/karabiner/karabiner.json" ]] || return 0
+  local src="$DOTFILES/karabiner/karabiner.json"
+  local dest="$HOME/.config/karabiner/karabiner.json"
+  [[ -f "$src" ]] || return 0
+  echo "karabiner:" >&2
+
+  if $DRYRUN; then
+    if [[ ! -f "$dest" ]]; then
+      _yellow "  copy missing"
+      warnings=$((warnings + 1))
+    elif [[ "$src" -nt "$dest" ]]; then
+      _yellow "  stale (source newer than copy)"
+      warnings=$((warnings + 1))
+    else
+      echo "  ok" >&2
+    fi
+    return 0
+  fi
+
   mkdir -p "$HOME/.config/karabiner"
-  cp "$DOTFILES/karabiner/karabiner.json" "$HOME/.config/karabiner/karabiner.json"
-  echo "  karabiner: copied"
+  cp "$src" "$dest"
+  echo "  copied" >&2
 }
 
-# ━━━ Git config ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+_ensure_git_config() {
+  echo "git:" >&2
+  if git config --global --get-all include.path 2>/dev/null | grep -qF '.gitconfig.dotfiles'; then
+    $DRYRUN && echo "  include.path ok" >&2
+    return 0
+  fi
 
-_ensure_git_include() {
-  if ! git config --global --get-all include.path 2>/dev/null | grep -qF '.gitconfig.dotfiles'; then
+  if $DRYRUN; then
+    _yellow "  include.path missing"
+    warnings=$((warnings + 1))
+  else
     git config --global --add include.path '~/.gitconfig.dotfiles'
-    echo "  git: added include for .gitconfig.dotfiles"
+    echo "  added include for .gitconfig.dotfiles" >&2
   fi
 }
 
-# ━━━ Subcommands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+_ensure_dirs() {
+  echo "dirs:" >&2
+  local missing=0
+  for d in "$HOME/.agents/artifacts" "$HOME/.agents/sessions" "$HOME/.agents/state" "$HOME/.agents/learnings"; do
+    if [[ ! -d "$d" ]]; then
+      if $DRYRUN; then
+        _yellow "  missing: $d"
+        ((missing++)) || true
+      else
+        mkdir -p "$d"
+      fi
+    fi
+  done
+  if $DRYRUN; then
+    [[ $missing -gt 0 ]] && warnings=$((warnings + missing)) || echo "  ok" >&2
+  fi
+}
 
-cmd_default() {
-  _bold "dot: syncing"
-  echo ""
-
-  _pull_repos
-
-  echo ""
-  echo "verifying symlinks..."
-  _verify_symlinks
-
-  echo ""
-  echo "refreshing..."
-  _refresh_flat_dir ".agents/conventions" "conventions"
-  _refresh_flat_dir ".agents/docs" "docs"
-  _refresh_skills
-  _sync_codex_config
-  _sync_karabiner
-  _ensure_git_include
-
-  # Ensure required dirs exist
-  mkdir -p "$HOME/.agents/artifacts" "$HOME/.agents/sessions" "$HOME/.agents/state"
-
-  # Seed local-only files
-  if [[ ! -f "$HOME/.agents/INBOX.md" ]]; then
-    cat > "$HOME/.agents/INBOX.md" <<'SEEDEOF'
+_ensure_seeds() {
+  echo "seeds:" >&2
+  local missing=0
+  for f in "$HOME/.agents/INBOX.md" "$HOME/.agents/wins.md"; do
+    if [[ ! -f "$f" ]]; then
+      if $DRYRUN; then
+        _yellow "  missing: $(basename "$f")"
+        ((missing++)) || true
+      else
+        if [[ "$(basename "$f")" == "INBOX.md" ]]; then
+          cat > "$f" <<'SEEDEOF'
 ## Refined
 
 ## Inbox
 
 ## Resolved
 SEEDEOF
-    echo "  seeded: INBOX.md"
+        else
+          touch "$f"
+        fi
+        echo "  seeded: $(basename "$f")" >&2
+      fi
+    fi
+  done
+  if $DRYRUN; then
+    [[ $missing -gt 0 ]] && warnings=$((warnings + missing)) || echo "  ok" >&2
   fi
-  [[ -f "$HOME/.agents/wins.md" ]] || { touch "$HOME/.agents/wins.md"; echo "  seeded: wins.md"; }
-
-  echo ""
-  _bold "done: $pulled repos pulled, $repaired links repaired, $warnings warnings"
 }
 
-cmd_setup() {
-  _bold "dotfiles setup: full rebuild"
-  echo ""
+# ━━━ Shared dispatch ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Adding a new concern: add one _ensure_* function + one line here.
 
-  [[ -f "$DOTFILES/install.sh" ]] || { _red "$DOTFILES/install.sh not found"; exit 1; }
-
-  bash "$DOTFILES/install.sh"
-
-  if [[ -f "$WORK_DOTFILES/install.sh" ]]; then
-    echo ""
-    bash "$WORK_DOTFILES/install.sh"
-  fi
-
-  echo ""
-  _bold "install complete"
+_run_ensures() {
+  _ensure_symlinks
+  _ensure_flat_dirs
+  _ensure_skills
+  _ensure_codex
+  _ensure_karabiner
+  _ensure_git_config
+  _ensure_dirs
+  _ensure_seeds
 }
 
-cmd_doctor() {
-  _bold "dotfiles doctor"
-  echo ""
+# ━━━ Subcommands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  # Repos
-  echo "repos:"
+_doctor_repos() {
+  echo "repos:" >&2
   local repo name
   for repo in "$DOTFILES" "$WORK_DOTFILES" "$HOME/workspaces-dotfiles"; do
     name="$(basename "$repo")"
     if [[ ! -d "$repo/.git" ]]; then
-      echo "  $name: not found"
+      echo "  $name: not found" >&2
       continue
     fi
-    local branch dirty behind
+    local branch dirty behind status
     branch="$(git -C "$repo" branch --show-current 2>/dev/null || echo "detached")"
     dirty="$(git -C "$repo" status --porcelain 2>/dev/null | head -1)"
     behind="$(git -C "$repo" rev-list --count HEAD..origin/main 2>/dev/null || echo "?")"
-    local status="branch=$branch"
+    status="branch=$branch"
     [[ -n "$dirty" ]] && status="$status, dirty"
     [[ "$behind" != "0" && "$behind" != "?" ]] && status="$status, ${behind} behind"
-    echo "  $name: $status"
+    echo "  $name: $status" >&2
   done
+}
 
-  # Symlinks
-  echo ""
-  echo "symlinks:"
-  local ok=0 broken=0 wrong=0 blocked=0
-  local target source
-  while IFS='|' read -r target source; do
-    [[ -n "$target" ]] || continue
-    if [[ -L "$target" ]]; then
-      local current
-      current="$(readlink "$target")"
-      if [[ "$current" == "$source" ]]; then
-        ok=$((ok + 1))
-      else
-        echo "  wrong target: $target → $current (expected $source)"
-        wrong=$((wrong + 1))
-      fi
-    elif [[ -e "$target" ]]; then
-      echo "  blocked: $target (real file, expected symlink)"
-      blocked=$((blocked + 1))
-    else
-      echo "  missing: $target"
-      broken=$((broken + 1))
-    fi
-  done < <(_managed_links)
-  echo "  $ok ok, $broken missing, $wrong wrong, $blocked blocked"
+cmd_default() {
+  _bold "dot: syncing"
+  echo "" >&2
 
-  # Skills
-  echo ""
-  echo "skills:"
-  local skill_count=0
-  for s in "$HOME/.agents/skills"/*/; do
-    [[ -d "$s" ]] && ((skill_count++)) || true
-  done
-  echo "  $skill_count in ~/.agents/skills/"
+  _pull_repos
 
-  # Platform
-  echo ""
-  echo "platform:"
-  echo "  os: $OS"
-  [[ -d "$WORK_DOTFILES/.git" ]] && echo "  context: work" || echo "  context: personal"
+  echo "" >&2
+  DRYRUN=false
+  _run_ensures
+
+  echo "" >&2
+  _bold "done: $pulled repos pulled, $repaired links repaired, $warnings warnings"
+}
+
+cmd_doctor() {
+  _bold "dotfiles doctor"
+  echo "" >&2
+
+  _doctor_repos
+
+  echo "" >&2
+  DRYRUN=true
+  _run_ensures
+
+  echo "" >&2
+  if [[ $warnings -eq 0 ]]; then
+    _bold "all healthy"
+  else
+    _bold "$warnings issues found"
+  fi
+
+  echo "" >&2
+  echo "platform:" >&2
+  echo "  os: $OS" >&2
+  [[ -d "$WORK_DOTFILES/.git" ]] && echo "  context: work" >&2 || echo "  context: personal" >&2
+}
+
+cmd_setup() {
+  _bold "dotfiles setup: full rebuild"
+  echo "" >&2
+
+  [[ -f "$DOTFILES/install.sh" ]] || die "$DOTFILES/install.sh not found"
+
+  bash "$DOTFILES/install.sh"
+
+  if [[ -f "$WORK_DOTFILES/install.sh" ]]; then
+    echo "" >&2
+    bash "$WORK_DOTFILES/install.sh"
+  fi
+
+  echo "" >&2
+  _bold "install complete"
 }
 
 usage() {
@@ -428,7 +533,9 @@ Usage:
   dotfiles setup      Full rebuild via install.sh (first-time setup, binary installs)
   dotfiles doctor     Read-only health check
 
-Replaces pull-dot, reset-dot, refresh-skills, sync-codex-config.
+Flags:
+  -h, --help          Show this help
+
 Shell reload happens automatically via the zshrc wrapper.
 EOF
 }
@@ -437,15 +544,8 @@ EOF
 
 case "${1:-}" in
   ""              ) cmd_default ;;
-  setup           ) cmd_setup ;;
-  doctor          ) cmd_doctor ;;
-  _refresh-skills ) _refresh_skills ;;
-  _refresh-flat-dir ) shift; _refresh_flat_dir "$@" ;;
-  _sync-codex     ) _sync_codex_config ;;
+  setup           ) shift; [[ "${1:-}" == -h || "${1:-}" == --help ]] && { echo "dotfiles setup: full rebuild via install.sh" >&2; exit 0; }; cmd_setup ;;
+  doctor          ) shift; [[ "${1:-}" == -h || "${1:-}" == --help ]] && { echo "dotfiles doctor: read-only health check" >&2; exit 0; }; cmd_doctor ;;
   -h|--help       ) usage ;;
-  *)
-    echo "error: unknown command: $1" >&2
-    echo "  → Run 'dotfiles --help' for usage" >&2
-    exit 1
-    ;;
+  *)              die "unknown command: $1" "Run 'dotfiles --help' for usage" ;;
 esac
