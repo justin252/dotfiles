@@ -61,21 +61,29 @@ alias greset="git reset --hard HEAD"
 _git_default_branch() { local b; b=$(git symbolic-ref refs/remotes/origin/HEAD --short 2>/dev/null | sed 's|origin/||'); echo "${b:-main}"; }
 # Prune + auto-rebuild refs on packed-ref conflict
 _git_fetch_clean() {
-  if ! git fetch --prune origin 2>/dev/null; then
+  if git fetch --prune origin 2>/dev/null; then return 0; fi
+  local err; err=$(git fetch origin 2>&1)
+  # Only rebuild refs on packed-ref conflict; bail on other errors
+  if echo "$err" | grep -q 'unable to resolve reference'; then
     git for-each-ref --format='delete %(refname)' refs/remotes/origin \
-      | git update-ref --stdin
-    git fetch origin
+      | grep -v 'refs/remotes/origin/HEAD' \
+      | git update-ref --stdin 2>/dev/null
+    git fetch --prune origin
+  else
+    echo "$err" >&2; return 1
   fi
 }
 # Delete gone, merged, and squash-merged branches
 _gclean_branches() {
   local default=$(_git_default_branch)
   git branch -vv | grep 'origin/.*: gone]' | awk '{print $1}' | grep . | xargs git branch -D 2>/dev/null
-  git branch --merged "$default" | grep -v "\*\|$default" | grep . | xargs git branch -d 2>/dev/null
+  git branch --merged "$default" | awk '{gsub(/^[ *]+/,"")} $1 != "'"$default"'" {print $1}' | grep . | xargs git branch -d 2>/dev/null
+  local remaining=($(git branch --format='%(refname:short)' | grep -v "^${default}$"))
+  [[ ${#remaining[@]} -eq 0 ]] && return 0
+  local merged_heads; merged_heads=$(gh pr list --state merged --limit 200 --json headRefName --jq '.[].headRefName' 2>/dev/null) || return 0
   local branch
-  for branch in $(git branch --format='%(refname:short)' | grep -v "^${default}$"); do
-    local state=$(gh pr list --head "$branch" --state merged --json state --jq '.[0].state' 2>/dev/null)
-    [[ "$state" == "MERGED" ]] && echo "deleted $branch (PR merged)" && git branch -D "$branch" 2>/dev/null
+  for branch in "${remaining[@]}"; do
+    echo "$merged_heads" | grep -qx "$branch" && echo "deleted $branch (PR merged)" && git branch -D "$branch" 2>/dev/null
   done
 }
 unalias gclean 2>/dev/null
@@ -85,13 +93,15 @@ gsync() {
   _git_fetch_clean && git rebase "origin/$default"
 }
 gm() {
-  _git_fetch_clean
-  git checkout "$(_git_default_branch)" && git pull --rebase
+  _git_fetch_clean || return 1
+  local default=$(_git_default_branch)
+  git checkout "$default" && git rebase "origin/$default" || return 1
   _gclean_branches
   ~/tools/wt clean --force 2>/dev/null || true
 }
 gfresh() {
   local branch=$(git branch --show-current)
+  [[ -z "$branch" ]] && echo "detached HEAD; checkout a branch first" >&2 && return 1
   git fetch origin "$branch" || { echo "No remote branch origin/$branch"; return 1; }
   local stash_msg=$(git stash)
   git reset --hard "origin/$branch"
@@ -100,7 +110,7 @@ gfresh() {
 gnew() {
   local name="$1"
   [[ -z "$name" ]] && echo "usage: gnew <branch-name>" >&2 && return 1
-  _git_fetch_clean
+  _git_fetch_clean || return 1
   git checkout -b "$name" "origin/$(_git_default_branch)"
 }
 cdg() { cd "$(git rev-parse --show-toplevel)"; }
@@ -167,7 +177,8 @@ ccplanadd() { local a=(); for d; do a+=(--add-dir "$d"); done; claude --permissi
 # Plans
 openplan() {
   command -v cursor &>/dev/null || { echo "cursor not installed" >&2; return 1; }
-  local f; f="$(ls -t ~/.claude/plans/*.md 2>/dev/null | head -1)"
+  local plans=(~/.claude/plans/*.md(Nom))
+  local f="${plans[1]:-}"
   [[ -n "$f" ]] || { echo "no plans found" >&2; return 1; }
   cursor "$f"
 }
