@@ -23,7 +23,6 @@
     ],
     "defaultMode": "dontAsk"
   },
-  "model": "sonnet[1m]",
   "hooks": {
     "PreToolUse": [
       {

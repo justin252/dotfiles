@@ -51,14 +51,12 @@ Claude reads the repo's `.claude/CLAUDE.md` and `.agents/AGENTS.md` on startup, 
 
 ## What install.sh does
 
-- Symlinks shell config (`~/.zshrc` → `shell/zshrc`), tools (`~/tools`), agent config (`~/.agents/`, `~/.claude/`, `~/.cursor/`)
-- Symlinks `.claude/agents/` (CC subagent definitions)
-- Symlinks `~/.gemini/GEMINI.md` to `.gemini/GEMINI.md` (Gemini global context, @imports AGENTS.md)
-- Syncs Codex defaults into `~/.codex/config.toml` without replacing auth/trust state
-- Seeds `~/.agents/INBOX.md`, `~/.agents/wins.md`, `~/.agents/artifacts/` (local-only, never synced)
-- Copies Karabiner config (can't symlink – Karabiner overwrites symlinks)
-- Symlinks managed git preferences (`git/config` → `~/.gitconfig.dotfiles`) and injects `[include]` into `~/.gitconfig`
-- Installs fzf, tmux if missing
+Bootstraps a new machine, then delegates all managed state to `tools/dotfiles`:
+
+- Installs fzf, tmux, rtk, codex if missing
+- Seeds `~/.zprofile` (homebrew PATH on macOS)
+- Initializes RTK Claude Code hook
+- Delegates to `dotfiles` for: symlinks, skills, conventions/docs, codex config, karabiner, git config, directory creation, seed files
 
 `~/.zshrc` layering: `shell/zshrc` (universal, synced) sources `~/.zshrc.work` and `~/.zshrc.personal` if they exist. Work overlay is typically provided by a work dotfiles repo; personal overlay is local-only.
 
@@ -91,7 +89,7 @@ tools/session                # Session notes browser: ~/.agents/sessions/ (curat
 tools/t                      # Tools browser: fzf picker for all tools with --help preview
 karabiner/karabiner.json     # Karabiner-Elements config (Joy-Con L → Claude Code controls)
 karabiner/joycon-karabiner.md # Joy-Con mapping spec
-install.sh                   # Sets up symlinks, seeds local files, installs fzf + tmux
+install.sh                   # Bootstrap: binary installs + delegates to dotfiles tool
 AGENTS.md                    # Repo-level agent instructions (this repo)
 ```
 
