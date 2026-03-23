@@ -140,6 +140,9 @@ alias gpr="gh pr view --web"
 alias sizeof="du -sh"
 alias ducks="du -cksh * | sort -rh | head -20"
 
+# ─── IDE ─────────────────────────────────────────────────────
+export DOTFILES_IDE_CMD="${DOTFILES_IDE_CMD:-code}"
+
 # ─── Agent Stages (executor:model) ───────────────────────────
 # Claude: --model (opus, sonnet, haiku, opusplan)
 # Codex: -m (gpt-5.4, gpt-5.3-codex, gpt-5.3-codex-spark)
@@ -176,11 +179,34 @@ ccplanadd() { local a=(); for d; do a+=(--add-dir "$d"); done; claude --permissi
 
 # Plans
 openplan() {
-  command -v cursor &>/dev/null || { echo "cursor not installed" >&2; return 1; }
-  local plans=(~/.claude/plans/*.md(Nom))
-  local f="${plans[1]:-}"
-  [[ -n "$f" ]] || { echo "no plans found" >&2; return 1; }
-  cursor "$f"
+  local ide="${DOTFILES_IDE_CMD:-code}"
+  # Collect plans from all sources (most recent first)
+  local plans=()
+  plans+=(~/.agents/artifacts/*/plan.md(Nom))
+  plans+=(~/.claude/plans/*.md(Nom))
+  plans+=(~/.cursor/plans/*.plan.md(Nom))
+  plans=(${plans:#}) # remove empty
+  [[ ${#plans[@]} -eq 0 ]] && { echo "no plans found" >&2; return 1; }
+  command -v "$ide" &>/dev/null || { echo "$ide not installed" >&2; return 1; }
+  if [[ ${#plans[@]} -eq 1 ]]; then
+    "$ide" "${plans[1]}"
+  elif command -v fzf &>/dev/null; then
+    # Build display lines: "title \t path" (searchable by title)
+    local lines="" title
+    for p in "${plans[@]}"; do
+      title=$(sed -n '/^# /{s/^# //;p;q;}' "$p" 2>/dev/null)
+      [[ -z "$title" ]] && title=$(sed -n '/^name:/{s/^name: *//;p;q;}' "$p" 2>/dev/null)
+      [[ -z "$title" ]] && title=$(basename "$p" .md)
+      lines+="$title"$'\t'"$p"$'\n'
+    done
+    local pick
+    pick=$(printf '%s' "$lines" | fzf --prompt="plan> " \
+      --delimiter=$'\t' --with-nth=1 \
+      --preview="head -40 {2}") || return 0
+    "$ide" "$(echo "$pick" | cut -f2)"
+  else
+    "$ide" "${plans[1]}"
+  fi
 }
 
 # ─── Gemini ───────────────────────────────────────────────────
