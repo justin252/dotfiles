@@ -73,6 +73,8 @@ Bootstraps a new machine, then delegates all managed state to `tools/dotfiles`:
 .claude/CLAUDE.md            # Claude Code config (@imports AGENTS.md + Claude-specific)
 .claude/agents/              # CC subagent definitions (executor, researcher)
 .claude/settings.json        # Claude Code permissions (dontAsk allow list)
+.github/workflows/ci.yml     # Cross-platform shell/skill CI for PRs and main pushes
+tests/                       # Test pyramid: static, contracts, behavioral (see § Testing)
 shell/zshrc                  # Universal shell config (aliases, functions, env)
 shell/tmux.conf              # tmux config (C-a prefix, vim nav, agent status bar)
 tools/                       # CLI scripts on PATH (symlinked to ~/tools)
@@ -118,18 +120,45 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 
 ## Testing
 
+Tests follow a three-layer pyramid: fast static checks at the base, structural contracts in the middle, behavioral tests at the top.
+
+| File | Layer | What it tests |
+|------|-------|--------------|
+| `test-shellcheck.sh` | Static | ShellCheck on all bash scripts (auto-discovered by shebang) |
+| `test-entrypoints.sh` | Static | `bash -n` / `zsh -n` / `py_compile` on all tracked scripts |
+| `test-repo-contracts.sh` | Contracts | actionlint, JSON/TOML parsing, doc frontmatter |
+| `test-skills.sh` | Contracts | Skill SKILL.md frontmatter (name, description, dir match, uniqueness) |
+| `test-regressions.sh` | Regression | Retired features and behavioral logic checks |
+| `sandbox.sh` | Behavioral | Isolated HOME: install orchestration, symlinks, zshrc sourcing, tool behavior (stubs external deps; does not test package-manager install paths) |
+
 ```bash
+bash tests/test-shellcheck.sh
+bash tests/test-repo-contracts.sh
+bash tests/test-entrypoints.sh
+bash tests/test-skills.sh
+bash tests/test-regressions.sh
 bash tests/sandbox.sh
 ```
 
-Creates a temp `HOME`, stubs external deps, runs `install.sh`, sources zshrc, and verifies symlinks, functions, and tool behavior. Zero side effects on your real machine.
+ShellCheck and actionlint are optional locally (tests skip if not installed). `brew install shellcheck actionlint` for full coverage.
+
+**Where to add new tests:** new scripts and skills auto-enroll via shebang/frontmatter discovery. Tool behavior and CLI error paths go in `sandbox.sh`. Past bugs go in `test-regressions.sh` only if they test behavior or stable contracts; grep-based source pattern checks are TDD scaffolding that should be retired once the fix lands.
+
+CI runs on PRs and pushes to `main`:
+
+| Job | Runs |
+|-----|------|
+| `contracts` | shellcheck + repo contracts + entrypoints + skills |
+| `sandbox-linux` | sandbox.sh on Ubuntu |
+| `sandbox-macos` | sandbox.sh on macOS |
+| `repo-regressions` | test-regressions.sh |
 
 ## Contributing
 
 - `install.sh`: clean-machine-first; create dirs before scanning them; optional integrations should warn, not abort; only delete clearly managed paths
 - `tools/`: keep `-h`/`--help`, idempotent defaults, and macOS/Linux shell compatibility
 - `skills/`: keep YAML frontmatter valid and update workflow docs when behavior changes
-- Run `bash tests/sandbox.sh` before pushing
+- Run all tests before pushing (see table above)
 
 ## Preference distribution
 

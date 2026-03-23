@@ -89,6 +89,118 @@ _prune_broken_links() {
   done
 }
 
+_skill_sources() {
+  [[ -d "$DOTFILES/.agents/skills" ]] && printf '%s\n' "$DOTFILES/.agents/skills"
+  [[ -d "$WORK_DOTFILES/.agents/skills" ]] && printf '%s\n' "$WORK_DOTFILES/.agents/skills"
+}
+
+_resolve_dir() {
+  local path="$1"
+  [[ -d "$path" ]] || return 1
+  (
+    cd "$path" >/dev/null 2>&1 &&
+    pwd -P
+  )
+}
+
+_managed_skill_names() {
+  local source_dir skill
+
+  for source_dir in "$@"; do
+    [[ -d "$source_dir" ]] || continue
+    for skill in "$source_dir"/*/; do
+      [[ -d "$skill" ]] || continue
+      basename "$skill"
+    done
+  done | sort -u
+}
+
+_expected_skill_source() {
+  local skill_name="$1"
+  shift
+  local source_dir candidate expected=""
+
+  for source_dir in "$@"; do
+    candidate="$source_dir/$skill_name"
+    [[ -d "$candidate" ]] || continue
+    expected="$candidate"
+  done
+
+  [[ -n "$expected" ]] && printf '%s\n' "$expected"
+}
+
+_flat_dir_sources() {
+  local subpath="$1"
+  [[ -d "$DOTFILES/$subpath" ]] && printf '%s\n' "$DOTFILES/$subpath"
+  [[ -d "$WORK_DOTFILES/$subpath" ]] && printf '%s\n' "$WORK_DOTFILES/$subpath"
+}
+
+_expected_flat_source() {
+  local fname="$1"
+  shift
+  local source_dir candidate expected=""
+
+  for source_dir in "$@"; do
+    candidate="$source_dir/$fname"
+    [[ -f "$candidate" ]] || continue
+    expected="$candidate"
+  done
+
+  [[ -n "$expected" ]] && printf '%s\n' "$expected"
+}
+
+_skill_description() {
+  local skill_dir="$1"
+  local skill_name skill_desc _desc
+
+  skill_name="$(basename "$skill_dir")"
+  skill_desc="Activate the $skill_name skill."
+  if [[ -f "$skill_dir/SKILL.md" ]]; then
+    _desc=$(
+      awk '
+        NR == 1 {
+          if ($0 != "---") {
+            exit
+          }
+          in_frontmatter = 1
+          next
+        }
+        in_frontmatter && /^---$/ {
+          closed = 1
+          in_frontmatter = 0
+          exit
+        }
+        in_frontmatter && /^description:/ {
+          value = $0
+          sub(/^description: *"?/, "", value)
+          sub(/"? *$/, "", value)
+          desc = value
+        }
+        END {
+          if (closed && desc != "") {
+            print desc
+          }
+        }
+      ' "$skill_dir/SKILL.md"
+    )
+    [[ -n "$_desc" ]] && skill_desc="$_desc"
+  fi
+  printf '%s\n' "$skill_desc"
+}
+
+_write_gemini_command() {
+  local skill_dir="$1" dest="$2"
+  local skill_name skill_desc
+
+  skill_name="$(basename "$skill_dir")"
+  skill_desc="$(_skill_description "$skill_dir")"
+  skill_desc="${skill_desc//\"/\\\"}"
+  cat > "$dest" <<GEMEOF
+description = "$skill_desc"
+prompt = "Read and follow the instructions in ~/.agents/skills/$skill_name/SKILL.md"
+GEMEOF
+}
+
 # ━━━ Ensure functions ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Each _ensure_* checks + fixes one concern. DRYRUN=true skips mutations.
 
@@ -143,37 +255,86 @@ _ensure_flat_dirs() {
   for subpath in .agents/conventions .agents/docs; do
     label="${subpath##*/}"
     target="$HOME/$subpath"
+    local sources=()
+    local source_dir
+    while IFS= read -r source_dir; do
+      [[ -n "$source_dir" ]] && sources+=("$source_dir")
+    done < <(_flat_dir_sources "$subpath")
 
     if $DRYRUN; then
-      # Check: dir exists, each source file has a valid symlink
-      if [[ ! -d "$target" ]]; then
-        _yellow "  $label: directory missing"
+      if [[ ! -d "$target" || -L "$target" ]]; then
+        _yellow "  $label: directory missing or not a real dir"
         warnings=$((warnings + 1))
         continue
       fi
-      local count=0 broken=0
+
+      if [[ ${#sources[@]} -eq 0 ]]; then
+        _yellow "  $label: no sources found"
+        warnings=$((warnings + 1))
+        continue
+      fi
+
+      local managed_names_file
+      managed_names_file="$(mktemp "${TMPDIR:-/tmp}/dotfiles-flat-dir.XXXXXX")" || {
+        _yellow "  $label: unable to create temp file for checks"
+        warnings=$((warnings + 1))
+        continue
+      }
+
+      for source_dir in "${sources[@]}"; do
+        for f in "$source_dir"/*; do
+          [[ -f "$f" ]] || continue
+          printf '%s\n' "$(basename "$f")" >>"$managed_names_file"
+        done
+      done
+      sort -u "$managed_names_file" -o "$managed_names_file"
+
+      local expected_count=0 ok=0 broken=0 fname expected
+      while IFS= read -r fname; do
+        [[ -n "$fname" ]] || continue
+        expected_count=$((expected_count + 1))
+        expected="$(_expected_flat_source "$fname" "${sources[@]}")"
+
+        if [[ -L "$target/$fname" && "$(readlink "$target/$fname")" == "$expected" ]]; then
+          ((ok++)) || true
+        elif [[ ! -e "$target/$fname" && ! -L "$target/$fname" ]]; then
+          _yellow "  $label missing: $fname"
+          warnings=$((warnings + 1))
+        else
+          _yellow "  $label wrong: $fname"
+          warnings=$((warnings + 1))
+        fi
+      done <"$managed_names_file"
+
       for link in "$target"/*; do
         [[ -L "$link" ]] || continue
+        local link_name
+        link_name="$(basename "$link")"
         if [[ -e "$link" ]]; then
-          ((count++)) || true
-        else
-          ((broken++)) || true
+          # Valid symlink – check if it's stale (not in any source)
+          if ! grep -qx "$link_name" "$managed_names_file"; then
+            _yellow "  $label stale: $link_name"
+            warnings=$((warnings + 1))
+          fi
+          continue
         fi
+        ((broken++)) || true
       done
       if [[ $broken -gt 0 ]]; then
         _yellow "  $label: $broken broken symlinks"
         warnings=$((warnings + 1))
-      else
-        echo "  $label: $count files ok" >&2
       fi
+      echo "  $label: source=$expected_count ok=$ok" >&2
+      rm -f "$managed_names_file"
     else
       mkdir -p "$target"
       _prune_broken_links "$target"
 
-      # Collect sources
-      local sources=()
-      [[ -d "$DOTFILES/$subpath" ]] && sources+=("$DOTFILES/$subpath")
-      [[ -d "$WORK_DOTFILES/$subpath" ]] && sources+=("$WORK_DOTFILES/$subpath")
+      if [[ ${#sources[@]} -eq 0 ]]; then
+        _yellow "  $label: no sources found"
+        warnings=$((warnings + 1))
+        continue
+      fi
 
       # Symlink each file (work wins on collision; skip existing regular files)
       local count=0 source_dir f fname
@@ -190,28 +351,117 @@ _ensure_flat_dirs() {
           ((count++)) || true
         done
       done
-      echo "  $label: $count files synced" >&2
+      # Remove stale symlinks (source file was deleted but symlink persists)
+      local stale=0 link_name
+      for link in "$target"/*; do
+        [[ -L "$link" ]] || continue
+        link_name="$(basename "$link")"
+        local found=false
+        for source_dir in "${sources[@]}"; do
+          if [[ -f "$source_dir/$link_name" ]]; then
+            found=true
+            break
+          fi
+        done
+        if ! $found; then
+          rm -f "$link"
+          ((stale++)) || true
+        fi
+      done
+      echo "  $label: $count synced${stale:+, $stale stale removed}" >&2
     fi
   done
 }
 
 _ensure_skills() {
   echo "skills:" >&2
+  local skill_sources=()
+  local source_dir skill_name skill
+  local managed_names_file
+  local managed_count=0
+
+  managed_names_file="$(mktemp "${TMPDIR:-/tmp}/dotfiles-skills.XXXXXX")" || {
+    _yellow "  warn: unable to create temp file for skill checks"
+    warnings=$((warnings + 1))
+    return 0
+  }
+
+  while IFS= read -r source_dir; do
+    [[ -n "$source_dir" ]] && skill_sources+=("$source_dir")
+  done < <(_skill_sources)
+
+  if [[ ${#skill_sources[@]} -eq 0 ]]; then
+    _yellow "  warn: no skill sources found"
+    warnings=$((warnings + 1))
+    rm -f "$managed_names_file"
+    return 0
+  fi
+
+  _managed_skill_names "${skill_sources[@]}" >"$managed_names_file"
+  managed_count=$(grep -c . "$managed_names_file" 2>/dev/null || true)
+
   if $DRYRUN; then
-    local count=0 broken=0
-    for s in "$HOME/.agents/skills"/*/; do
-      [[ -d "$s" ]] || continue
-      if [[ -L "$s" && ! -e "$s" ]]; then
-        ((broken++)) || true
+    local agents_ok=0 claude_ok=0 cursor_ok=0 gemini_ok=0
+    local expected_skill expected_resolved actual_resolved gemini_tmp
+    while IFS= read -r skill_name; do
+      [[ -n "$skill_name" ]] || continue
+      expected_skill="$(_expected_skill_source "$skill_name" "${skill_sources[@]}")"
+      expected_resolved="$(_resolve_dir "$expected_skill" 2>/dev/null || true)"
+
+      actual_resolved="$(_resolve_dir "$HOME/.agents/skills/$skill_name" 2>/dev/null || true)"
+      if [[ -L "$HOME/.agents/skills/$skill_name" && -n "$expected_resolved" && "$actual_resolved" == "$expected_resolved" ]]; then
+        ((agents_ok++)) || true
       else
-        ((count++)) || true
+        _yellow "  agents wrong: $skill_name"
+        warnings=$((warnings + 1))
+      fi
+
+      actual_resolved="$(_resolve_dir "$HOME/.claude/skills/$skill_name" 2>/dev/null || true)"
+      if [[ -L "$HOME/.claude/skills/$skill_name" && -n "$expected_resolved" && "$actual_resolved" == "$expected_resolved" ]]; then
+        ((claude_ok++)) || true
+      else
+        _yellow "  claude wrong: $skill_name"
+        warnings=$((warnings + 1))
+      fi
+
+      if [[ -d "$HOME/.cursor/skills/$skill_name" && ! -L "$HOME/.cursor/skills/$skill_name" ]] && \
+         diff -qr "$expected_skill" "$HOME/.cursor/skills/$skill_name" >/dev/null 2>&1; then
+        ((cursor_ok++)) || true
+      else
+        _yellow "  cursor wrong: $skill_name"
+        warnings=$((warnings + 1))
+      fi
+
+      gemini_tmp="$(mktemp "${TMPDIR:-/tmp}/dotfiles-gemini.XXXXXX")" || {
+        _yellow "  gemini wrong: $skill_name (tempfile failed)"
+        warnings=$((warnings + 1))
+        continue
+      }
+      if ! _write_gemini_command "$expected_skill" "$gemini_tmp"; then
+        _yellow "  gemini wrong: $skill_name"
+        warnings=$((warnings + 1))
+        rm -f "$gemini_tmp"
+        continue
+      fi
+      if [[ -f "$HOME/.gemini/commands/$skill_name.toml" ]] && cmp -s "$gemini_tmp" "$HOME/.gemini/commands/$skill_name.toml"; then
+        ((gemini_ok++)) || true
+      else
+        _yellow "  gemini wrong: $skill_name"
+        warnings=$((warnings + 1))
+      fi
+      rm -f "$gemini_tmp"
+    done <"$managed_names_file"
+    # Detect stale skills (in destination but not in any source)
+    for entry in "$HOME/.agents/skills"/*/; do
+      [[ -d "$entry" ]] || continue
+      skill_name="$(basename "$entry")"
+      if ! grep -qx "$skill_name" "$managed_names_file"; then
+        _yellow "  agents stale: $skill_name"
+        warnings=$((warnings + 1))
       fi
     done
-    if [[ $broken -gt 0 ]]; then
-      _yellow "  $broken broken skill symlinks"
-      warnings=$((warnings + 1))
-    fi
-    echo "  $count skills ok" >&2
+    echo "  source=$managed_count agents=$agents_ok claude=$claude_ok cursor=$cursor_ok gemini=$gemini_ok" >&2
+    rm -f "$managed_names_file"
     return 0
   fi
 
@@ -221,39 +471,12 @@ _ensure_skills() {
   _prune_broken_links "$HOME/.claude/skills"
   _prune_broken_links "$HOME/.gemini/commands"
 
-  # Collect skill sources
-  local skill_sources=()
-  [[ -d "$DOTFILES/.agents/skills" ]] && skill_sources+=("$DOTFILES/.agents/skills")
-  [[ -d "$WORK_DOTFILES/.agents/skills" ]] && skill_sources+=("$WORK_DOTFILES/.agents/skills")
-  if [[ ${#skill_sources[@]} -eq 0 ]]; then
-    _yellow "  warn: no skill sources found"
-    warnings=$((warnings + 1))
-    return 0
-  fi
-
-  # Collect unique skill names
-  local managed_names=()
-  local source_dir skill skill_name
-  for source_dir in "${skill_sources[@]}"; do
-    for skill in "$source_dir"/*/; do
-      [[ -d "$skill" ]] || continue
-      skill_name="$(basename "$skill")"
-      local found=0
-      if [[ ${#managed_names[@]} -gt 0 ]]; then
-        local existing
-        for existing in "${managed_names[@]}"; do
-          [[ "$existing" == "$skill_name" ]] && found=1 && break
-        done
-      fi
-      [[ $found -eq 0 ]] && managed_names+=("$skill_name")
-    done
-  done
-
   # Clean managed skills
-  if [[ ${#managed_names[@]} -gt 0 ]]; then
-    for skill_name in "${managed_names[@]}"; do
+  if [[ $managed_count -gt 0 ]]; then
+    while IFS= read -r skill_name; do
+      [[ -n "$skill_name" ]] || continue
       rm -rf "$HOME/.agents/skills/$skill_name" "$HOME/.claude/skills/$skill_name" "$HOME/.cursor/skills/$skill_name" "$HOME/.gemini/commands/$skill_name.toml"
-    done
+    done <"$managed_names_file"
   fi
 
   # Rebuild from sources
@@ -264,17 +487,7 @@ _ensure_skills() {
       ln -sfn "$skill" "$HOME/.agents/skills/$skill_name"
 
       # Gemini Custom Command
-      local skill_desc="Activate the $skill_name skill."
-      if [[ -f "$skill/SKILL.md" ]]; then
-        local _desc
-        _desc=$(awk '/^---$/{n++; next} n==1 && /^description:/{sub(/^description: *"?/,""); sub(/"? *$/,""); print; exit}' "$skill/SKILL.md")
-        [[ -n "$_desc" ]] && skill_desc="$_desc"
-      fi
-      skill_desc="${skill_desc//\"/\\\"}"
-      cat > "$HOME/.gemini/commands/$skill_name.toml" <<GEMEOF
-description = "$skill_desc"
-prompt = "Read and follow the instructions in ~/.agents/skills/$skill_name/SKILL.md"
-GEMEOF
+      _write_gemini_command "$skill" "$HOME/.gemini/commands/$skill_name.toml"
     done
   done
 
@@ -289,7 +502,26 @@ GEMEOF
     ((count++)) || true
   done
 
-  echo "  $count synced" >&2
+  # Remove stale skills (source skill was deleted but synced copies persist)
+  local stale=0
+  for entry in "$HOME/.agents/skills"/*/; do
+    [[ -d "$entry" ]] || continue
+    skill_name="$(basename "$entry")"
+    local found=false
+    for source_dir in "${skill_sources[@]}"; do
+      if [[ -d "$source_dir/$skill_name" ]]; then
+        found=true
+        break
+      fi
+    done
+    if ! $found; then
+      rm -rf "$HOME/.agents/skills/$skill_name" "$HOME/.claude/skills/$skill_name" "$HOME/.cursor/skills/$skill_name" "$HOME/.gemini/commands/$skill_name.toml"
+      ((stale++)) || true
+    fi
+  done
+
+  echo "  $count synced${stale:+, $stale stale removed}" >&2
+  rm -f "$managed_names_file"
 }
 
 _ensure_codex() {
@@ -382,6 +614,7 @@ _ensure_git_config() {
     _yellow "  include.path missing"
     warnings=$((warnings + 1))
   else
+    # shellcheck disable=SC2088  # literal tilde is intentional – git expands ~ in include.path
     git config --global --add include.path '~/.gitconfig.dotfiles'
     echo "  added include for .gitconfig.dotfiles" >&2
   fi
