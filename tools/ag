@@ -1376,8 +1376,8 @@ INFOEOF
             sess_name="ag-${repo}-${wt_slug}"
             branch=$(_ag_branch "$sess_name" "$wt_path")
             _archive_session "$wt_slug" "$repo" "$sess_name" 2>/dev/null || true
-            tmux kill-session -t "$sess_name" 2>/dev/null
-            if ~/tools/wt rm "$wt_slug" --force 2>/dev/null; then
+            tmux kill-session -t "$sess_name" 2>/dev/null || true
+            if git worktree remove "$wt_path" --force 2>/dev/null; then
               echo "  removed $wt_slug"
             else
               echo "  failed to remove $wt_slug (dirty?)" >&2
