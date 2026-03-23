@@ -523,6 +523,7 @@ if [[ "$(cat "$state_dir/phase" 2>/dev/null)" != "stuck" ]]; then
   _set_current "$state_dir" "done"
 fi
 
+_final_phase=$(cat "$state_dir/phase" 2>/dev/null)
 if [[ "$test_mode" == true ]]; then
   echo "" >&2
   echo "=== test results ===" >&2
@@ -542,8 +543,8 @@ if [[ "$test_mode" == true ]]; then
     echo "SOME STAGES FAILED" >&2
     exit 1
   fi
-else
+elif [[ "$_final_phase" != "stuck" ]]; then
   _notify "$topic" "pipeline complete: $topic"
 fi
 
-echo "ag-orchestrate: $topic complete" >&2
+[[ "$_final_phase" != "stuck" ]] && echo "ag-orchestrate: $topic complete" >&2
