@@ -312,6 +312,7 @@ RUNEOF
 
     _run_build_line() {
       local plan_path="$1" source_tag="$2"
+      # shellcheck disable=SC1010  # 'done' is a variable name, not the keyword
       local topic_dir slug title total done artifacts mod_ts mod_rel status
 
       topic_dir=$(dirname "$plan_path")
@@ -1049,6 +1050,7 @@ INFOEOF
 
     # collect session info, fire gh calls in parallel
     tmpdir=$(mktemp -d)
+    # shellcheck disable=SC2064  # intentional: expand $tmpdir now so cleanup targets the right dir
     trap "rm -rf '$tmpdir'" EXIT
     touch "$tmpdir/sessions"
     if [[ -n "$sessions_list" ]]; then

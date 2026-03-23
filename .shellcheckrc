@@ -1,0 +1,3 @@
+# SC1083: literal braces – git rev-parse @{u} syntax is valid
+# SC2034: "unused" variables – many are used via printf formats or read by callers
+disable=SC1083,SC2034

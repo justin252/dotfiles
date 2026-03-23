@@ -74,7 +74,30 @@ Auto-consult when writing or modifying shell scripts (bash/zsh).
 
 ## Testing
 
-- ShellCheck: `shellcheck script.sh` – catches most common errors statically
-- Syntax check: `bash -n file` / `zsh -n file`
-- Double-source: `zsh -c 'source ~/.zshrc; source ~/.zshrc'` – catches alias conflicts, duplicate path entries
-- Clean-machine: `HOME="$(mktemp -d)" bash install.sh` – verifies no implicit dependencies
+Three-layer pyramid (fast at base, slow at top):
+
+| Layer | Tests | What it catches |
+|-------|-------|----------------|
+| Static | `test-shellcheck.sh`, `test-entrypoints.sh` | Shell pitfalls, syntax errors. Auto-discovers scripts by shebang. |
+| Contracts | `test-repo-contracts.sh`, `test-skills.sh` | Config parsing, frontmatter validity, doc structure. Auto-discovers files. |
+| Behavioral | `sandbox.sh` | Install, source, tool functions, CLI error paths. Isolated HOME, zero side effects. |
+
+Regression tests (`test-regressions.sh`) guard retired features and behavioral logic. NOT for grep-based source pattern checks; those are TDD scaffolding that should be retired once the guarded refactor is stable.
+
+Where to add tests:
+- New script/tool: give it a shebang; static tests auto-discover it
+- New skill: create SKILL.md with frontmatter; skill tests auto-discover it
+- Tool behavior (error paths, CLI args, function logic): `sandbox.sh`
+- Past bug: `test-regressions.sh` only if testing behavior or a stable contract
+
+Quick checks (no sandbox needed):
+- `shellcheck script.sh` – catches common errors statically (ShellCheck doesn't support zsh; skip zshrc)
+- `bash -n file` / `zsh -n file` – syntax only
+- `zsh -c 'source ~/.zshrc; source ~/.zshrc'` – catches alias conflicts, duplicate path entries
+
+Run all:
+```bash
+bash tests/test-shellcheck.sh && bash tests/test-repo-contracts.sh && \
+bash tests/test-entrypoints.sh && bash tests/test-skills.sh && \
+bash tests/test-regressions.sh && bash tests/sandbox.sh
+```

@@ -10,7 +10,7 @@
 - Clean, minimal code. Readability > cleverness.
 - No over-engineering: no unnecessary abstractions, error handling, or features beyond what's asked. During planning, challenge each addition: does the caller already have this info?
 - Small-lift additions within the active task's domain (completions, aliases, etc.) – just include them. Don't leave obvious follow-ups for the user to ask about.
-- No adding comments/docstrings to untouched code.
+- No adding comments/docstrings to untouched code. In code you write or modify, comment non-obvious patterns (the why, not the what).
 - If a README exists and changes affect it, update it automatically.
 - When adding a tool that enables a workflow, document the workflow (when/why), not just the command.
 - After renames/refactors, grep the entire repo for old name to catch stale references (including docs, help text, inline strings – not just code). Before broad find-replace, verify all match sites – short tokens hit unintended locations.
@@ -162,6 +162,7 @@ Use as reference frame – draw analogies to these when explaining new tech or m
 - `bash -n` is syntax only; mentally trace execution context, platform, and edge cases before shipping.
 - TDD greps/pattern checks are scaffolding; ship behavioral tests that verify output, not source patterns.
 - If a test needs a workaround to pass, fix the code under test, not the test.
+- Shell/dotfiles testing: see `conventions/shell-scripts.md` § Testing.
 
 ## Safety
 

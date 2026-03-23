@@ -86,6 +86,8 @@ if command -v rtk &> /dev/null && [[ ! -f ~/.claude/hooks/rtk-rewrite.sh ]]; the
 fi
 
 # Delegate all managed state (symlinks, skills, configs, dirs, seeds) to dotfiles tool
-DOTFILES="$DOTFILES" WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}" "$DOTFILES/tools/dotfiles"
+export DOTFILES
+export WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}"
+"$DOTFILES/tools/dotfiles"
 
 echo "Done. Run 'dotfiles doctor' to verify, 'dotfiles' to sync ongoing."
