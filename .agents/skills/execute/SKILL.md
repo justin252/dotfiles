@@ -72,6 +72,10 @@ When a phase is done, update its checkboxes and add a completion note:
 - [x] **Verify**: passed – `source ~/.zshrc` clean, `wt --help` works
 ```
 
+## Friction Capture
+
+When you hit friction (error, retry, approach change, surprising discovery), hold the observation in working memory. At the next natural checkpoint (phase boundary, verify step), flush accumulated observations to `~/.agents/learnings/dog.md` -- one line per learning, date-prefixed. Don't write on every error; batch at boundaries.
+
 ## Execution Modes
 
 Default is interactive. User can request a different mode:

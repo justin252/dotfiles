@@ -34,6 +34,7 @@ $HOME/.gemini/GEMINI.md|$DOTFILES/.gemini/GEMINI.md
 $HOME/.claude/CLAUDE.md|$DOTFILES/.claude/CLAUDE.md
 $HOME/.claude/settings.json|$DOTFILES/.claude/settings.json
 $HOME/.claude/agents|$DOTFILES/.claude/agents
+$HOME/.claude/hooks/ag-state.sh|$DOTFILES/.claude/hooks/ag-state.sh
 $HOME/.cursor/rules|$DOTFILES/.cursor/rules
 $HOME/.gitconfig.dotfiles|$DOTFILES/git/config
 EOF
@@ -634,6 +635,19 @@ _ensure_dirs() {
       fi
     fi
   done
+  # Per-animal learnings files (circus roster)
+  for animal in octopus beaver dog eagle owl lion elephant; do
+    local lf="$HOME/.agents/learnings/${animal}.md"
+    if [[ ! -f "$lf" ]]; then
+      if $DRYRUN; then
+        _yellow "  missing: learnings/${animal}.md"
+        ((missing++)) || true
+      else
+        touch "$lf"
+        echo "  seeded: learnings/${animal}.md" >&2
+      fi
+    fi
+  done
   if $DRYRUN; then
     [[ $missing -gt 0 ]] && warnings=$((warnings + missing)) || echo "  ok" >&2
   fi
@@ -660,6 +674,19 @@ SEEDEOF
           touch "$f"
         fi
         echo "  seeded: $(basename "$f")" >&2
+      fi
+    fi
+  done
+  # Per-animal learnings files (circus roster)
+  for animal in octopus beaver dog eagle owl lion elephant; do
+    local lf="$HOME/.agents/learnings/${animal}.md"
+    if [[ ! -f "$lf" ]]; then
+      if $DRYRUN; then
+        _yellow "  missing: learnings/${animal}.md"
+        ((missing++)) || true
+      else
+        touch "$lf"
+        echo "  seeded: learnings/${animal}.md" >&2
       fi
     fi
   done

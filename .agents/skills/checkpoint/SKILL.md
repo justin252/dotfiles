@@ -40,7 +40,7 @@ Self-contained workflow -- execute steps fully, don't inject extra confirmation 
 
 ## Epilogue
 
-Append 1-3 lines to `~/.agents/learnings/beaver.md`: what shipping patterns worked, build/test issues hit, PR splitting decisions.
+Append 1-3 lines to `~/.agents/learnings/eagle.md`: what shipping patterns worked, build/test issues hit, PR splitting decisions.
 
 ## Next
 
