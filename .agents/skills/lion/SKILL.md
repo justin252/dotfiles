@@ -42,7 +42,7 @@ Check `~/.agents/artifacts/<topic>/` if a topic is identifiable:
 | "review PR #N", "look at this" | `/review` | |
 | "clean up branches", "rebase" | `/tidy` | |
 | "triage", "sort inbox" | `/triage` | |
-| "explain X", "how does X work" | `/explain` | Not a pipeline skill |
+| "document X", "write a reference" | `/document` | Not a pipeline skill |
 | "quick proof of concept" | `/poc` | Compound: propose → execute → checkpoint |
 | "create a ticket" | `/ticket` | Work-specific |
 | "run the full pipeline" | `ag run <topic>` | Requires plan.md |

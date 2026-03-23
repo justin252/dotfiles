@@ -141,7 +141,7 @@ Three layers feed each other:
 - /execute → resumes plan.md and keeps output links current
 - /checkpoint → ships the current output and may launch review.md generation
 - /review → reviews a diff/PR; Codex-backed output review writes review.md
-- /explain → reference.md
+- /document → reference.md
 - /retro → scans ## Open sections and Future learnings
 - /triage → can promote INBOX items to problem.md
 

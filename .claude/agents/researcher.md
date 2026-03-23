@@ -14,4 +14,4 @@ Research $ARGUMENTS. Scan relevant source files, docs, and prior art. Save findi
 - Related systems and how they connect
 - Open questions
 
-Keep it concise. This feeds /propose or /explain, not end users.
+Keep it concise. This feeds /propose or /document, not end users.
