@@ -491,18 +491,7 @@ _ensure_skills() {
     done
   done
 
-  # Sync to Claude (symlinks) and Cursor (copies)
-  local count=0
-  for skill in "$HOME/.agents/skills"/*/; do
-    [[ -d "$skill" ]] || continue
-    skill_name="$(basename "$skill")"
-    ln -sfn "$skill" "$HOME/.claude/skills/$skill_name"
-    rm -rf "$HOME/.cursor/skills/$skill_name"
-    cp -R -L "$skill" "$HOME/.cursor/skills/$skill_name"
-    ((count++)) || true
-  done
-
-  # Remove stale skills (source skill was deleted but synced copies persist)
+  # Remove stale skills before syncing (stale entries can crash cp -R -L)
   local stale=0
   for entry in "$HOME/.agents/skills"/*/; do
     [[ -d "$entry" ]] || continue
@@ -518,6 +507,17 @@ _ensure_skills() {
       rm -rf "$HOME/.agents/skills/$skill_name" "$HOME/.claude/skills/$skill_name" "$HOME/.cursor/skills/$skill_name" "$HOME/.gemini/commands/$skill_name.toml"
       ((stale++)) || true
     fi
+  done
+
+  # Sync to Claude (symlinks) and Cursor (copies)
+  local count=0
+  for skill in "$HOME/.agents/skills"/*/; do
+    [[ -d "$skill" ]] || continue
+    skill_name="$(basename "$skill")"
+    ln -sfn "$skill" "$HOME/.claude/skills/$skill_name"
+    rm -rf "$HOME/.cursor/skills/$skill_name"
+    cp -R -L "$skill" "$HOME/.cursor/skills/$skill_name"
+    ((count++)) || true
   done
 
   echo "  $count synced${stale:+, $stale stale removed}" >&2

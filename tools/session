@@ -88,24 +88,27 @@ selection=$(printf '%s' "$entries" | fzf "${fzf_args[@]}") || exit 0
 full=$(echo "$selection" | cut -f2)
 fname=$(basename "$full")
 
-actions=("view" "claude" "gemini" "edit")
+actions=("copy" "edit" "vscode" "cursor" "claude" "codex")
 
 action=$(printf '%s\n' "${actions[@]}" | \
   fzf --prompt="action> " --header="$fname") || exit 0
 
 case "$action" in
-  view)
-    if command -v bat &>/dev/null; then
-      bat --style=plain "$full"
-    else
-      cat "$full"
-    fi ;;
+  copy)
+    if command -v pbcopy &>/dev/null; then
+      printf '%s' "$full" | pbcopy
+    elif command -v xclip &>/dev/null; then
+      printf '%s' "$full" | xclip -selection clipboard
+    fi
+    echo "$full" ;;
+  edit)
+    ${EDITOR:-vim} "$full" ;;
+  vscode) code "$full" ;;
+  cursor) cursor "$full" ;;
   claude)
     echo "Launching Claude Code: ${fname%.md}"
     claude "load ${fname%.md} ($full)" ;;
-  gemini)
-    echo "Launching Gemini: ${fname%.md}"
-    gemini "load ${fname%.md} ($full)" ;;
-  edit)
-    ${EDITOR:-vim} "$full" ;;
+  codex)
+    echo "Launching Codex: ${fname%.md}"
+    codex "load ${fname%.md} ($full)" ;;
 esac

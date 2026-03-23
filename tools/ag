@@ -39,7 +39,7 @@ ag - agent session manager
   ag new proj/feature       grouped session (display-only grouping by prefix)
   ag new <name> --shell     create worktree + tmux, drop to shell
   ag new <name> -m MSG      launch with initial task (background)
-  ag new <name> --cursor    cursor + agent in worktree
+  ag new <name> --ide [cmd]  open IDE in worktree (default: \$DOTFILES_IDE_CMD)
   ag new <name> --claude    force using claude
   ag new <name> --gemini    force using gemini
   ag new <name> --codex     force using codex
@@ -817,6 +817,7 @@ INFOEOF
       [[ -f "$HOME/.agents/artifacts/$topic/review.md" ]] || actions+=("review:run code review")
       [[ "$pr" != "-" ]] && actions+=("open-pr:open PR in browser")
       actions+=("edit:open artifacts in \$EDITOR")
+      actions+=("vscode:open worktree in VS Code")
       actions+=("cursor:open worktree in Cursor")
       [[ -f "$state_dir/orchestrate.log" ]] && actions+=("log:tail orchestrate log")
       actions+=("clean:ag clean topic")
@@ -846,6 +847,7 @@ INFOEOF
           fi
           ;;
         edit)    "${EDITOR:-vim}" "$HOME/.agents/artifacts/$topic/" ;;
+        vscode)  [[ -n "$wt" ]] && code "$wt" || echo "no worktree found" >&2 ;;
         cursor)  [[ -n "$wt" ]] && cursor "$wt" || echo "no worktree found" >&2 ;;
         log)     tail -f "$state_dir/orchestrate.log" ;;
         clean)   ag clean "$topic" ;;
@@ -1484,7 +1486,7 @@ INFOEOF
     # ag new <name> [flags] – create or reattach session
     name="${1:-}"
     if [[ -z "$name" ]]; then
-      echo "usage: ag new <name> [-m MSG] [--shell] [--cursor]" >&2
+      echo "usage: ag new <name> [-m MSG] [--shell] [--ide [cmd]]" >&2
       exit 1
     fi
     if [[ "$name" == -* ]]; then
@@ -1499,13 +1501,17 @@ INFOEOF
     shift
 
     cmd="$(_ag_executor "${AG_EXECUTE_MODEL:-claude}")"
-    open_cursor=false
+    ide_cmd=""
     shell_only=false
     prompt=""
 
     while [[ $# -gt 0 ]]; do
       case "$1" in
-        --cursor) open_cursor=true; shift ;;
+        --ide)    if [[ -n "${2:-}" && "$2" != -* ]]; then
+                    ide_cmd="$2"; shift 2
+                  else
+                    ide_cmd="${DOTFILES_IDE_CMD:-code}"; shift
+                  fi ;;
         --shell)  shell_only=true; shift ;;
         --gemini) cmd="gemini"; shift ;;
         --claude) cmd="claude"; shift ;;
@@ -1556,13 +1562,13 @@ INFOEOF
       exit 0
     fi
 
-    # open cursor in worktree if requested
-    if [[ "$open_cursor" == true ]]; then
-      if command -v cursor &>/dev/null; then
-        cursor "$worktree" &
-        echo "opened cursor: $worktree"
+    # open IDE in worktree if requested
+    if [[ -n "$ide_cmd" ]]; then
+      if command -v "$ide_cmd" &>/dev/null; then
+        "$ide_cmd" "$worktree" &
+        echo "opened $ide_cmd: $worktree"
       else
-        echo "cursor not found on PATH" >&2
+        echo "$ide_cmd not found on PATH" >&2
       fi
     fi
 

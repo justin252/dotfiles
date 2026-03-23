@@ -46,7 +46,7 @@ setup() {
   # Prepending to PATH means these stubs shadow any real binaries.
   STUB_DIR="$SANDBOX/.stubs"
   mkdir -p "$STUB_DIR"
-  for cmd in fzf tmux gh cursor rtk codex npm brew curl; do
+  for cmd in fzf tmux gh code cursor rtk codex npm brew curl; do
     printf '#!/bin/sh\nexit 0\n' > "$STUB_DIR/$cmd"
     chmod +x "$STUB_DIR/$cmd"
   done
@@ -292,6 +292,16 @@ if [[ "$op_out" == *"no plans"* ]]; then
 else
   _fail "openplan: empty dir should say 'no plans'"
 fi
+
+# openplan: with a plan file, should try to open it (stub IDE exits 0)
+printf '# Test Plan\nDo stuff\n' > "$HOME/.claude/plans/test-plan.md"
+op_out=$(zsh -c 'source "$HOME/.zshrc" 2>/dev/null; openplan 2>&1; echo "EXIT:$?"' 2>/dev/null)
+if [[ "$op_out" == *"EXIT:0"* ]]; then
+  _pass "openplan: single plan -> opens with IDE (exit 0)"
+else
+  _fail "openplan: single plan should open with IDE"
+fi
+rm -f "$HOME/.claude/plans/test-plan.md"
 
 # ━━━ dotfiles ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

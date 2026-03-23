@@ -16,7 +16,7 @@ Options:
   -h, --help    Show this help
 
 Sources: ~/.agents/artifacts/<topic>/ with YAML frontmatter.
-Actions: edit, view, execute, propose, review, claude, cursor, gemini, plan.
+Actions: copy, edit, execute, propose, review, vscode, cursor, claude, codex.
 EOF
 }
 
@@ -158,9 +158,20 @@ full=$(echo "$selection" | cut -f2)
 doc_type=$(echo "$selection" | cut -f3)
 topic_dir=$(echo "$selection" | cut -f4)
 topic=$(echo "$selection" | cut -f5)
+repo=$(echo "$selection" | cut -f6)
+
+# Resolve repo to a local directory (check common locations)
+_resolve_repo() {
+  local r="$1"
+  [[ -z "$r" ]] && return 1
+  for d in ~/"$r" ~/code/"$r" ~/src/"$r"; do
+    [[ -d "$d/.git" ]] && { echo "$d"; return 0; }
+  done
+  return 1
+}
 
 # Build actions list based on what exists in topic dir
-actions=("edit" "view")
+actions=("copy" "edit")
 
 if [[ -f "$topic_dir/plan.md" ]]; then
   actions+=("execute")
@@ -172,34 +183,41 @@ if [[ "$doc_type" == "output" || "$doc_type" == "review" || -f "$topic_dir/outpu
   actions+=("review")
 fi
 
-actions+=("claude" "cursor" "gemini" "plan")
+actions+=("vscode" "cursor" "claude" "codex")
 
 action=$(printf '%s\n' "${actions[@]}" | \
   fzf --prompt="action> " --header="$topic – $(basename "$full")") || exit 0
 
 case "$action" in
+  copy)
+    if command -v pbcopy &>/dev/null; then
+      printf '%s' "$full" | pbcopy
+    elif command -v xclip &>/dev/null; then
+      printf '%s' "$full" | xclip -selection clipboard
+    fi
+    echo "$full" ;;
   edit)
     ${EDITOR:-cursor} "$full" ;;
-  view)
-    if command -v bat &>/dev/null; then
-      bat --style=plain "$full"
-    else
-      cat "$full"
-    fi ;;
   execute)
-    slug="$topic"
-    if git rev-parse --show-toplevel &>/dev/null; then
-      echo "Launching agent: ag $slug -m \"/execute from $topic_dir/plan.md\""
-      ag "$slug" -m "/execute from $topic_dir/plan.md"
+    repo_dir=$(_resolve_repo "$repo" 2>/dev/null) || repo_dir=""
+    if [[ -n "$repo_dir" ]]; then
+      echo "Launching agent in $repo: ag new $topic -m \"/execute\""
+      (cd "$repo_dir" && ag new "$topic" -m "/execute from $topic_dir/plan.md")
+    elif git rev-parse --show-toplevel &>/dev/null; then
+      echo "Launching agent: ag new $topic -m \"/execute\""
+      ag new "$topic" -m "/execute from $topic_dir/plan.md"
     else
       echo "Launching Claude Code: /execute $topic"
       cd "$topic_dir" && claude "/execute $topic"
     fi ;;
   propose)
-    slug="$topic"
-    if git rev-parse --show-toplevel &>/dev/null; then
-      echo "Launching agent: ag $slug -m \"/propose $topic\""
-      ag "$slug" -m "/propose $topic"
+    repo_dir=$(_resolve_repo "$repo" 2>/dev/null) || repo_dir=""
+    if [[ -n "$repo_dir" ]]; then
+      echo "Launching agent in $repo: ag new $topic -m \"/propose\""
+      (cd "$repo_dir" && ag new "$topic" -m "/propose $topic")
+    elif git rev-parse --show-toplevel &>/dev/null; then
+      echo "Launching agent: ag new $topic -m \"/propose\""
+      ag new "$topic" -m "/propose $topic"
     else
       echo "Launching Claude Code: /propose $topic"
       cd "$topic_dir" && claude "/propose $topic"
@@ -214,33 +232,21 @@ case "$action" in
       echo "Launching Claude Code: $(basename "$full")"
       claude "load $full"
     fi ;;
-  gemini)
+  codex)
     if [[ -d "$topic_dir" && "$topic_dir" != "$ARTIFACTS_ROOT" ]]; then
-      echo "Launching Gemini: $topic"
-      cd "$topic_dir" && gemini "load $topic ($topic_dir/)"
+      echo "Launching Codex: $topic"
+      cd "$topic_dir" && codex "load $topic ($topic_dir/)"
     else
-      echo "Launching Gemini: $(basename "$full")"
-      gemini "load $full"
+      echo "Launching Codex: $(basename "$full")"
+      codex "load $full"
     fi ;;
-  plan)
-    planner="${AG_EXECUTE_MODEL:-claude:opus}"
-    planner="${planner%%:*}"
-    case "$planner" in
-      claude) plan_flag="--permission-mode plan" ;;
-      gemini) plan_flag="--approval-mode plan" ;;
-      *)      plan_flag="" ;;
-    esac
-    if [[ -d "$topic_dir" && "$topic_dir" != "$ARTIFACTS_ROOT" ]]; then
-      echo "Launching $planner (Plan Mode): $topic"
-      cd "$topic_dir" && $planner $plan_flag "load $topic ($topic_dir/)"
+  vscode|cursor)
+    repo_dir=$(_resolve_repo "$repo" 2>/dev/null) || repo_dir=""
+    if [[ -n "$repo_dir" ]]; then
+      "$action" "$repo_dir"
+    elif [[ -d "$topic_dir" && "$topic_dir" != "$ARTIFACTS_ROOT" ]]; then
+      "$action" "$topic_dir"
     else
-      echo "Launching $planner (Plan Mode): $(basename "$full")"
-      $planner $plan_flag "load $full"
-    fi ;;
-  cursor)
-    if [[ -d "$topic_dir" && "$topic_dir" != "$ARTIFACTS_ROOT" ]]; then
-      cursor "$topic_dir"
-    else
-      cursor "$full"
+      "$action" "$full"
     fi ;;
 esac
