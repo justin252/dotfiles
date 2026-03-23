@@ -48,7 +48,7 @@ See `~/.agents/conventions/artifact-templates.md` for canonical templates. Key p
 - Most important information first. Problem statement should stand alone.
 - Concise. Cut anything a reader can infer.
 - ## Open sections are for real blockers/decisions, not wishlists.
-- Design tradeoffs: state what was considered, what was chosen, why.
+- Design tradeoffs: steelman each alternative before choosing – articulate the strongest case for each option, not just why it was rejected. If the user pushes back, steelman their position before responding.
 - Plan phases feed directly to /execute.
 
 ## Next

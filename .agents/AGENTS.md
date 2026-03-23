@@ -88,6 +88,7 @@ Default to higher blast radius when uncertain. The cost of context-switching is 
 - `eli5 [topic]` → Simplest first, I'll ask deeper.
 - `teach` (during execute) → Narrate changes with inline code refs. See /execute modes.
 - `poc <idea>` → Prove it works. Feasibility research → minimal build → draft PR with gaps documented. Single branch, no stacking. Requires `ccy`.
+- `steelman [decision]` → Structured decision-making. Restate the decision, extract relevant context, present 2-3 serious options, steelman each fairly, recommend one. Include confidence level, reversal conditions, and next validating experiment. Chat output only – no artifact required.
 - Plan mode is for code exploration + writing a plan. For iterative design discussion, stay in execute mode – enter plan mode once design is settled. Exception: plan mode suits exploratory design in a new domain where read-only codebase scanning drives the discussion.
 - Plan mode pacing: let user drive. Present analysis, wait. Don't rush to structured questions or formalize into plan files before alignment.
 - Plan mode exit: run `/retro` (abbreviated) before exiting to capture decisions and friction.
