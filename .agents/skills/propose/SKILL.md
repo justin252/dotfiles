@@ -16,13 +16,17 @@ Research, then produce artifacts at `~/.agents/artifacts/<topic>/`. Context-awar
 5. Check what exists and pick up there:
    - **Nothing**: start with problem.md
    - **problem.md**: read it, continue to design.md
-   - **design.md**: read it + problem.md, continue to plan.md
+   - **design.md**: confirmation gate. Read it + problem.md, then present:
+     1. Iterate on design
+     2. Generate implementation plan
+     3. Start fresh
+     Plan generation only after explicit "generate plan" choice.
    - **plan.md**: offer to revise or hand off to /execute
    - Offer to start fresh if user wants to rethink
 
 ## Workflow
 
-1. Scan codebase for related systems, prior art, existing docs
+1. **Research** (before design, skip for quick tasks): spawn Explore subagent to scan codebase for related systems, utilities, conventions, prior art. Append findings to problem.md ## Context section.
 2. Ask 2-3 focused questions to clarify scope (skip if context is clear)
 3. Draft iteratively – present each section, refine
 4. Write the next doc in the pipeline
@@ -31,7 +35,7 @@ Research, then produce artifacts at `~/.agents/artifacts/<topic>/`. Context-awar
 ## Scaling
 
 Match verbosity to problem size:
-- **Quick task** (alias, config change, small fix): lightweight problem.md (3-5 lines), skip design.md, go straight to plan.md
+- **Quick task** (alias, config change, small fix): lightweight problem.md (3-5 lines), skip research + design.md, go straight to plan.md. No confirmation gate.
 - **Medium** (feature, refactor, tool): problem + design, maybe combined
 - **Large** (system, architecture, multi-session): full pipeline with all sections
 
