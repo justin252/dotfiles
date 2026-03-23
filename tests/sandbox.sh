@@ -208,12 +208,19 @@ if [[ "$OSTYPE" == darwin* ]]; then
 fi
 
 # Dirs
-for d in .agents/artifacts .agents/skills .agents/sessions .agents/state .agents/conventions .agents/docs; do
+for d in .agents/artifacts .agents/skills .agents/sessions .agents/state .agents/conventions .agents/docs .agents/learnings; do
   [[ -d "$HOME/$d" ]] && _pass "dir: ~/$d" || _fail "missing dir: ~/$d"
 done
 
 # Seeded files
 [[ -f "$HOME/.agents/INBOX.md" ]] && _pass "seeded: INBOX.md" || _fail "missing: INBOX.md"
+
+# Per-animal learnings files
+for animal in octopus beaver dog eagle owl lion elephant; do
+  [[ -f "$HOME/.agents/learnings/${animal}.md" ]] \
+    && _pass "seeded: learnings/${animal}.md" \
+    || _fail "missing: learnings/${animal}.md"
+done
 
 echo ""
 echo "=== Shared docs ==="
@@ -572,6 +579,55 @@ if [[ "$wt_open_out" == *"nonexistent-ide-binary"* ]]; then
   _pass "wt open: missing IDE binary -> names the missing command"
 else
   _fail "wt open: missing IDE binary should name the command, got: $wt_open_out"
+fi
+
+# ━━━ ag-state hook ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+echo ""
+echo "=== ag-state hook ==="
+
+# Hook script exists and is executable
+if [[ -x "$REPO_ROOT/.claude/hooks/ag-state.sh" ]]; then
+  _pass "ag-state.sh: exists and executable"
+else
+  _fail "ag-state.sh: missing or not executable"
+fi
+
+# Hook syntax valid
+if bash -n "$REPO_ROOT/.claude/hooks/ag-state.sh" 2>/dev/null; then
+  _pass "ag-state.sh: syntax valid"
+else
+  _fail "ag-state.sh: syntax errors"
+fi
+
+# PreCompact in non-ag session: exits silently (no AG_SLUG, no TMUX)
+hook_out=$(echo '{}' | TMUX="" AG_SLUG="" bash "$REPO_ROOT/.claude/hooks/ag-state.sh" 2>/dev/null || true)
+if [[ -z "$hook_out" ]]; then
+  _pass "ag-state.sh: silent in non-ag session"
+else
+  _fail "ag-state.sh: should be silent in non-ag session, got: $hook_out"
+fi
+
+# PreCompact with AG_SLUG: produces learning flush instruction
+hook_out=$(echo '{}' | AG_SLUG="test-slug" bash "$REPO_ROOT/.claude/hooks/ag-state.sh" 2>/dev/null || true)
+if [[ "$hook_out" == *"CONTEXT COMPACTION IMMINENT"* ]]; then
+  _pass "ag-state.sh: outputs flush instruction with AG_SLUG"
+else
+  _fail "ag-state.sh: should output flush instruction, got: $hook_out"
+fi
+
+# Flush instruction references learnings file
+if [[ "$hook_out" == *"learnings/dog.md"* ]]; then
+  _pass "ag-state.sh: references learnings/dog.md (default animal)"
+else
+  _fail "ag-state.sh: should reference learnings/dog.md"
+fi
+
+# Hook symlink wired after install
+if [[ -L "$HOME/.claude/hooks/ag-state.sh" ]]; then
+  _pass "ag-state.sh: symlinked after install"
+else
+  _fail "ag-state.sh: should be symlinked after install"
 fi
 
 # ━━━ artifacts ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
