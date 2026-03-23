@@ -1144,6 +1144,25 @@ INFOEOF
       done
     fi
 
+    # detect orphan state dirs (no live tmux session)
+    declare -A _seen_slugs
+    while read -r _s _b _st slug _rest; do
+      [[ -n "$slug" ]] && _seen_slugs["$slug"]=1
+    done < "$tmpdir/sessions"
+    for _sd in "$HOME/.agents/state"/*/; do
+      [[ -d "$_sd" ]] || continue
+      _os=$(basename "$_sd")
+      [[ -n "${_seen_slugs[$_os]+x}" ]] && continue
+      # only surface if there's active state (non-done phase or PID file)
+      _op=""; [[ -f "$_sd/phase" ]] && _op=$(cat "$_sd/phase" 2>/dev/null)
+      [[ "$_op" == "done" ]] && continue
+      if [[ -n "$_op" ]] || [[ -f "$_sd/orchestrator.pid" ]]; then
+        echo "orphan-${_os} - orphan ${_os}" >> "$tmpdir/sessions"
+        echo "-" > "$tmpdir/pr-orphan-${_os}"
+      fi
+    done
+    unset _seen_slugs
+
     # no sessions at all (local or remote)
     if [[ ! -s "$tmpdir/sessions" ]]; then
       [[ "$json" == true ]] && echo "[]" || echo "no agent sessions"
@@ -1180,6 +1199,7 @@ INFOEOF
           learning)  display_state="🐘 learning" ;;
           done)      display_state="✅ done" ;;
           stuck)     display_state="⚠️  stuck" ;;
+          orphan)    display_state="⚠️  orphan" ;;
           active)    display_state="● active" ;;
           idle)      display_state="○ idle" ;;
           *)         display_state="$state" ;;

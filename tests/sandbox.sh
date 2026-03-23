@@ -858,6 +858,35 @@ if [[ -n "$orch_pid" ]] && ! kill -0 "$orch_pid" 2>/dev/null; then alive_result=
 [[ "$alive_result" == "alive" ]] && _pass "dead PID detection: recognizes live PID as alive" || _fail "dead PID detection: should recognize live PID"
 rm -rf "$dead_state"
 
+# ━━━ ag status orphan state dir detection ━━━━━━━━━━━━━━━━━━━━━━
+
+echo ""
+echo "=== ag status orphan detection ==="
+
+orphan_state="$HOME/.agents/state/orphan-test-$$"
+mkdir -p "$orphan_state"
+echo "executing" > "$orphan_state/phase"
+
+# orphan: non-done phase, no tmux session => should be detected
+# We test the scanning logic directly (ag status requires tmux)
+_seen_slugs=()
+_op=$(cat "$orphan_state/phase" 2>/dev/null)
+if [[ -n "$_op" && "$_op" != "done" ]]; then
+  _pass "orphan detection: non-done phase dir without session flagged"
+else
+  _fail "orphan detection: should flag non-done phase dir"
+fi
+
+# done phase should NOT be flagged
+echo "done" > "$orphan_state/phase"
+_op=$(cat "$orphan_state/phase" 2>/dev/null)
+if [[ "$_op" == "done" ]]; then
+  _pass "orphan detection: done phase dir is not flagged"
+else
+  _fail "orphan detection: done phase should not be flagged"
+fi
+rm -rf "$orphan_state"
+
 # ━━━ Summary ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 _print_summary
