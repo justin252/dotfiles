@@ -818,7 +818,7 @@ INFOEOF
       [[ -f "$HOME/.agents/artifacts/$topic/review.md" ]] || actions+=("review:run code review")
       [[ "$pr" != "-" ]] && actions+=("open-pr:open PR in browser")
       actions+=("edit:open artifacts in \$EDITOR")
-      actions+=("vscode:open worktree in VS Code")
+      actions+=("code:open worktree in VS Code")
       actions+=("cursor:open worktree in Cursor")
       [[ -f "$state_dir/orchestrate.log" ]] && actions+=("log:tail orchestrate log")
       actions+=("clean:ag clean topic")
@@ -848,10 +848,17 @@ INFOEOF
           fi
           ;;
         edit)    "${EDITOR:-vim}" "$HOME/.agents/artifacts/$topic/" ;;
-        vscode)  [[ -n "$wt" ]] && code "$wt" || echo "no worktree found" >&2 ;;
+        code)    [[ -n "$wt" ]] && code "$wt" || echo "no worktree found" >&2 ;;
         cursor)  [[ -n "$wt" ]] && cursor "$wt" || echo "no worktree found" >&2 ;;
         log)     tail -f "$state_dir/orchestrate.log" ;;
-        clean)   ag clean "$topic" ;;
+        clean)
+          tmux kill-session -t "$sess_name" 2>/dev/null && echo "killed session: $sess_name" || true
+          if [[ -n "$wt" && -d "$wt" ]]; then
+            ~/tools/wt rm "$(basename "$wt")" --force 2>/dev/null && echo "removed worktree: $wt" || true
+          fi
+          [[ -d "$HOME/.agents/state/$topic" ]] && rm -rf "$HOME/.agents/state/$topic" && echo "cleaned state: $topic" || true
+          echo "cleaned $topic"
+          ;;
         "")      ;; # cancelled
       esac
     }
@@ -1222,21 +1229,9 @@ INFOEOF
           echo "  killed $sess"
         done <<< "$ag_sessions"
       fi
-      # 2. remove all worktrees (delegate to wt clean --all --force)
-      # wt is a shell function; source the zshrc approach via inline logic
+      # 2. remove all worktrees (delegate to wt)
       if main_repo_root &>/dev/null; then
-        root=$(main_repo_root)
-        while read -r wt_path; do
-          [[ "$wt_path" == "$root" ]] && continue
-          branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null) || true
-          if git worktree remove "$wt_path" --force 2>/dev/null; then
-            [[ -n "$branch" && "$branch" != "HEAD" ]] && git -C "$root" branch -d "$branch" 2>/dev/null || true
-            echo "  removed $(basename "$wt_path")"
-          else
-            echo "  failed: $(basename "$wt_path")" >&2
-          fi
-        done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
-        git worktree prune 2>/dev/null
+        ~/tools/wt clean --all --force 2>/dev/null || true
       fi
       # 3. clean all state files
       if [[ -d "$HOME/.agents/state" ]]; then
@@ -1345,7 +1340,7 @@ INFOEOF
           state_name=$(basename "$state_dir")
           expected_sess="ag-${repo}-${state_name}"
           if ! tmux has-session -t "$expected_sess" 2>/dev/null; then
-            # guard: skip if worktree still exists (Cursor may have active worktree without tmux)
+            # guard: skip if worktree still exists (may have active IDE without tmux)
             has_wt=false
             while read -r _wt_check; do
               [[ "$_wt_check" == *"$state_name"* ]] && has_wt=true
@@ -1382,10 +1377,7 @@ INFOEOF
             branch=$(_ag_branch "$sess_name" "$wt_path")
             _archive_session "$wt_slug" "$repo" "$sess_name" 2>/dev/null || true
             tmux kill-session -t "$sess_name" 2>/dev/null
-            if git worktree remove "$wt_path" --force 2>/dev/null; then
-              if [[ -n "$branch" && "$branch" != "HEAD" ]]; then
-                git -C "$root" branch -d "$branch" 2>/dev/null || true
-              fi
+            if ~/tools/wt rm "$wt_slug" --force 2>/dev/null; then
               echo "  removed $wt_slug"
             else
               echo "  failed to remove $wt_slug (dirty?)" >&2

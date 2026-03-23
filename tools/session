@@ -90,7 +90,7 @@ selection=$(printf '%s' "$entries" | fzf "${fzf_args[@]}") || exit 0
 full=$(echo "$selection" | cut -f2)
 fname=$(basename "$full")
 
-actions=("edit" "vscode" "cursor" "claude" "codex")
+actions=("edit" "code" "cursor" "claude" "codex")
 
 action=$(printf '%s\n' "${actions[@]}" | \
   fzf --prompt="action> " --header="$fname") || exit 0
@@ -98,7 +98,7 @@ action=$(printf '%s\n' "${actions[@]}" | \
 case "$action" in
   edit)
     ${EDITOR:-vim} "$full" ;;
-  vscode) code "$full" ;;
+  code) code "$full" ;;
   cursor) cursor "$full" ;;
   claude)
     echo "Launching Claude Code: ${fname%.md}"
