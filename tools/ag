@@ -1153,8 +1153,9 @@ INFOEOF
       while read -r sess branch state slug tasks_info; do
         pr_state=$(cat "$tmpdir/pr-${sess}" 2>/dev/null || echo "-")
         $first || echo ","
-        printf '  {"name":"%s","session":"%s","branch":"%s","state":"%s","pr":"%s","tasks":"%s"}' \
-          "$slug" "$sess" "$branch" "$state" "$pr_state" "${tasks_info:-}"
+        jq -nc --arg name "$slug" --arg session "$sess" --arg branch "$branch" \
+          --arg state "$state" --arg pr "$pr_state" --arg tasks "${tasks_info:-}" \
+          '{name: $name, session: $session, branch: $branch, state: $state, pr: $pr, tasks: $tasks}'
         first=false
       done < "$tmpdir/sessions"
       echo ""

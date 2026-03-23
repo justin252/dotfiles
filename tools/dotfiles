@@ -18,6 +18,7 @@ die()     { printf 'error: %s\n' "$1" >&2; [[ -n "${2:-}" ]] && printf '  → %s
 repaired=0
 warnings=0
 pulled=0
+
 DRYRUN=false
 
 # ━━━ Symlink manifest ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

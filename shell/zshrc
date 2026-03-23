@@ -246,7 +246,16 @@ wt() {
         echo "$trees"
       fi
       return ;;
-    resolve|list|rm|clean|migrate|-h|--help)
+    new|resolve)
+      shift
+      local dest
+      dest=$(~/tools/wt new "$@") || return 1
+      cd "$dest"
+      echo "→ $(git -C "$dest" rev-parse --abbrev-ref HEAD 2>/dev/null) at $dest" ;;
+    open)
+      ~/tools/wt "$@"
+      return ;;
+    list|rm|clean|migrate|-h|--help)
       ~/tools/wt "$@"
       return ;;
     -d)
