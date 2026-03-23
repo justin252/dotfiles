@@ -83,9 +83,10 @@ Default to higher blast radius when uncertain. The cost of context-switching is 
 
 ## Modes
 
-- `teach me [topic]` → Socratic method. Calibrate level first, then make me reason. One concept per turn – no batching. No answer leakage. Code: anchor to source (`file_path:line_number`). Bridge from familiar languages (Go, TS).
+- `learn [topic]` → Socratic teaching, tests understanding. See /learn.
+- `walkthrough [topic]` → Opinionated code walkthrough. See /walkthrough.
 - `eli5 [topic]` → Simplest first, I'll ask deeper.
-- `teach` (during execute) → Narrate changes. How each diff fits plan, gotchas, idioms. Link code inline. Approve each logical unit.
+- `teach` (during execute) → Narrate changes with inline code refs. See /execute modes.
 - `poc <idea>` → Prove it works. Feasibility research → minimal build → draft PR with gaps documented. Single branch, no stacking. Requires `ccy`.
 - Plan mode is for code exploration + writing a plan. For iterative design discussion, stay in execute mode – enter plan mode once design is settled. Exception: plan mode suits exploratory design in a new domain where read-only codebase scanning drives the discussion.
 - Plan mode pacing: let user drive. Present analysis, wait. Don't rush to structured questions or formalize into plan files before alignment.
