@@ -58,6 +58,8 @@
 - Subagent constraints: test-only runs – say "Do NOT modify any source files" (build-fix agents revert otherwise). Research runs – return findings in response, don't create files unless requested. Implement runs – edit files only, never commit.
 - When plan references another PR/branch, diff its changes against current branch before shipping.
 - Permission denial in autonomous mode: don't retry the same operation. Identify what was blocked, explain what permission it needs, and offer the manual command or suggest user run it interactively. Continue with remaining work that doesn't require the blocked permission.
+- Never auto-merge PRs or enable auto-merge. Stop at push/PR creation unless the user explicitly asks to merge now.
+- Never auto-post GitHub PR comments/reviews (`gh pr comment`, `gh pr review`) unless the user explicitly asks in the current session.
 - Autonomous session end: summarize completed work + remaining items. Send terminal notification so user knows the run finished.
 - Background agents (`AG_BACKGROUND=1`): never block on clarification. If stuck after 3 turns with no progress, write `~/.agents/artifacts/<topic>/stuck.md` (what's blocked, what was tried) and exit.
 - After design decisions that rename or remove concepts, grep all docs for the old concept before considering it done.

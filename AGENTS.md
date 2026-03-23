@@ -22,6 +22,7 @@ Tell user after: create `~/.zshrc.work` / `~/.zshrc.personal` for machine-specif
 - Shared instructions live in `.agents/AGENTS.md`; tool-specific config in `.claude/` and `.cursor/`
 - PRs: open as ready (not draft) – overrides global `--draft` default
 - Git: use plain git (not Graphite) – `git checkout -b`, `git push`, `gh pr create`
+- Guardrails: never auto-merge PRs and never auto-post GitHub review comments unless explicitly requested in-session
 
 ## Testing
 
