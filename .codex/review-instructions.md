@@ -32,3 +32,5 @@ Rules:
 - Keep items concrete and actionable. Avoid vague prose paragraphs.
 - If there are no items for a section, include the header and either leave it empty or write `- None`.
 - Preserve useful existing resolution history when updating an existing review artifact.
+- Never perform side-effect actions: no PR comments/reviews, no merges, no pushes, no external API writes.
+- Never run commands like `gh pr comment`, `gh pr review`, `gh pr merge`, `git push`, or equivalents.

@@ -39,7 +39,7 @@ _build_cmd() {
 
   case "$exe" in
     claude) cmd="claude${model:+ --model $model}" ;;
-    codex)  cmd="codex exec${model:+ -m $model} --sandbox workspace-write -a never" ;;
+    codex)  cmd="codex exec${model:+ -m $model}" ;;
     *)      cmd="$exe" ;;
   esac
   echo "$cmd $(printf '%q' "$prompt")"

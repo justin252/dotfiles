@@ -306,7 +306,7 @@ _ensure_codex() {
     fi
     local missing=0
     grep -q '^approval_policy *= *"never"' "$config_file" 2>/dev/null || ((missing++)) || true
-    grep -q '^sandbox_mode *= *"workspace-write"' "$config_file" 2>/dev/null || ((missing++)) || true
+    grep -q '^sandbox_mode *= *"danger-full-access"' "$config_file" 2>/dev/null || ((missing++)) || true
     if [[ $missing -gt 0 ]]; then
       _yellow "  $missing defaults need sync"
       warnings=$((warnings + 1))
@@ -327,7 +327,7 @@ _ensure_codex() {
     BEGIN { entered_section = 0; found_approval = 0; found_sandbox = 0 }
     function print_missing() {
       if (!found_approval) print "approval_policy = \"never\""
-      if (!found_sandbox) print "sandbox_mode = \"workspace-write\""
+      if (!found_sandbox) print "sandbox_mode = \"danger-full-access\""
     }
     {
       if (!entered_section && $0 ~ /^[[:space:]]*\[/) { print_missing(); entered_section = 1 }
@@ -335,7 +335,7 @@ _ensure_codex() {
         print "approval_policy = \"never\""; found_approval = 1; next
       }
       if (!entered_section && $0 ~ /^[[:space:]]*sandbox_mode[[:space:]]*=/) {
-        print "sandbox_mode = \"workspace-write\""; found_sandbox = 1; next
+        print "sandbox_mode = \"danger-full-access\""; found_sandbox = 1; next
       }
       print
     }

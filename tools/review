@@ -313,6 +313,8 @@ echo "  log: $log_path" >&2
     --base "$base_branch" \
     --title "${pr_title:-$topic}" \
     ${reviewer_model:+-m "$reviewer_model"} \
+    -c "approval_policy=\"untrusted\"" \
+    -c "sandbox_mode=\"read-only\"" \
     -c "model_reasoning_effort=\"high\"" \
     -c "model_instructions_file=\"$runtime_instructions\"" \
     </dev/null >"$codex_out"
