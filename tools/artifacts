@@ -16,7 +16,7 @@ Options:
   -h, --help    Show this help
 
 Sources: ~/.agents/artifacts/<topic>/ with YAML frontmatter.
-Actions: edit, execute, propose, review, vscode, cursor, claude, codex. ctrl-y: copy path.
+Actions: edit, execute, propose, review, code, cursor, claude, codex. ctrl-y: copy path.
 EOF
 }
 
@@ -185,7 +185,7 @@ if [[ "$doc_type" == "output" || "$doc_type" == "review" || -f "$topic_dir/outpu
   actions+=("review")
 fi
 
-actions+=("vscode" "cursor" "claude" "codex")
+actions+=("code" "cursor" "claude" "codex")
 
 action=$(printf '%s\n' "${actions[@]}" | \
   fzf --prompt="action> " --header="$topic – $(basename "$full")") || exit 0
@@ -235,7 +235,7 @@ case "$action" in
       echo "Launching Codex: $(basename "$full")"
       codex "load $full"
     fi ;;
-  vscode|cursor)
+  code|cursor)
     repo_dir=$(_resolve_repo "$repo" 2>/dev/null) || repo_dir=""
     if [[ -n "$repo_dir" ]]; then
       "$action" "$repo_dir"

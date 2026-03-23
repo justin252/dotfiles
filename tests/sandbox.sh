@@ -534,6 +534,27 @@ fi
 printf '#!/bin/sh\nexit 0\n' > "$STUB_DIR/tmux"
 chmod +x "$STUB_DIR/tmux"
 
+# ag open: no worktree -> clear error with suggestion
+ag_open_out=$(cd "$wt_repo" && PATH="$STUB_DIR:$ORIG_PATH" /bin/bash "$REPO_ROOT/tools/ag" open nonexistent-topic 2>&1 || true)
+if [[ "$ag_open_out" == *"no worktree"* ]]; then
+  _pass "ag open: missing worktree -> 'no worktree' error"
+else
+  _fail "ag open: missing worktree should say 'no worktree', got: $ag_open_out"
+fi
+if [[ "$ag_open_out" == *"ag new"* ]]; then
+  _pass "ag open: missing worktree -> suggests 'ag new'"
+else
+  _fail "ag open: missing worktree should suggest 'ag new', got: $ag_open_out"
+fi
+
+# wt open: missing IDE binary -> non-zero exit + names the command
+wt_open_out=$(cd "$wt_repo" && DOTFILES_IDE_CMD=nonexistent-ide-binary WT_CREATE_MODE=new "$REPO_ROOT/tools/wt" open "$wt_branch" 2>&1 || true)
+if [[ "$wt_open_out" == *"nonexistent-ide-binary"* ]]; then
+  _pass "wt open: missing IDE binary -> names the missing command"
+else
+  _fail "wt open: missing IDE binary should name the command, got: $wt_open_out"
+fi
+
 # ━━━ artifacts ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 echo ""
