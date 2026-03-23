@@ -114,9 +114,21 @@ _wait_stage() {
   while [[ ! -f "$sentinel" ]]; do
     sleep 5
     elapsed=$((elapsed + 5))
+
+    # Check for context filling (agent needs restart)
+    if _check_context_filling "$state_dir" && [[ "$test_mode" != true ]]; then
+      if _relaunch_agent "$session" "$state_dir" "$topic" "$plan" "$_current_model" "$stage"; then
+        elapsed=0  # reset timeout for relaunched agent
+        continue
+      else
+        return 1  # escalation happened
+      fi
+    fi
+
     if (( elapsed >= timeout )); then
       echo "timeout waiting for stage '$stage' after ${timeout}s" >&2
       _finish_stage "$state_dir" "$stage" "failed"
+      _escalate "$state_dir" "$topic" "$stage" "Timeout after ${timeout}s"
       return 1
     fi
   done
@@ -170,6 +182,95 @@ _notify() {
   fi
 }
 
+# --- escalation ---
+
+_escalate() {
+  local state_dir="$1" topic="$2" stage="$3" reason="$4"
+  local topic_dir="$HOME/.agents/artifacts/$topic"
+  mkdir -p "$topic_dir"
+  cat > "$topic_dir/stuck.md" << STUCK
+---
+topic: $topic
+stage: $stage
+updated: $(_now)
+---
+## Blocked
+$reason
+## Context
+- Pipeline: $state_dir/pipeline.json
+- Stage: $stage
+## What it needs
+Human intervention: ag $topic to attach and resolve.
+STUCK
+  echo "stuck" > "$state_dir/phase"
+  _set_current "$state_dir" "stuck"
+  _notify "$topic" "STUCK: $topic ($stage) - $reason"
+}
+
+# --- auto-restart (context fill detection) ---
+
+_compose_resume_context() {
+  local state_dir="$1" topic="$2" plan="$3"
+  local context=""
+  if [[ -f "$state_dir/context.json" ]]; then
+    local summary
+    summary=$(jq -r '.summary // empty' "$state_dir/context.json" 2>/dev/null || true)
+    [[ -n "$summary" ]] && context+="Previous session summary: $summary"$'\n\n'
+  fi
+  if [[ -f "$plan" ]]; then
+    local unchecked
+    unchecked=$(grep -E '^\s*- \[ \]' "$plan" 2>/dev/null | head -20 || true)
+    [[ -n "$unchecked" ]] && context+="Remaining tasks from plan:"$'\n'"$unchecked"$'\n\n'
+  fi
+  local wt_path=""
+  [[ -n "${TMUX:-}" ]] && wt_path=$(tmux display-message -t "$session" -p '#{pane_current_path}' 2>/dev/null || true)
+  if [[ -n "$wt_path" ]]; then
+    local recent_log
+    recent_log=$(git -C "$wt_path" log --oneline -5 2>/dev/null || true)
+    [[ -n "$recent_log" ]] && context+="Recent commits:"$'\n'"$recent_log"$'\n\n'
+  fi
+  echo "$context"
+}
+
+_check_context_filling() {
+  local state_dir="$1"
+  [[ -f "$state_dir/context.json" ]] || return 1
+  jq -e '.context_filling == true' "$state_dir/context.json" >/dev/null 2>&1
+}
+
+_relaunch_agent() {
+  local session="$1" state_dir="$2" topic="$3" plan="$4" model_val="$5" stage="$6"
+  local count=0
+  [[ -f "$state_dir/context.json" ]] && \
+    count=$(jq -r '.relaunch_count // 0' "$state_dir/context.json" 2>/dev/null || echo 0)
+  count=$((count + 1))
+  if (( count > 3 )); then
+    echo "max relaunches ($count) for stage $stage, escalating" >&2
+    _escalate "$state_dir" "$topic" "$stage" "Max relaunches (3) exceeded"
+    return 1
+  fi
+  echo "relaunch #$count for stage $stage (context filled)" >&2
+  if [[ -f "$state_dir/context.json" ]]; then
+    jq --argjson c "$count" '.relaunch_count = $c | .context_filling = false' \
+      "$state_dir/context.json" > "$state_dir/context.json.tmp" \
+      && mv "$state_dir/context.json.tmp" "$state_dir/context.json"
+  fi
+  local resume_ctx
+  resume_ctx=$(_compose_resume_context "$state_dir" "$topic" "$plan")
+  tmux send-keys -t "$session" C-c 2>/dev/null || true
+  sleep 2
+  local resume_prompt="Resume: continuing $topic (stage: $stage, relaunch #$count).
+$resume_ctx
+Continue from where you left off. Complete the current stage."
+  local cmd
+  cmd="$(_build_cmd "$model_val" "$resume_prompt")"
+  local sentinel="$state_dir/stage-done"
+  rm -f "$sentinel"
+  tmux send-keys -t "$session" \
+    "$cmd && echo done > $(printf '%q' "$sentinel") || echo fail > $(printf '%q' "$sentinel")" Enter
+  return 0
+}
+
 # --- chain context: gather upstream artifacts for stage prompts ---
 
 _gather_chain_context() {
@@ -219,12 +320,23 @@ done
 state_dir="$HOME/.agents/state/$topic"
 mkdir -p "$state_dir"
 
+# PID tracking
+_cleanup_pid() {
+  rm -f "$state_dir/orchestrator.pid"
+}
+
 # test mode: use temp dir
 if [[ "$test_mode" == true ]]; then
   state_dir=$(mktemp -d "/tmp/ag-test-XXXXX")
   plan="$state_dir/plan.md"
   echo -e "---\ntopic: $topic\n---\n# Test Plan\n- [ ] stub task" > "$plan"
-  trap 'echo "test artifacts: $state_dir" >&2' EXIT
+  trap 'echo "test artifacts: $state_dir" >&2; _cleanup_pid' EXIT
+fi
+
+# Write PID file
+echo $$ > "$state_dir/orchestrator.pid"
+if [[ "$test_mode" != true ]]; then
+  trap '_cleanup_pid' EXIT
 fi
 
 # Parse skip list
@@ -263,6 +375,7 @@ topic_dir="$HOME/.agents/artifacts/$topic"
 
 _run_stage() {
   local stage="$1" model_val="$2" phase_name="$3" timeout="$4" prompt="$5"
+  _current_model="$model_val"  # track for _relaunch_agent
 
   if _should_skip "$stage"; then
     echo "skipping: $stage" >&2

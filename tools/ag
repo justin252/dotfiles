@@ -1085,6 +1085,15 @@ INFOEOF
         [[ -n "$phase" && "$phase" != "done" ]] && state="$phase"
         [[ "$phase" == "done" ]] && state="done"
       fi
+      # detect dead orchestrator PID
+      pid_file="$HOME/.agents/state/$slug/orchestrator.pid"
+      if [[ -f "$pid_file" ]]; then
+        orch_pid=$(cat "$pid_file" 2>/dev/null)
+        if [[ -n "$orch_pid" ]] && ! kill -0 "$orch_pid" 2>/dev/null; then
+          state="stuck"
+          tasks_info="dead orchestrator"
+        fi
+      fi
       [[ -f "$tasks_file" ]] && tasks_info=$(cat "$tasks_file" 2>/dev/null)
       # enrich with pipeline.json stage timing
       stage_time=""
@@ -1170,6 +1179,7 @@ INFOEOF
           fixing)    display_state="🔧 fixing" ;;
           learning)  display_state="🐘 learning" ;;
           done)      display_state="✅ done" ;;
+          stuck)     display_state="⚠️  stuck" ;;
           active)    display_state="● active" ;;
           idle)      display_state="○ idle" ;;
           *)         display_state="$state" ;;

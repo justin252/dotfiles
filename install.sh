@@ -85,6 +85,17 @@ if command -v rtk &> /dev/null && [[ ! -f ~/.claude/hooks/rtk-rewrite.sh ]]; the
   fi
 fi
 
+# Sync Claude Code hooks from dotfiles repo
+mkdir -p ~/.claude/hooks
+for hook in "$DOTFILES/.claude/hooks/"*.sh; do
+  [[ -f "$hook" ]] || continue
+  hook_name="$(basename "$hook")"
+  if [[ ! -f "$HOME/.claude/hooks/$hook_name" ]] || \
+     [[ -L "$HOME/.claude/hooks/$hook_name" ]]; then
+    ln -sfn "$hook" "$HOME/.claude/hooks/$hook_name"
+  fi
+done
+
 # Delegate all managed state (symlinks, skills, configs, dirs, seeds) to dotfiles tool
 export DOTFILES
 export WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}"
