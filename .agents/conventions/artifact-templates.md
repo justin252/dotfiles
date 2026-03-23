@@ -108,7 +108,7 @@ chain: [problem.md, design.md, plan.md, output.md, review.md]
 
 ### reference.md – learnings
 
-Non-actionable knowledge. Created by /explain.
+Non-actionable knowledge. Created by /document.
 
 ```markdown
 ---
