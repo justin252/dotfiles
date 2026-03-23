@@ -35,6 +35,7 @@ ag - agent session manager
   ag run <plan> --skip review   skip pipeline stages
   ag run <plan> --resume        resume from last incomplete stage
   ag run <plan> --test          integration test (stubs in /tmp)
+  ag open <topic>           open existing worktree in IDE (no session)
   ag new <name>             launch agent in worktree (create or reattach)
   ag new proj/feature       grouped session (display-only grouping by prefix)
   ag new <name> --shell     create worktree + tmux, drop to shell
@@ -1457,10 +1458,11 @@ INFOEOF
     if command -v fzf &>/dev/null; then
       pick=$(echo "$lines" | fzf \
         --prompt="agent> " \
-        --header="enter: attach | ctrl-o: open PR | ctrl-p: copy plan" \
+        --header="enter: attach | ctrl-y: copy | ctrl-o: open PR | ctrl-p: copy plan" \
         --preview='~/tools/ag-preview {1}' \
         --preview-window=right:50% \
         --bind="ctrl-o:execute-silent(url=\$(~/tools/ag-preview {1} | grep -o 'https://[^ ]*' | head -1); if command -v open >/dev/null; then open \"\$url\"; elif command -v xdg-open >/dev/null; then xdg-open \"\$url\"; fi)" \
+        --bind="ctrl-y:execute-silent(printf '%s' {1} | if command -v pbcopy >/dev/null; then pbcopy; elif command -v xclip >/dev/null; then xclip -selection clipboard; fi)+abort" \
         --bind="ctrl-p:execute-silent(~/tools/ag-preview {1} | grep '^plan: ' | sed 's/^plan: //' | tr -d '\n' | if command -v pbcopy >/dev/null; then pbcopy; elif command -v xclip >/dev/null; then xclip -selection clipboard; fi)" \
         | awk '{print $1}') || exit 0
 
@@ -1479,6 +1481,32 @@ INFOEOF
       fi
     else
       echo "$lines"
+    fi
+    ;;
+  open)
+    shift
+    _ag_open_topic="${1:-}"
+    [[ -z "$_ag_open_topic" ]] && { echo "usage: ag open <topic>" >&2; exit 1; }
+    _ag_open_wt=""
+    _ag_open_repo=$(repo_name 2>/dev/null || true)
+    _ag_open_sess="ag-${_ag_open_repo}-${_ag_open_topic}"
+    if tmux has-session -t "$_ag_open_sess" 2>/dev/null; then
+      _ag_open_wt=$(tmux display-message -t "$_ag_open_sess" -p '#{pane_current_path}' 2>/dev/null) || true
+    fi
+    if [[ -z "$_ag_open_wt" || ! -d "$_ag_open_wt" ]]; then
+      _ag_open_wt=$(git worktree list 2>/dev/null | grep -F "$_ag_open_topic" | head -1 | awk '{print $1}') || true
+    fi
+    if [[ -z "$_ag_open_wt" || ! -d "$_ag_open_wt" ]]; then
+      echo "no worktree for '$_ag_open_topic'; run: ag new $_ag_open_topic" >&2
+      exit 1
+    fi
+    _ag_open_ide="${DOTFILES_IDE_CMD:-code}"
+    if command -v "$_ag_open_ide" &>/dev/null; then
+      "$_ag_open_ide" "$_ag_open_wt"
+    else
+      echo "$_ag_open_wt"
+      echo "$_ag_open_ide not found on PATH" >&2
+      exit 1
     fi
     ;;
   new)

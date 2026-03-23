@@ -74,11 +74,13 @@ preview_cmd="bat --style=plain --color=always {2} 2>/dev/null || cat {2}"
 
 fzf_args=(
   --prompt="session> "
+  --header="enter: actions | ctrl-y: copy path"
   --ansi
   --delimiter=$'\t'
   --with-nth=1
   --preview="$preview_cmd"
   --preview-window=right:60%:wrap
+  --bind='ctrl-y:execute-silent(echo {2} | tr -d "\n" | if command -v pbcopy >/dev/null; then pbcopy; elif command -v xclip >/dev/null; then xclip -selection clipboard; fi)+abort'
 )
 [[ -n "$query" ]] && fzf_args+=(--query="$query")
 
@@ -88,19 +90,12 @@ selection=$(printf '%s' "$entries" | fzf "${fzf_args[@]}") || exit 0
 full=$(echo "$selection" | cut -f2)
 fname=$(basename "$full")
 
-actions=("copy" "edit" "vscode" "cursor" "claude" "codex")
+actions=("edit" "vscode" "cursor" "claude" "codex")
 
 action=$(printf '%s\n' "${actions[@]}" | \
   fzf --prompt="action> " --header="$fname") || exit 0
 
 case "$action" in
-  copy)
-    if command -v pbcopy &>/dev/null; then
-      printf '%s' "$full" | pbcopy
-    elif command -v xclip &>/dev/null; then
-      printf '%s' "$full" | xclip -selection clipboard
-    fi
-    echo "$full" ;;
   edit)
     ${EDITOR:-vim} "$full" ;;
   vscode) code "$full" ;;

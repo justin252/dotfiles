@@ -23,6 +23,7 @@ Usage:
   wt new <PR#>            resolve PR number to worktree
   wt new <PR-URL>         resolve PR URL to worktree
   wt                      interactive worktree picker (fzf)
+  wt open <branch|PR#|URL>  open worktree in IDE (resolve/create)
   wt list [--plain|--json]
   wt rm <branch|slug> [--force]
   wt clean [--all] [--force]
@@ -193,8 +194,10 @@ cmd_pick() {
   local selected
   selected=$(git worktree list 2>/dev/null | tail -n+2 | fzf \
     --prompt="worktree> " \
+    --header="enter: select | ctrl-y: copy path" \
     --preview='dir=$(echo {} | awk "{print \$1}"); git -C "$dir" log --oneline -5 2>/dev/null; echo "---"; git -C "$dir" status --short 2>/dev/null' \
     --preview-window=right:50% \
+    --bind='ctrl-y:execute-silent(echo {} | awk "{print $1}" | tr -d "\n" | if command -v pbcopy >/dev/null; then pbcopy; elif command -v xclip >/dev/null; then xclip -selection clipboard; fi)+abort' \
   ) || return 0
 
   echo "$selected" | awk '{print $1}'
@@ -455,6 +458,17 @@ shift || true
 case "$subcommand" in
   new)     cmd_new "$@" ;;
   resolve) cmd_new "$@" ;;  # backward compat alias
+  open)
+    [[ -z "${1:-}" ]] && die "usage: wt open <branch|PR#|PR-URL>"
+    wt_path=$(cmd_new "$@")
+    ide="${DOTFILES_IDE_CMD:-code}"
+    if command -v "$ide" &>/dev/null; then
+      "$ide" "$wt_path"
+    else
+      echo "$wt_path" >&2
+      die "$ide not found on PATH"
+    fi
+    ;;
   list)    cmd_list "$@" ;;
   rm)      cmd_rm "$@" ;;
   clean)   cmd_clean "$@" ;;

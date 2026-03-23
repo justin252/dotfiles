@@ -16,7 +16,7 @@ Options:
   -h, --help    Show this help
 
 Sources: ~/.agents/artifacts/<topic>/ with YAML frontmatter.
-Actions: copy, edit, execute, propose, review, vscode, cursor, claude, codex.
+Actions: edit, execute, propose, review, vscode, cursor, claude, codex. ctrl-y: copy path.
 EOF
 }
 
@@ -142,11 +142,13 @@ preview_cmd="bat --style=plain --color=always {2} 2>/dev/null || cat {2}"
 # fzf with optional query arg – searches across all fields including hidden ones
 fzf_args=(
   --prompt="artifacts> "
+  --header="enter: actions | ctrl-y: copy path"
   --ansi
   --delimiter=$'\t'
   --with-nth=1
   --preview="$preview_cmd"
   --preview-window=right:60%:wrap
+  --bind='ctrl-y:execute-silent(echo {2} | tr -d "\n" | if command -v pbcopy >/dev/null; then pbcopy; elif command -v xclip >/dev/null; then xclip -selection clipboard; fi)+abort'
 )
 [[ $# -gt 0 ]] && fzf_args+=(--query="$1")
 
@@ -171,7 +173,7 @@ _resolve_repo() {
 }
 
 # Build actions list based on what exists in topic dir
-actions=("copy" "edit")
+actions=("edit")
 
 if [[ -f "$topic_dir/plan.md" ]]; then
   actions+=("execute")
@@ -189,13 +191,6 @@ action=$(printf '%s\n' "${actions[@]}" | \
   fzf --prompt="action> " --header="$topic – $(basename "$full")") || exit 0
 
 case "$action" in
-  copy)
-    if command -v pbcopy &>/dev/null; then
-      printf '%s' "$full" | pbcopy
-    elif command -v xclip &>/dev/null; then
-      printf '%s' "$full" | xclip -selection clipboard
-    fi
-    echo "$full" ;;
   edit)
     ${EDITOR:-cursor} "$full" ;;
   execute)
