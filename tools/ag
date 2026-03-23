@@ -1145,14 +1145,12 @@ INFOEOF
     fi
 
     # detect orphan state dirs (no live tmux session)
-    declare -A _seen_slugs
-    while read -r _s _b _st slug _rest; do
-      [[ -n "$slug" ]] && _seen_slugs["$slug"]=1
-    done < "$tmpdir/sessions"
+    # grep-based dedupe (Bash 3.2 compatible; no associative arrays)
     for _sd in "$HOME/.agents/state"/*/; do
       [[ -d "$_sd" ]] || continue
       _os=$(basename "$_sd")
-      [[ -n "${_seen_slugs[$_os]+x}" ]] && continue
+      # skip if slug already appears in sessions (field 4)
+      awk '{print $4}' "$tmpdir/sessions" 2>/dev/null | grep -qxF "$_os" && continue
       # only surface if there's active state (non-done phase or PID file)
       _op=""; [[ -f "$_sd/phase" ]] && _op=$(cat "$_sd/phase" 2>/dev/null)
       [[ "$_op" == "done" ]] && continue
@@ -1161,7 +1159,6 @@ INFOEOF
         echo "-" > "$tmpdir/pr-orphan-${_os}"
       fi
     done
-    unset _seen_slugs
 
     # no sessions at all (local or remote)
     if [[ ! -s "$tmpdir/sessions" ]]; then

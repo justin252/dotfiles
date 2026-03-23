@@ -504,6 +504,7 @@ $fix_prompt"
         fi
         cmd="$(_build_cmd "$exe_val" "$fix_prompt")"
         _run_in_session "$session" "$cmd" "$state_dir"
+        _current_model="$exe_val"  # fix uses execute model for relaunch
         _wait_stage "$state_dir" "fix" 900 || true
       fi
     else
@@ -516,8 +517,11 @@ fi
 _run_stage "retro" "$retro_val" "learning" 300 "/retro" || true
 
 # --- Done ---
-echo "done" > "$state_dir/phase"
-_set_current "$state_dir" "done"
+# Only mark done if escalation didn't set stuck
+if [[ "$(cat "$state_dir/phase" 2>/dev/null)" != "stuck" ]]; then
+  echo "done" > "$state_dir/phase"
+  _set_current "$state_dir" "done"
+fi
 
 if [[ "$test_mode" == true ]]; then
   echo "" >&2
