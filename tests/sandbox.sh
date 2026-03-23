@@ -291,7 +291,34 @@ fi
 printf '#!/bin/sh\nexit 0\n' > "$STUB_DIR/gh"
 chmod +x "$STUB_DIR/gh"
 
-# wt rm: removes worktree
+# wt clean: removes merged-PR worktrees (mock gh to report branch as merged)
+clean_branch="feat/wt-clean-$$"
+rmdir "/tmp/wt-$(echo "$clean_branch" | tr '/' '-').lock" 2>/dev/null || true
+clean_path=$(cd "$wt_repo" && WT_CREATE_MODE=new "$REPO_ROOT/tools/wt" --quiet new "$clean_branch" 2>/dev/null) || true
+cat > "$STUB_DIR/gh" <<'STUBEOF'
+#!/bin/bash
+# Stub: any pr list call returns a merged PR number
+if [[ "$1" == "pr" && "$2" == "list" ]]; then echo "99"; exit 0; fi
+exit 0
+STUBEOF
+chmod +x "$STUB_DIR/gh"
+if [[ -n "$clean_path" && -d "$clean_path" ]]; then
+  if cd "$wt_repo" && "$REPO_ROOT/tools/wt" --quiet clean --force 2>/dev/null; then
+    [[ ! -d "$clean_path" ]] \
+      && _pass "wt clean --force: removes merged-PR worktree" \
+      || _fail "wt clean: dir still exists after clean"
+  else
+    _fail "wt clean: command failed"
+  fi
+else
+  _fail "wt clean: setup failed (no worktree created)"
+fi
+printf '#!/bin/sh\nexit 0\n' > "$STUB_DIR/gh"
+chmod +x "$STUB_DIR/gh"
+
+# wt rm: removes worktree (recreate since wt clean above removed it)
+rmdir "/tmp/wt-$(echo "$wt_branch" | tr '/' '-').lock" 2>/dev/null || true
+result=$(cd "$wt_repo" && WT_CREATE_MODE=new "$REPO_ROOT/tools/wt" --quiet new "$wt_branch" 2>/dev/null) || true
 if cd "$wt_repo" && "$REPO_ROOT/tools/wt" --quiet rm "$wt_branch" --force 2>/dev/null; then
   if [[ ! -d "$result" ]]; then
     _pass "wt rm --force: removes worktree"

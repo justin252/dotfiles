@@ -177,7 +177,7 @@ _archive_session() {
 
   # PR info
   if [[ "$branch" != "-" && -n "$branch" ]]; then
-    pr=$(gh pr list --head "$branch" --no-interactive --json number,state \
+    pr=$(gh pr list --head "$branch" --json number,state \
       --jq '"#" + (.[0].number|tostring) + " (" + (.[0].state|ascii_downcase) + ")"' 2>/dev/null) || true
   fi
   [[ -z "$pr" ]] && pr="-"
@@ -959,7 +959,7 @@ INFOEOF
     # PR
     info_pr="-"
     if [[ -n "$info_branch" ]]; then
-      info_pr=$(gh pr list --head "$info_branch" --no-interactive --json number,state,isDraft --jq '.[0] | "#\(.number) (\(if .isDraft then "draft, " else "" end)\(.state | ascii_downcase))"' 2>/dev/null) || true
+      info_pr=$(gh pr list --head "$info_branch" --json number,state,isDraft --jq '.[0] | "#\(.number) (\(if .isDraft then "draft, " else "" end)\(.state | ascii_downcase))"' 2>/dev/null) || true
     fi
     # fallback: check output.md for PR link
     if [[ "$info_pr" == "-" || -z "$info_pr" ]] && [[ -f "$info_dir/output.md" ]]; then
@@ -1090,7 +1090,7 @@ INFOEOF
       [[ -n "$stage_time" ]] && tasks_info="${tasks_info}${stage_time}"
       echo "$sess $branch $state $slug $tasks_info" >> "$tmpdir/sessions"
       if [[ "$branch" != "-" ]]; then
-        (gh pr list --head "$branch" --no-interactive --json state --jq '.[0].state // "-"' 2>/dev/null || echo "-") > "$tmpdir/pr-${sess}" &
+        (gh pr list --head "$branch" --json state --jq '.[0].state // "-"' 2>/dev/null || echo "-") > "$tmpdir/pr-${sess}" &
       else
         echo "-" > "$tmpdir/pr-${sess}"
       fi
@@ -1301,7 +1301,7 @@ INFOEOF
         # get branch: prefer tmux env (handles detached HEAD), fall back to git
         branch=$(_ag_branch "$expected_sess" "$wt_path")
         [[ -z "$branch" || "$branch" == "HEAD" ]] && continue
-        merged=$(gh pr list --head "$branch" --state merged --no-interactive --json number --jq '.[0].number // empty' 2>/dev/null || true)
+        merged=$(gh pr list --head "$branch" --state merged --json number --jq '.[0].number // empty' 2>/dev/null || true)
         if [[ -n "$merged" ]]; then
           echo "  $wt_slug ($branch) – PR #$merged merged"
           to_remove+=("$wt_path")
@@ -1439,7 +1439,7 @@ INFOEOF
         # quick PR check (cached from parallel calls)
         wt_path=$(tmux display-message -t "$sess" -p '#{pane_current_path}' 2>/dev/null || echo "")
         branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "-")
-        pr_info=$(gh pr list --head "$branch" --no-interactive --json number,state --jq '"PR #" + (.[0].number|tostring) + " " + (.[0].state|ascii_downcase)' 2>/dev/null || true)
+        pr_info=$(gh pr list --head "$branch" --json number,state --jq '"PR #" + (.[0].number|tostring) + " " + (.[0].state|ascii_downcase)' 2>/dev/null || true)
         line=$(printf "%-20s %-8s %-12s %s" "$slug" "$state" "$repo" "$pr_info")
       else
         line=$(printf "%-20s %-8s" "$sess" "")

@@ -52,7 +52,7 @@ echo "branch: $branch"
 echo ""
 
 # PR info
-pr_json=$(gh pr list --head "$branch" --no-interactive --json number,state,title,url --jq '.[0] // empty' 2>/dev/null || true)
+pr_json=$(gh pr list --head "$branch" --json number,state,title,url --jq '.[0] // empty' 2>/dev/null || true)
 if [[ -n "$pr_json" ]]; then
   pr_num=$(echo "$pr_json" | jq -r '.number')
   pr_state=$(echo "$pr_json" | jq -r '.state' | tr '[:upper:]' '[:lower:]')

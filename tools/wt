@@ -393,7 +393,7 @@ cmd_clean() {
     for wt_path in "${wt_paths[@]}"; do
       branch=$(git -C "$wt_path" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
       [[ -n "$branch" && "$branch" != "HEAD" ]] || continue
-      merged=$(gh pr list --head "$branch" --state merged --no-interactive --json number --jq '.[0].number // empty' 2>/dev/null || true)
+      merged=$(gh pr list --head "$branch" --state merged --json number --jq '.[0].number // empty' 2>/dev/null || true)
       if [[ -n "$merged" ]]; then
         log "$(basename "$wt_path") ($branch) - PR #$merged merged"
         to_remove+=("$wt_path")
