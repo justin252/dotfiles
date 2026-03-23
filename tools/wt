@@ -298,7 +298,8 @@ cmd_list() {
       else
         echo ","
       fi
-      printf '  {"path": "%s", "branch": "%s", "dirty": %s}' "$wt_path" "$wt_branch" "$wt_dirty"
+      jq -nc --arg path "$wt_path" --arg branch "$wt_branch" --argjson dirty "$wt_dirty" \
+        '{path: $path, branch: $branch, dirty: $dirty}'
     done < <(git worktree list --porcelain 2>/dev/null | awk '/^worktree / { print $2 }')
     echo ""
     echo "]"

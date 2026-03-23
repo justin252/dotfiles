@@ -486,6 +486,25 @@ else
   _fail "wt rm: command failed"
 fi
 
+# wt wrapper: `wt new <branch>` forwards correctly (not treated as branch name)
+wt_wrapper_branch="feat/wt-wrapper-$$"
+rmdir "/tmp/wt-$(echo "$wt_wrapper_branch" | tr '/' '-').lock" 2>/dev/null || true
+# Extract the wt() function and test it invokes `tools/wt new <branch>`, not `tools/wt new "new"`
+# We test via the tool directly since the zsh wrapper calls ~/tools/wt new "$@"
+wrapper_dest=$(cd "$wt_repo" && WT_CREATE_MODE=new "$REPO_ROOT/tools/wt" --quiet new "$wt_wrapper_branch" 2>/dev/null) || true
+if [[ -n "$wrapper_dest" && -d "$wrapper_dest" ]]; then
+  wrapper_actual_branch=$(git -C "$wrapper_dest" rev-parse --abbrev-ref HEAD 2>/dev/null)
+  if [[ "$wrapper_actual_branch" == "$wt_wrapper_branch" ]]; then
+    _pass "wt new: forwards branch arg correctly"
+  else
+    _fail "wt new: expected branch '$wt_wrapper_branch', got '$wrapper_actual_branch'"
+  fi
+  # Cleanup
+  cd "$wt_repo" && "$REPO_ROOT/tools/wt" --quiet rm "$wt_wrapper_branch" --force 2>/dev/null || true
+else
+  _fail "wt new: failed to create worktree for wrapper test"
+fi
+
 # ━━━ ag ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 echo ""
