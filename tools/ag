@@ -1085,15 +1085,6 @@ INFOEOF
         [[ -n "$phase" && "$phase" != "done" ]] && state="$phase"
         [[ "$phase" == "done" ]] && state="done"
       fi
-      # detect dead orchestrator PID
-      pid_file="$HOME/.agents/state/$slug/orchestrator.pid"
-      if [[ -f "$pid_file" ]]; then
-        orch_pid=$(cat "$pid_file" 2>/dev/null)
-        if [[ -n "$orch_pid" ]] && ! kill -0 "$orch_pid" 2>/dev/null; then
-          state="stuck"
-          tasks_info="dead orchestrator"
-        fi
-      fi
       [[ -f "$tasks_file" ]] && tasks_info=$(cat "$tasks_file" 2>/dev/null)
       # enrich with pipeline.json stage timing
       stage_time=""
@@ -1144,22 +1135,6 @@ INFOEOF
       done
     fi
 
-    # detect orphan state dirs (no live tmux session)
-    # grep-based dedupe (Bash 3.2 compatible; no associative arrays)
-    for _sd in "$HOME/.agents/state"/*/; do
-      [[ -d "$_sd" ]] || continue
-      _os=$(basename "$_sd")
-      # skip if slug already appears in sessions (field 4)
-      awk '{print $4}' "$tmpdir/sessions" 2>/dev/null | grep -qxF "$_os" && continue
-      # only surface if there's active state (non-done phase or PID file)
-      _op=""; [[ -f "$_sd/phase" ]] && _op=$(cat "$_sd/phase" 2>/dev/null)
-      [[ "$_op" == "done" ]] && continue
-      if [[ -n "$_op" ]] || [[ -f "$_sd/orchestrator.pid" ]]; then
-        echo "orphan-${_os} - orphan ${_os}" >> "$tmpdir/sessions"
-        echo "-" > "$tmpdir/pr-orphan-${_os}"
-      fi
-    done
-
     # no sessions at all (local or remote)
     if [[ ! -s "$tmpdir/sessions" ]]; then
       [[ "$json" == true ]] && echo "[]" || echo "no agent sessions"
@@ -1195,8 +1170,6 @@ INFOEOF
           fixing)    display_state="🔧 fixing" ;;
           learning)  display_state="🐘 learning" ;;
           done)      display_state="✅ done" ;;
-          stuck)     display_state="⚠️  stuck" ;;
-          orphan)    display_state="⚠️  orphan" ;;
           active)    display_state="● active" ;;
           idle)      display_state="○ idle" ;;
           *)         display_state="$state" ;;
