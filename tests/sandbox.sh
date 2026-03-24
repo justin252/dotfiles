@@ -887,6 +887,62 @@ else
 fi
 rm -rf "$orphan_state"
 
+# ━━━ ag-orchestrate 8-stage pipeline ━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+echo ""
+echo "=== ag-orchestrate pipeline ==="
+
+orch_out=$(bash "$REPO_ROOT/tools/ag-orchestrate" --session test --topic test-pipeline --test 2>&1)
+if [[ "$orch_out" == *"ALL STAGES PASS"* ]]; then
+  _pass "ag-orchestrate: 8-stage test mode passes"
+else
+  _fail "ag-orchestrate: 8-stage test mode should pass"
+fi
+
+orch_state=$(echo "$orch_out" | grep "test artifacts:" | sed 's/.*test artifacts: //')
+if [[ -n "$orch_state" && -f "$orch_state/pipeline.json" ]]; then
+  for s in scout test execute verify ship review fix retro; do
+    if jq -e ".stages.$s" "$orch_state/pipeline.json" >/dev/null 2>&1; then
+      _pass "pipeline.json: $s stage present"
+    else
+      _fail "pipeline.json: $s stage missing"
+    fi
+  done
+  if [[ -f "$orch_state/scout-findings.txt" ]]; then
+    _pass "scout: findings file created in test mode"
+  else
+    _fail "scout: findings file missing in test mode"
+  fi
+else
+  _fail "ag-orchestrate: pipeline.json not created"
+fi
+[[ -n "${orch_state:-}" ]] && rm -rf "$orch_state" 2>/dev/null || true
+
+skip_out=$(bash "$REPO_ROOT/tools/ag-orchestrate" --session test --topic test-skip --test --skip scout,test,verify 2>&1)
+skip_state=$(echo "$skip_out" | grep "test artifacts:" | sed 's/.*test artifacts: //')
+if [[ "$skip_out" == *"skipping: scout"* && "$skip_out" == *"skipping: test"* && "$skip_out" == *"skipping: verify"* ]]; then
+  _pass "ag-orchestrate: --skip works for new stages"
+else
+  _fail "ag-orchestrate: --skip should work for scout,test,verify"
+fi
+if [[ -n "$skip_state" && -f "$skip_state/pipeline.json" ]]; then
+  scout_st=$(jq -r '.stages.scout.status' "$skip_state/pipeline.json")
+  verify_st=$(jq -r '.stages.verify.status' "$skip_state/pipeline.json")
+  if [[ "$scout_st" == "skipped" && "$verify_st" == "skipped" ]]; then
+    _pass "ag-orchestrate: skipped stages marked in pipeline.json"
+  else
+    _fail "ag-orchestrate: skipped stages should be skipped in pipeline.json"
+  fi
+fi
+[[ -n "${skip_state:-}" ]] && rm -rf "$skip_state" 2>/dev/null || true
+
+help_out=$(bash "$REPO_ROOT/tools/ag-orchestrate" --help 2>&1)
+if [[ "$help_out" == *"scout"* && "$help_out" == *"verify"* && "$help_out" == *"AG_VERIFY_MAX"* ]]; then
+  _pass "ag-orchestrate: help lists new stages + env vars"
+else
+  _fail "ag-orchestrate: help should list scout, verify, AG_VERIFY_MAX"
+fi
+
 # ━━━ Summary ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 _print_summary
