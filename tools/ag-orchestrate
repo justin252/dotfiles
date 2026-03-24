@@ -19,10 +19,17 @@ Options:
   --test            integration test mode (stub artifacts in /tmp)
   -h, --help        show this help
 
-Reads AG_EXECUTE_MODEL, AG_SHIP_MODEL, AG_REVIEW_MODEL, AG_RETRO_MODEL env vars.
-Format: executor:model (e.g., claude:opus, codex:gpt-5.4)
+Env vars (format: executor:model, e.g. claude:opus, codex:gpt-5.4):
+  AG_SCOUT_MODEL    scout stage (default: claude:haiku)
+  AG_TEST_MODEL     test-writer stage (default: claude:sonnet)
+  AG_EXECUTE_MODEL  execute + verify stages (default: claude:opus)
+  AG_SHIP_MODEL     ship stage (default: claude:sonnet)
+  AG_REVIEW_MODEL   review stage (default: codex:gpt-5.4)
+  AG_RETRO_MODEL    retro stage (default: claude:haiku)
+  AG_CONTEXT_BYTES  artifact context cap per file (default: 8000)
+  AG_VERIFY_MAX     max verify iterations (default: 3)
 
-Stages: execute, ship, review, fix, retro
+Stages: scout, test, execute, verify, ship, review, fix, retro
 EOF
 }
 
@@ -47,6 +54,24 @@ _build_cmd() {
 
 _now() { date -u +%FT%TZ; }
 
+# --- smart truncation: preserve frontmatter + ## Open ---
+
+_smart_truncate() {
+  local file="$1" max_bytes="$2"
+  [[ ! -f "$file" ]] && return
+  local size
+  size=$(wc -c < "$file" | tr -d ' ')
+  if (( size <= max_bytes )); then
+    cat "$file"
+    return
+  fi
+  head -c "$((max_bytes * 3 / 4))" "$file"
+  printf '\n...[truncated]...\n'
+  if grep -q '^## Open' "$file" 2>/dev/null; then
+    awk '/^## Open$/,0' "$file"
+  fi
+}
+
 # --- pipeline.json state management ---
 
 _init_pipeline() {
@@ -61,7 +86,10 @@ _init_pipeline() {
       started: $started,
       current_stage: null,
       stages: {
+        scout:   {status: "pending"},
+        test:    {status: "pending"},
         execute: {status: "pending"},
+        verify:  {status: "pending"},
         ship:    {status: "pending"},
         review:  {status: "pending"},
         fix:     {status: "pending"},
@@ -105,6 +133,22 @@ _finish_stage() {
 }
 
 # --- sentinel-based stage execution ---
+
+_wait_sentinel() {
+  local sentinel="$1" timeout="$2"
+  local elapsed=0
+  while [[ ! -f "$sentinel" ]]; do
+    sleep 5
+    elapsed=$((elapsed + 5))
+    if (( elapsed >= timeout )); then
+      return 2
+    fi
+  done
+  local result
+  result=$(cat "$sentinel")
+  rm -f "$sentinel"
+  [[ "$result" == "done" ]]
+}
 
 _wait_stage() {
   local state_dir="$1" stage="$2" timeout="${3:-600}"
@@ -153,6 +197,14 @@ _run_in_session() {
     "$cmd && echo done > $(printf '%q' "$sentinel") || echo fail > $(printf '%q' "$sentinel")" Enter
 }
 
+_run_in_window() {
+  local session="$1" window="$2" cmd="$3" sentinel="$4"
+  rm -f "$sentinel"
+  tmux new-window -t "${session}:${window}" -n test-writer -d
+  tmux send-keys -t "${session}:${window}" \
+    "$cmd && echo done > $(printf '%q' "$sentinel") || echo fail > $(printf '%q' "$sentinel")" Enter
+}
+
 # --- test mode stubs ---
 
 _run_test_stage() {
@@ -161,7 +213,10 @@ _run_test_stage() {
   mkdir -p "$artifact_dir"
 
   case "$stage" in
+    scout)   echo "stub: codebase patterns found" > "$state_dir/scout-findings.txt" ;;
+    test)    echo "stub: failing tests written from contract" > "$artifact_dir/test-writer.log" ;;
     execute) echo "stub: would implement tasks from plan.md" > "$artifact_dir/execute.log" ;;
+    verify)  ;; # passes immediately in test mode
     ship)    echo "stub: would create PR" > "$artifact_dir/output.md" ;;
     review)  printf "## Blockers\n\nseverity: blocker\nStub blocker for fix-stage trigger\n" > "$artifact_dir/review.md" ;;
     fix)     echo "stub: would fix 1 blocker" > "$artifact_dir/fix.log" ;;
@@ -274,7 +329,7 @@ Continue from where you left off. Complete the current stage."
 # --- chain context: gather upstream artifacts for stage prompts ---
 
 _gather_chain_context() {
-  local topic_dir="$1" max_bytes="${2:-4000}"; shift 2 2>/dev/null || shift
+  local topic_dir="$1" max_bytes="${2:-8000}"; shift 2 2>/dev/null || shift
   local artifacts=("$@")
   [[ ${#artifacts[@]} -eq 0 ]] && artifacts=(problem.md design.md plan.md output.md)
   local context=""
@@ -282,7 +337,7 @@ _gather_chain_context() {
     local path="$topic_dir/$artifact"
     [[ -f "$path" ]] || continue
     context+="--- $artifact ---"$'\n'
-    context+="$(head -c "$max_bytes" "$path")"$'\n\n'
+    context+="$(_smart_truncate "$path" "$max_bytes")"$'\n\n'
   done
   echo "$context"
 }
@@ -329,7 +384,15 @@ _cleanup_pid() {
 if [[ "$test_mode" == true ]]; then
   state_dir=$(mktemp -d "/tmp/ag-test-XXXXX")
   plan="$state_dir/plan.md"
-  echo -e "---\ntopic: $topic\n---\n# Test Plan\n- [ ] stub task" > "$plan"
+  cat > "$plan" <<PLANEOF
+---
+topic: $topic
+---
+# Test Plan
+
+## Phase 1
+- [ ] stub task
+PLANEOF
   trap 'echo "test artifacts: $state_dir" >&2; _cleanup_pid' EXIT
 fi
 
@@ -350,10 +413,14 @@ _should_skip() {
 }
 
 # Resolve per-stage config
+scout_val="${AG_SCOUT_MODEL:-claude:haiku}"
+test_val="${AG_TEST_MODEL:-claude:sonnet}"
 exe_val="${AG_EXECUTE_MODEL:-claude:opus}"
 ship_val="${AG_SHIP_MODEL:-claude:sonnet}"
 review_val="${AG_REVIEW_MODEL:-codex:gpt-5.4}"
 retro_val="${AG_RETRO_MODEL:-claude:haiku}"
+context_bytes="${AG_CONTEXT_BYTES:-8000}"
+verify_max="${AG_VERIFY_MAX:-3}"
 
 # Init or resume pipeline state
 if [[ "$resume" == true && -f "$state_dir/pipeline.json" ]]; then
@@ -363,6 +430,8 @@ else
 fi
 
 echo "ag-orchestrate: $topic" >&2
+echo "  scout:   $scout_val" >&2
+echo "  test:    $test_val" >&2
 echo "  execute: $exe_val" >&2
 echo "  ship:    $ship_val" >&2
 echo "  review:  $review_val" >&2
@@ -412,28 +481,153 @@ _run_stage() {
   _wait_stage "$state_dir" "$stage" "$timeout"
 }
 
-# --- Stage 1: Execute ---
+# --- Stage 1: Scout (pre-execute codebase exploration) ---
+scout_prompt="Search the codebase for existing patterns, utilities, and conventions relevant to planned changes."
+if [[ -f "$plan" ]]; then
+  plan_tasks=$(grep -E '^\s*- \[ \]' "$plan" | head -20 || true)
+  if [[ -n "$plan_tasks" ]]; then
+    scout_prompt="Search the codebase for existing patterns, utilities, and conventions relevant to these tasks:
+
+$plan_tasks
+
+Write findings to $state_dir/scout-findings.txt. Include: relevant files, reusable functions, conventions to follow."
+  fi
+fi
+_run_stage "scout" "$scout_val" "scouting" 120 "$scout_prompt"
+
+# --- Stage 2: Test-writer (TDD, separate context window) ---
+if ! _should_skip "test"; then
+  cur_status="pending"
+  [[ "$resume" == true ]] && cur_status=$(_stage_status "$state_dir" "test")
+  if [[ "$cur_status" != "done" && "$cur_status" != "skipped" ]]; then
+    echo "stage: test ($test_val)" >&2
+    echo "testing" > "$state_dir/phase"
+    _start_stage "$state_dir" "test" "$test_val"
+
+    if [[ "$test_mode" == true ]]; then
+      _run_test_stage "$state_dir" "test" "$topic"
+      sleep 1
+      _finish_stage "$state_dir" "test" "done"
+    else
+      test_prompt="Read the plan at $plan and write failing tests for the specified tasks.
+
+Rules:
+- Read the plan/spec ONLY - do NOT read or write any implementation code
+- Write tests that define the CONTRACT based on the spec
+- Enumerate inputs, boundaries, and error cases
+- Tests should fail when run (implementation does not exist yet)
+- Follow the project existing test conventions"
+      test_sentinel="$state_dir/test-writer-done"
+      test_cmd="$(_build_cmd "$test_val" "$test_prompt")"
+      _run_in_window "$session" 9 "$test_cmd" "$test_sentinel"
+      if _wait_sentinel "$test_sentinel" 600; then
+        _finish_stage "$state_dir" "test" "done"
+      else
+        _finish_stage "$state_dir" "test" "failed"
+        echo "fatal: test-writer failed; aborting pipeline" >&2
+        tmux kill-window -t "${session}:9" 2>/dev/null || true
+        exit 1
+      fi
+      tmux kill-window -t "${session}:9" 2>/dev/null || true
+    fi
+  fi
+else
+  echo "skipping: test" >&2
+  _update_stage "$state_dir" "test" "status" "skipped"
+fi
+
+# --- Stage 3: Execute ---
 exe_artifacts=(problem.md design.md plan.md)
 exe_context=""
 if [[ -d "$topic_dir" ]]; then
   _log_context "$topic_dir" "${exe_artifacts[@]}"
-  exe_context="$(_gather_chain_context "$topic_dir" 4000 "${exe_artifacts[@]}")"
+  exe_context="$(_gather_chain_context "$topic_dir" "$context_bytes" "${exe_artifacts[@]}")"
   if [[ "${AG_DEBUG:-}" == "1" && -n "$exe_context" ]]; then
     echo "debug: execute context:" >&2; echo "$exe_context" >&2
   fi
 fi
+scout_findings=""
+if [[ -f "$state_dir/scout-findings.txt" ]]; then
+  scout_findings="--- scout findings ---
+$(head -c "$context_bytes" "$state_dir/scout-findings.txt")
+
+"
+  [[ "${AG_DEBUG:-}" == "1" ]] && echo "debug: scout findings included in execute context" >&2
+fi
 exe_prompt="/execute $plan"
-if [[ -n "$exe_context" ]]; then
+if [[ -n "$exe_context" || -n "$scout_findings" ]]; then
   exe_prompt="Upstream artifacts for context:
-$exe_context
-$exe_prompt"
+${exe_context}${scout_findings}${exe_prompt}"
 fi
 _run_stage "execute" "$exe_val" "executing" 1800 "$exe_prompt"
 
-# --- Stage 2: Ship ---
+# --- Stage 4: Verify (test runner with retry loop) ---
+if ! _should_skip "verify"; then
+  cur_status="pending"
+  [[ "$resume" == true ]] && cur_status=$(_stage_status "$state_dir" "verify")
+  if [[ "$cur_status" != "done" && "$cur_status" != "skipped" ]]; then
+    echo "stage: verify ($exe_val)" >&2
+    echo "verifying" > "$state_dir/phase"
+    _start_stage "$state_dir" "verify" "$exe_val"
+
+    if [[ "$test_mode" == true ]]; then
+      _run_test_stage "$state_dir" "verify" "$topic"
+      sleep 1
+      _finish_stage "$state_dir" "verify" "done"
+    else
+      verify_done=false
+      for (( vi=1; vi<=verify_max; vi++ )); do
+        _update_stage "$state_dir" "verify" "verify_iteration" "$vi"
+        sentinel="$state_dir/stage-done"
+        rm -f "$sentinel"
+
+        if (( vi == 1 )); then
+          verify_prompt="Run the project test suite. If tests fail, fix the code (not the tests) and re-run until all pass."
+          cmd="$(_build_cmd "$exe_val" "$verify_prompt")"
+        elif (( vi <= 2 )); then
+          # Same-context retry; --continue only works with claude executor
+          verify_prompt="Tests still failing. Try a different approach to fix the code. Re-run tests."
+          if [[ "$(_executor "$exe_val")" == "claude" ]]; then
+            vmodel="$(_model "$exe_val")"
+            cmd="claude --continue${vmodel:+ --model $vmodel} $(printf '%q' "$verify_prompt")"
+          else
+            cmd="$(_build_cmd "$exe_val" "$verify_prompt")"
+          fi
+        else
+          # Fresh compose on final retry (clean context, accumulated evidence)
+          verify_prompt="Fresh verify attempt. Run the test suite, analyze failures, fix code (not tests). Start from current state."
+          cmd="$(_build_cmd "$exe_val" "$verify_prompt")"
+        fi
+
+        [[ "${AG_DEBUG:-}" == "1" ]] && echo "debug: verify iter=$vi" >&2
+        tmux send-keys -t "$session" \
+          "$cmd && echo done > $(printf '%q' "$sentinel") || echo fail > $(printf '%q' "$sentinel")" Enter
+
+        if _wait_sentinel "$sentinel" 600; then
+          verify_done=true
+          break
+        fi
+        echo "  verify iteration $vi/$verify_max failed" >&2
+      done
+
+      if [[ "$verify_done" == true ]]; then
+        _finish_stage "$state_dir" "verify" "done"
+      else
+        _finish_stage "$state_dir" "verify" "failed"
+        echo "fatal: verify failed after $verify_max attempts; aborting pipeline" >&2
+        exit 1
+      fi
+    fi
+  fi
+else
+  echo "skipping: verify" >&2
+  _update_stage "$state_dir" "verify" "status" "skipped"
+fi
+
+# --- Stage 5: Ship ---
 _run_stage "ship" "$ship_val" "shipping" 600 "/checkpoint"
 
-# --- Stage 3: Review ---
+# --- Stage 6: Review ---
 if ! _should_skip "review"; then
   cur_status="pending"
   [[ "$resume" == true ]] && cur_status=$(_stage_status "$state_dir" "review")
@@ -469,7 +663,7 @@ if ! _should_skip "review"; then
   fi
 fi
 
-# --- Stage 4: Fix (conditional) ---
+# --- Stage 7: Fix (conditional on review blockers) ---
 if ! _should_skip "fix"; then
   cur_status="pending"
   [[ "$resume" == true ]] && cur_status=$(_stage_status "$state_dir" "fix")
@@ -491,7 +685,7 @@ if ! _should_skip "fix"; then
         fix_context=""
         if [[ -d "$topic_dir" ]]; then
           _log_context "$topic_dir" "${fix_artifacts[@]}"
-          fix_context="$(_gather_chain_context "$topic_dir" 4000 "${fix_artifacts[@]}")"
+          fix_context="$(_gather_chain_context "$topic_dir" "$context_bytes" "${fix_artifacts[@]}")"
           if [[ "${AG_DEBUG:-}" == "1" && -n "$fix_context" ]]; then
             echo "debug: fix context:" >&2; echo "$fix_context" >&2
           fi
@@ -513,7 +707,7 @@ $fix_prompt"
   fi
 fi
 
-# --- Stage 5: Retro ---
+# --- Stage 8: Retro ---
 _run_stage "retro" "$retro_val" "learning" 300 "/retro" || true
 
 # --- Done ---
@@ -528,7 +722,7 @@ if [[ "$test_mode" == true ]]; then
   echo "" >&2
   echo "=== test results ===" >&2
   all_pass=true
-  for s in execute ship review fix retro; do
+  for s in scout test execute verify ship review fix retro; do
     st=$(_stage_status "$state_dir" "$s")
     if [[ "$st" == "done" || "$st" == "skipped" ]]; then
       echo "  $s: $st ✓" >&2
