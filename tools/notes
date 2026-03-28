@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# notes - browse personal topic notes (~/.notes/)
+# category: browse
+# Personal learning notes from /learn sessions. Flat-file, one per topic.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/_browse"
+
+usage() {
+  cat <<'EOF'
+notes – browse personal topic notes (fzf)
+
+Usage:
+  notes [query]
+
+Options:
+  -h, --help    Show this help
+
+Sources: ~/.notes/ (personal learning notes from /learn sessions).
+EOF
+}
+
+NOTES_ROOT="$HOME/.notes"
+
+if ! command -v fzf &>/dev/null; then
+  echo "fzf required but not found" >&2
+  exit 1
+fi
+
+mkdir -p "$NOTES_ROOT"
+
+# Parse flags
+query=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help) usage; exit 0 ;;
+    *) query="$1"; shift ;;
+  esac
+done
+
+entries=""
+
+# Personal topic notes (.md), sorted by mtime (most recent first)
+while IFS= read -r file; do
+  [[ -f "$file" ]] || continue
+  rel="${file#"$NOTES_ROOT"/}"
+  entries+="${YELLOW}[note]${RESET} $rel"$'\t'"$file"$'\n'
+done < <(find "$NOTES_ROOT" -maxdepth 1 -type f -name '*.md' -print0 | xargs -0 ls -t 2>/dev/null)
+
+if [[ -z "$entries" ]]; then
+  echo "No notes found in $NOTES_ROOT" >&2
+  exit 1
+fi
+
+selection=$(_browse_fzf "notes> " "enter: actions | ctrl-y: copy path" "$entries" "$query") || exit 0
+[[ -z "$selection" ]] && exit 0
+
+full=$(echo "$selection" | cut -f2)
+fname=$(basename "$full")
+
+actions=("ide" "claude" "codex")
+
+action=$(printf '%s\n' "${actions[@]}" | \
+  fzf --prompt="action> " --header="$fname") || exit 0
+
+_browse_action "$action" "$full" "$fname"

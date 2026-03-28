@@ -84,7 +84,7 @@ Never: `git reset --hard`, `git checkout .`, `git clean`, `git branch -D`, `gt s
 
 ## Epilogue
 
-Append 1-3 lines to `~/.agents/learnings/beaver.md`: common issues found, fix patterns that worked, false positives to suppress.
+Append 1-3 lines to `~/.agents/circus/beaver.md`: common issues found, fix patterns that worked, false positives to suppress.
 
 ## Next
 

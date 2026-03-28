@@ -152,14 +152,16 @@ Three layers feed each other:
 ~/dotfiles-work/                work dotfiles repo
 ~/dotfiles/shell/zshrc          universal shell config
 ~/dotfiles/shell/tmux.conf      tmux config
-~/dotfiles/tools/               tools on PATH (ag, h, artifacts, session, etc.)
+~/dotfiles/tools/               tools on PATH (ag, h, artifacts, sessions, notes, etc.)
 ~/dotfiles/.agents/AGENTS.md    agent instructions (source of truth)
 ~/dotfiles/.agents/conventions/  reference docs (this file, cli-guidelines, etc.)
 ~/dotfiles/.agents/skills/      shared skill definitions
 ~/.agents/artifacts/<topic>/    long-lived artifacts: problem, design, plan, output, review, reference
+~/.agents/circus/<animal>.md    agent memory: per-animal epilogue logs (elephant, beaver, owl, etc.)
 ~/.agents/INBOX.md              short-term capture (local, never synced)
 ~/.agents/wins.md               promo-packet items
 ~/.agents/sessions/             curated session summaries
+~/.notes/<topic>.md             personal learning notes from /learn sessions
 ```
 
 ## Common Workflows

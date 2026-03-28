@@ -141,7 +141,7 @@ alias sizeof="du -sh"
 alias ducks="du -cksh * | sort -rh | head -20"
 
 # ─── IDE ─────────────────────────────────────────────────────
-export DOTFILES_IDE_CMD="${DOTFILES_IDE_CMD:-code}"
+export DOTFILES_IDE="${DOTFILES_IDE:-code}"
 
 # ─── Agent Stages (executor:model) ───────────────────────────
 # Claude: --model (opus, sonnet, haiku, opusplan)
@@ -179,7 +179,7 @@ ccplanadd() { local a=(); for d; do a+=(--add-dir "$d"); done; claude --permissi
 
 # Plans
 openplan() {
-  local ide="${DOTFILES_IDE_CMD:-code}"
+  local ide="${DOTFILES_IDE:-code}"
   # Collect plans from all sources (most recent first)
   local plans=()
   plans+=(~/.agents/artifacts/*/plan.md(Nom))
@@ -223,7 +223,8 @@ alias cxr="codex resume"
 
 # ─── Shell ────────────────────────────────────────────────────
 alias a=artifacts
-alias s=session
+alias s=sessions
+alias n=notes
 alias pen="cd ~/code/penny"
 tools() { cd "${TOOLS_PATH:-$HOME/tools}"; }
 alias sz='source ~/.zshrc && tmux source-file ~/.tmux.conf 2>/dev/null; true'

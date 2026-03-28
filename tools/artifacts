@@ -16,7 +16,7 @@ Options:
   -h, --help    Show this help
 
 Sources: ~/.agents/artifacts/<topic>/ with YAML frontmatter.
-Actions: edit, execute, propose, review, code, cursor, claude, codex. ctrl-y: copy path.
+Actions: edit, execute, propose, review, ide, claude, codex.  ctrl-y: copy path.
 EOF
 }
 
@@ -185,14 +185,14 @@ if [[ "$doc_type" == "output" || "$doc_type" == "review" || -f "$topic_dir/outpu
   actions+=("review")
 fi
 
-actions+=("code" "cursor" "claude" "codex")
+actions+=("ide" "claude" "codex")
 
 action=$(printf '%s\n' "${actions[@]}" | \
   fzf --prompt="action> " --header="$topic – $(basename "$full")") || exit 0
 
 case "$action" in
   edit)
-    ${EDITOR:-cursor} "$full" ;;
+    ${EDITOR:-code} "$full" ;;
   execute)
     repo_dir=$(_resolve_repo "$repo" 2>/dev/null) || repo_dir=""
     if [[ -n "$repo_dir" ]]; then
@@ -235,13 +235,14 @@ case "$action" in
       echo "Launching Codex: $(basename "$full")"
       codex "load $full"
     fi ;;
-  code|cursor)
+  ide)
+    ide_cmd="${DOTFILES_IDE:-code}"
     repo_dir=$(_resolve_repo "$repo" 2>/dev/null) || repo_dir=""
     if [[ -n "$repo_dir" ]]; then
-      "$action" "$repo_dir"
+      "$ide_cmd" "$repo_dir"
     elif [[ -d "$topic_dir" && "$topic_dir" != "$ARTIFACTS_ROOT" ]]; then
-      "$action" "$topic_dir"
+      "$ide_cmd" "$topic_dir"
     else
-      "$action" "$full"
+      "$ide_cmd" "$full"
     fi ;;
 esac

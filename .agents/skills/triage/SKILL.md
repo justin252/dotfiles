@@ -11,7 +11,7 @@ Fully autonomous. Auto-accept all reads/writes to INBOX.md, learnings, and SKILL
 
 Read raw learnings and workspace inboxes, classify, inject into INBOX for processing.
 
-1. Read all `~/.agents/learnings/<animal>.md` files (if dir exists)
+1. Read all `~/.agents/circus/<animal>.md` files (if dir exists)
 2. Read any `~/.agents/INBOX-ws-*.md` files (workspace-synced inboxes)
 3. For each dated entry, classify into scope:
    - **[per-animal:<name>]**: specific to one animal's domain (e.g., "dog keeps hitting stale imports")
@@ -21,7 +21,7 @@ Read raw learnings and workspace inboxes, classify, inject into INBOX for proces
 5. Mark processed entries in learnings files with `## Last triage: YYYY-MM-DD` marker
 6. Delete processed `INBOX-ws-*.md` files after merging
 
-If `~/.agents/learnings/` is empty or doesn't exist, skip Phase 0.
+If `~/.agents/circus/` is empty or doesn't exist, skip Phase 0.
 
 ## Phase 1 – Sort
 
@@ -32,7 +32,7 @@ Single pass, all items in `## Inbox`:
   - `~/.agents/AGENTS.md` – shared preferences (both Claude Code and Cursor benefit)
   - `~/.agents/AGENTS-work.md` – work-specific agent persona (no-op if missing)
   - `~/.agents/skills/<name>/SKILL.md` – per-animal findings (proven, 3+ occurrences)
-  - `~/.agents/learnings/<animal>.md` – cross-animal feedback (route to target animal)
+  - `~/.agents/circus/<animal>.md` – cross-animal feedback (route to target animal)
   - `~/.cursor/rules/*.mdc` – Cursor-only scoped rules
   - `~/.agents/artifacts/<topic>/problem.md` – systemic issue worth a problem doc
 - Quick items: execute inline (add a line, done) → move to `## Resolved`
@@ -69,7 +69,7 @@ Refined item format:
 
 ## Epilogue
 
-Append 1-3 lines to `~/.agents/learnings/elephant.md`: triage routing accuracy, items that should have been caught earlier, cross-animal patterns observed.
+Append 1-3 lines to `~/.agents/circus/elephant.md`: triage routing accuracy, items that should have been caught earlier, cross-animal patterns observed.
 
 ## Next
 

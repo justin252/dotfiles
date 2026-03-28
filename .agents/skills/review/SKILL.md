@@ -65,7 +65,7 @@ Headless/pipeline reviews use the `review` CLI (Codex) which writes the same art
 
 ## Epilogue
 
-Append 1-3 lines to `~/.agents/learnings/owl.md`: recurring code patterns found, review heuristics that worked, false positives to avoid.
+Append 1-3 lines to `~/.agents/circus/owl.md`: recurring code patterns found, review heuristics that worked, false positives to avoid.
 
 ## Next
 

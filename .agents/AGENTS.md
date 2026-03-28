@@ -247,7 +247,7 @@ Artifacts (local, working):
 - Pipeline: problem → design → plan → output → review → checkpoint. Each artifact type except reference can use ## Open for feedback loop.
 - Skills that produce structured findings (review, retro, triage) always persist artifacts. Chat/terminal output is supplementary, never the primary record. On write failure, warn and continue.
 - Templates: `~/.agents/conventions/artifact-templates.md`. Agents consult when creating artifacts.
-- `load <topic>` → search `~/.agents/artifacts/`, `~/.agents/docs/`, and `~/.agents/sessions/`. Partial match; ambiguous → show options. Read all artifact types, summarize status + next steps.
+- `load <topic>` → search `~/.agents/artifacts/`, `~/.agents/docs/`, `~/.agents/sessions/`, and `~/.notes/`. Partial match; ambiguous → show options. Read all artifact types, summarize status + next steps.
 - `~/.agents/conventions/workflow.md` – comprehensive workflow reference. Read on demand: `@~/.agents/conventions/workflow.md`.
 
 Docs (persisted, synced):
@@ -286,7 +286,7 @@ Overlays are symlinked by their respective install scripts. Personal zshrc ends 
 Idempotent. Safe to re-run anytime. What it does:
 - Symlinks: `~/.zshrc`, `~/tools`, `~/.agents/AGENTS.md`, `~/.agents/skills/*/`, `~/.agents/conventions/`, `~/.agents/docs/`, `~/.claude/CLAUDE.md`, `~/.claude/settings.json`, `~/.claude/agents/`
 - Copies skills to `~/.cursor/skills/` (Cursor doesn't follow symlinks)
-- Seeds local-only files: `~/.agents/INBOX.md`, `~/.agents/wins.md`, `~/.agents/artifacts/`
+- Seeds local-only dirs: `~/.agents/artifacts/`, `~/.agents/sessions/`, `~/.agents/state/`, `~/.agents/circus/`, `~/.notes/`; files: `~/.agents/INBOX.md`, `~/.agents/wins.md`
 - Installs fzf if missing (brew on macOS, binary download on Linux)
 - Sets `git pull.rebase true`
 - Karabiner: copies (not symlinks) on macOS
@@ -330,9 +330,10 @@ All on PATH via `~/tools` symlink:
 - `ag` – agent session manager (stage 6-7 orchestrator). One command for parallel work: `ag <name>` auto-creates worktree + launches agent. `ag <name> -m MSG` with initial task (background launch; prints guided output, doesn't attach). `ag` fzf dashboard (all repos). `ag status` cross-repo view. `ag kill <name>` kill session. `ag clean` dead sessions + merged worktrees (`--force` skips prompt, `--all` nuclear reset). Name flows everywhere: branch, session, worktree, tmux status bar. Tmux status shows `name●` (active) / `name○` (idle). `C-a a` for popup dashboard.
 - `wt` – navigate to any branch or PR. `wt <branch>` finds existing worktree or creates one. `wt 90` or `wt <PR-URL>` resolves PR. `wt` fzf switch. `wt -d` delete. `wt list` show all. `wt clean` remove merged worktrees. `wt clean --all` remove all worktrees. Composable: `ag` delegates worktree ops here.
 - `wss` – workspace SSH+tmux. `wss <name>` connect, `wss` fzf picker. Work-only (macOS guard).
-- `artifacts` (`a`) – unified artifact browser (fzf). Sources: `~/.agents/artifacts/`. Frontmatter-aware picker: [type] topic repo/component status. Actions: edit, view, execute, propose, review, claude, cursor. `artifacts <query>` pre-filters.
+- `artifacts` (`a`) – unified artifact browser (fzf). Sources: `~/.agents/artifacts/`. Frontmatter-aware picker: [type] topic repo/component status. Actions: edit, view, execute, propose, review, ide, claude, codex. `artifacts <query>` pre-filters.
 - `review` – Codex code review for any PR or branch. `review` (auto-detect), `review 123` (PR), `review --status` (check progress), `review --json` (machine output). Always async; writes `review.md` + `review-state.json` to auto-discovered topic dir, notifies on completion.
-- `session` (`s`) – session notes browser (fzf). Sources: `~/.agents/sessions/`. Curated .md summaries for context handoff to new sessions. `session <query>` pre-filters.
+- `sessions` (`s`) – session notes browser (fzf). Sources: `~/.agents/sessions/`. Curated .md summaries for context handoff to new sessions. `sessions <query>` pre-filters.
+- `notes` (`n`) – personal topic notes browser (fzf). Sources: `~/.notes/`. Your learning notes from `/learn` sessions. Flat-file, one per topic, mtime-sorted. Actions: edit, ide, claude, codex. `notes <query>` pre-filters.
 - `t` – tools browser (fzf). Discovers all tools in `~/tools/`, grouped by `# category:` comment. Preview pane shows `--help`. `t <query>` pre-filters.
 
 ### Reference library

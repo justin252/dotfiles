@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# session - browse curated session summaries (~/.agents/sessions/)
+# sessions - browse curated session summaries (~/.agents/sessions/)
 # category: browse
 # Curated .md notes for context handoff to new agent sessions.
 # Save side: from any agent, "save session" writes .md here.
 # Default: .md summaries only. --all includes raw JSON transcripts.
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/_browse"
+
 usage() {
   cat <<'EOF'
-session – browse curated session summaries (fzf)
+sessions – browse curated session summaries (fzf)
 
 Usage:
-  session [--all] [query]
+  sessions [--all] [query]
 
 Options:
   --all         Include raw JSON transcripts (default: .md only)
@@ -42,11 +45,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# ANSI color codes
-YELLOW=$'\033[33m'
-DIM=$'\033[2m'
-RESET=$'\033[0m'
-
 entries=""
 
 # Curated session summaries (.md)
@@ -70,40 +68,15 @@ if [[ -z "$entries" ]]; then
   exit 1
 fi
 
-preview_cmd="bat --style=plain --color=always {2} 2>/dev/null || cat {2}"
-
-fzf_args=(
-  --prompt="session> "
-  --header="enter: actions | ctrl-y: copy path"
-  --ansi
-  --delimiter=$'\t'
-  --with-nth=1
-  --preview="$preview_cmd"
-  --preview-window=right:60%:wrap
-  --bind='ctrl-y:execute-silent(echo {2} | tr -d "\n" | if command -v pbcopy >/dev/null; then pbcopy; elif command -v xclip >/dev/null; then xclip -selection clipboard; fi)+abort'
-)
-[[ -n "$query" ]] && fzf_args+=(--query="$query")
-
-selection=$(printf '%s' "$entries" | fzf "${fzf_args[@]}") || exit 0
+selection=$(_browse_fzf "sessions> " "enter: actions | ctrl-y: copy path" "$entries" "$query") || exit 0
 [[ -z "$selection" ]] && exit 0
 
 full=$(echo "$selection" | cut -f2)
 fname=$(basename "$full")
 
-actions=("edit" "code" "cursor" "claude" "codex")
+actions=("ide" "claude" "codex")
 
 action=$(printf '%s\n' "${actions[@]}" | \
   fzf --prompt="action> " --header="$fname") || exit 0
 
-case "$action" in
-  edit)
-    ${EDITOR:-vim} "$full" ;;
-  code) code "$full" ;;
-  cursor) cursor "$full" ;;
-  claude)
-    echo "Launching Claude Code: ${fname%.md}"
-    claude "load ${fname%.md} ($full)" ;;
-  codex)
-    echo "Launching Codex: ${fname%.md}"
-    codex "load ${fname%.md} ($full)" ;;
-esac
+_browse_action "$action" "$full" "$fname"

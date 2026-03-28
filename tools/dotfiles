@@ -624,7 +624,7 @@ _ensure_git_config() {
 _ensure_dirs() {
   echo "dirs:" >&2
   local missing=0
-  for d in "$HOME/.agents/artifacts" "$HOME/.agents/sessions" "$HOME/.agents/state" "$HOME/.agents/learnings"; do
+  for d in "$HOME/.agents/artifacts" "$HOME/.agents/sessions" "$HOME/.agents/state" "$HOME/.agents/circus" "$HOME/.notes"; do
     if [[ ! -d "$d" ]]; then
       if $DRYRUN; then
         _yellow "  missing: $d"

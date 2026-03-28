@@ -106,7 +106,7 @@ When all phases are checked off:
 
 ## Epilogue
 
-Append 1-3 lines to `~/.agents/learnings/dog.md`: what implementation patterns worked, what failed, what was underspecified in plan.md.
+Append 1-3 lines to `~/.agents/circus/dog.md`: what implementation patterns worked, what failed, what was underspecified in plan.md.
 
 ## Next
 
