@@ -1,11 +1,23 @@
 #!/usr/bin/env bash
 # category: config
 # dotfiles - unified dotfiles sync: pull, verify, refresh, heal
+# NOTE: keep bash 3.2 compatible – macOS /bin/bash is 3.2 (GPLv2; Apple won't
+# update it). CI sandbox-macos prints the actual bash version at start; if it
+# ever shows 5.x+, this constraint can be revisited. Avoid: local -A, nameref, |&.
 set -euo pipefail
 
+# Persisted paths config (written by install.sh) lets standalone runs
+# resolve correct repos in all environments (laptop, workspace, home).
+[[ -f "$HOME/.config/dotfiles/paths" ]] && source "$HOME/.config/dotfiles/paths"
 DOTFILES="${DOTFILES:-$HOME/dotfiles}"
 WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}"
 OS="$(uname -s)"
+
+# ━━━ Git helpers ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Work with repos where the path is a subdirectory (e.g. monorepo user dirs).
+_is_git_repo() { [[ -d "$1" ]] && git -C "$1" rev-parse --git-dir &>/dev/null; }
+_git_dir()     { git -C "$1" rev-parse --git-dir 2>/dev/null; }
+_repo_root()   { git -C "$1" rev-parse --show-toplevel 2>/dev/null; }
 
 # ━━━ Output helpers ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -39,7 +51,7 @@ $HOME/.gitconfig.dotfiles|$DOTFILES/git/config
 EOF
 
   # Work overlay links (conditional)
-  if [[ -d "$WORK_DOTFILES/.git" ]]; then
+  if _is_git_repo "$WORK_DOTFILES"; then
     cat <<EOF
 $HOME/.zshrc.work|$WORK_DOTFILES/shell/zshrc.work
 $HOME/.agents/AGENTS-work.md|$WORK_DOTFILES/.agents/AGENTS-work.md
@@ -51,30 +63,36 @@ EOF
 
 _pull_repo() {
   local repo="$1" name="$2"
-  if [[ ! -d "$repo/.git" ]]; then
-    return 0
-  fi
+  _is_git_repo "$repo" || return 0
+  local git_dir
+  git_dir="$(_git_dir "$repo")" || return 0
   # Don't touch repos that already have a rebase in progress
-  if [[ -d "$repo/.git/rebase-merge" || -d "$repo/.git/rebase-apply" ]]; then
+  if [[ -d "$git_dir/rebase-merge" || -d "$git_dir/rebase-apply" ]]; then
     _yellow "warn: $name has rebase in progress; skipping pull"
     warnings=$((warnings + 1))
     return 0
   fi
+  # Pull from repo root (handles subdirectory paths)
+  local root
+  root="$(_repo_root "$repo")" || return 0
   echo "pulling $name..." >&2
-  if git -C "$repo" fetch origin main 2>/dev/null && \
-     git -C "$repo" rebase --autostash origin/main 2>/dev/null; then
+  if git -C "$root" fetch origin main 2>/dev/null && \
+     git -C "$root" rebase --autostash origin/main 2>/dev/null; then
     pulled=$((pulled + 1))
   else
     _yellow "warn: $name pull failed (conflict or network); aborting our rebase"
-    git -C "$repo" rebase --abort 2>/dev/null || true
+    git -C "$root" rebase --abort 2>/dev/null || true
     warnings=$((warnings + 1))
   fi
 }
 
 _pull_repos() {
-  _pull_repo "$DOTFILES" "dotfiles"
-  _pull_repo "$WORK_DOTFILES" "dotfiles-work"
-  _pull_repo "$HOME/workspaces-dotfiles" "workspaces-dotfiles"
+  # Deduplicate by repo root (WORK_DOTFILES may be a subdirectory of its repo)
+  local dotfiles_root work_root
+  dotfiles_root="$(_repo_root "$DOTFILES" 2>/dev/null)" || dotfiles_root=""
+  work_root="$(_repo_root "$WORK_DOTFILES" 2>/dev/null)" || work_root=""
+  if [[ -n "$dotfiles_root" ]]; then _pull_repo "$DOTFILES" "dotfiles"; fi
+  if [[ -n "$work_root" && "$work_root" != "$dotfiles_root" ]]; then _pull_repo "$WORK_DOTFILES" "dotfiles-work"; fi
 }
 
 # ━━━ Helpers ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -253,7 +271,7 @@ _ensure_symlinks() {
 _ensure_flat_dirs() {
   echo "flat dirs:" >&2
   local subpath label target
-  for subpath in .agents/conventions .agents/docs; do
+  for subpath in .agents/conventions .agents/docs .claude/hooks; do
     label="${subpath##*/}"
     target="$HOME/$subpath"
     local sources=()
@@ -686,22 +704,33 @@ _run_ensures() {
 
 _doctor_repos() {
   echo "repos:" >&2
-  local repo name
-  for repo in "$DOTFILES" "$WORK_DOTFILES" "$HOME/workspaces-dotfiles"; do
-    name="$(basename "$repo")"
-    if [[ ! -d "$repo/.git" ]]; then
-      echo "  $name: not found" >&2
-      continue
-    fi
-    local branch dirty behind status
-    branch="$(git -C "$repo" branch --show-current 2>/dev/null || echo "detached")"
-    dirty="$(git -C "$repo" status --porcelain 2>/dev/null | head -1)"
-    behind="$(git -C "$repo" rev-list --count HEAD..origin/main 2>/dev/null || echo "?")"
+  local dotfiles_root work_root branch dirty behind status
+  dotfiles_root="$(_repo_root "$DOTFILES" 2>/dev/null)" || dotfiles_root=""
+  work_root="$(_repo_root "$WORK_DOTFILES" 2>/dev/null)" || work_root=""
+
+  if _is_git_repo "$DOTFILES"; then
+    branch="$(git -C "$dotfiles_root" branch --show-current 2>/dev/null || echo "detached")"
+    dirty="$(git -C "$dotfiles_root" status --porcelain 2>/dev/null | head -1)"
+    behind="$(git -C "$dotfiles_root" rev-list --count HEAD..origin/main 2>/dev/null || echo "?")"
     status="branch=$branch"
     [[ -n "$dirty" ]] && status="$status, dirty"
     [[ "$behind" != "0" && "$behind" != "?" ]] && status="$status, ${behind} behind"
-    echo "  $name: $status" >&2
-  done
+    echo "  dotfiles: $status" >&2
+  else
+    echo "  dotfiles: not found" >&2
+  fi
+
+  if _is_git_repo "$WORK_DOTFILES" && [[ -n "$work_root" && "$work_root" != "$dotfiles_root" ]]; then
+    branch="$(git -C "$work_root" branch --show-current 2>/dev/null || echo "detached")"
+    dirty="$(git -C "$work_root" status --porcelain 2>/dev/null | head -1)"
+    behind="$(git -C "$work_root" rev-list --count HEAD..origin/main 2>/dev/null || echo "?")"
+    status="branch=$branch"
+    [[ -n "$dirty" ]] && status="$status, dirty"
+    [[ "$behind" != "0" && "$behind" != "?" ]] && status="$status, ${behind} behind"
+    echo "  dotfiles-work: $status" >&2
+  elif ! _is_git_repo "$WORK_DOTFILES"; then
+    echo "  dotfiles-work: not found" >&2
+  fi
 }
 
 cmd_default() {
@@ -738,7 +767,7 @@ cmd_doctor() {
   echo "" >&2
   echo "platform:" >&2
   echo "  os: $OS" >&2
-  [[ -d "$WORK_DOTFILES/.git" ]] && echo "  context: work" >&2 || echo "  context: personal" >&2
+  _is_git_repo "$WORK_DOTFILES" && echo "  context: work" >&2 || echo "  context: personal" >&2
 }
 
 cmd_setup() {

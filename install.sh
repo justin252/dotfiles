@@ -85,20 +85,16 @@ if command -v rtk &> /dev/null && [[ ! -f ~/.claude/hooks/rtk-rewrite.sh ]]; the
   fi
 fi
 
-# Sync Claude Code hooks from dotfiles repo
-mkdir -p ~/.claude/hooks
-for hook in "$DOTFILES/.claude/hooks/"*.sh; do
-  [[ -f "$hook" ]] || continue
-  hook_name="$(basename "$hook")"
-  if [[ ! -f "$HOME/.claude/hooks/$hook_name" ]] || \
-     [[ -L "$HOME/.claude/hooks/$hook_name" ]]; then
-    ln -sfn "$hook" "$HOME/.claude/hooks/$hook_name"
-  fi
-done
-
-# Delegate all managed state (symlinks, skills, configs, dirs, seeds) to dotfiles tool
+# Persist paths so standalone `dotfiles` runs resolve correctly in all environments
 export DOTFILES
 export WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}"
+mkdir -p ~/.config/dotfiles
+cat > ~/.config/dotfiles/paths <<EOF
+DOTFILES=$DOTFILES
+WORK_DOTFILES=$WORK_DOTFILES
+EOF
+
+# Delegate all managed state (symlinks, skills, configs, hooks, dirs, seeds) to dotfiles tool
 "$DOTFILES/tools/dotfiles"
 
 echo "Done. Run 'dotfiles doctor' to verify, 'dotfiles' to sync ongoing."
