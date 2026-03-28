@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # category: config
 # dotfiles - unified dotfiles sync: pull, verify, refresh, heal
-# NOTE: must remain bash 3.2 compatible – macOS ships /bin/bash 3.2 and CI
-# tests against it. No associative arrays (local -A), nameref, or |& pipes.
+# NOTE: keep bash 3.2 compatible – macOS /bin/bash is 3.2 (GPLv2; Apple won't
+# update it). CI sandbox-macos prints the actual bash version at start; if it
+# ever shows 5.x+, this constraint can be revisited. Avoid: local -A, nameref, |&.
 set -euo pipefail
 
 # Persisted paths config (written by install.sh) lets standalone runs
