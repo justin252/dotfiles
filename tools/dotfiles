@@ -73,11 +73,15 @@ _pull_repo() {
     return 0
   fi
   # Pull from repo root (handles subdirectory paths)
-  local root
+  local root default_branch
   root="$(_repo_root "$repo")" || return 0
-  echo "pulling $name..." >&2
-  if git -C "$root" fetch origin main 2>/dev/null && \
-     git -C "$root" rebase --autostash origin/main 2>/dev/null; then
+  # Detect default branch from remote HEAD; fall back to main.
+  # || true: symbolic-ref exits non-zero when origin/HEAD isn't set (shallow clones, new remotes).
+  default_branch="$(git -C "$root" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||')" || true
+  default_branch="${default_branch:-main}"
+  echo "pulling $name ($default_branch)..." >&2
+  if git -C "$root" fetch origin "$default_branch" 2>/dev/null && \
+     git -C "$root" rebase --autostash "origin/$default_branch" 2>/dev/null; then
     pulled=$((pulled + 1))
   else
     _yellow "warn: $name pull failed (conflict or network); aborting our rebase"
@@ -87,12 +91,8 @@ _pull_repo() {
 }
 
 _pull_repos() {
-  # Deduplicate by repo root (WORK_DOTFILES may be a subdirectory of its repo)
-  local dotfiles_root work_root
-  dotfiles_root="$(_repo_root "$DOTFILES" 2>/dev/null)" || dotfiles_root=""
-  work_root="$(_repo_root "$WORK_DOTFILES" 2>/dev/null)" || work_root=""
-  if [[ -n "$dotfiles_root" ]]; then _pull_repo "$DOTFILES" "dotfiles"; fi
-  if [[ -n "$work_root" && "$work_root" != "$dotfiles_root" ]]; then _pull_repo "$WORK_DOTFILES" "dotfiles-work"; fi
+  _pull_repo "$DOTFILES" "dotfiles"
+  _pull_repo "$WORK_DOTFILES" "dotfiles-work"
 }
 
 # ━━━ Helpers ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -702,35 +702,27 @@ _run_ensures() {
 
 # ━━━ Subcommands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+_doctor_repo() {
+  local path="$1" label="$2"
+  local root branch dirty behind status
+  if ! _is_git_repo "$path"; then
+    echo "  $label: not found" >&2
+    return 0
+  fi
+  root="$(_repo_root "$path")" || return 0
+  branch="$(git -C "$root" branch --show-current 2>/dev/null || echo "detached")"
+  dirty="$(git -C "$root" status --porcelain 2>/dev/null | head -1)"
+  behind="$(git -C "$root" rev-list --count HEAD..origin/main 2>/dev/null || echo "?")"
+  status="branch=$branch"
+  [[ -n "$dirty" ]] && status="$status, dirty"
+  [[ "$behind" != "0" && "$behind" != "?" ]] && status="$status, ${behind} behind"
+  echo "  $label: $status" >&2
+}
+
 _doctor_repos() {
   echo "repos:" >&2
-  local dotfiles_root work_root branch dirty behind status
-  dotfiles_root="$(_repo_root "$DOTFILES" 2>/dev/null)" || dotfiles_root=""
-  work_root="$(_repo_root "$WORK_DOTFILES" 2>/dev/null)" || work_root=""
-
-  if _is_git_repo "$DOTFILES"; then
-    branch="$(git -C "$dotfiles_root" branch --show-current 2>/dev/null || echo "detached")"
-    dirty="$(git -C "$dotfiles_root" status --porcelain 2>/dev/null | head -1)"
-    behind="$(git -C "$dotfiles_root" rev-list --count HEAD..origin/main 2>/dev/null || echo "?")"
-    status="branch=$branch"
-    [[ -n "$dirty" ]] && status="$status, dirty"
-    [[ "$behind" != "0" && "$behind" != "?" ]] && status="$status, ${behind} behind"
-    echo "  dotfiles: $status" >&2
-  else
-    echo "  dotfiles: not found" >&2
-  fi
-
-  if _is_git_repo "$WORK_DOTFILES" && [[ -n "$work_root" && "$work_root" != "$dotfiles_root" ]]; then
-    branch="$(git -C "$work_root" branch --show-current 2>/dev/null || echo "detached")"
-    dirty="$(git -C "$work_root" status --porcelain 2>/dev/null | head -1)"
-    behind="$(git -C "$work_root" rev-list --count HEAD..origin/main 2>/dev/null || echo "?")"
-    status="branch=$branch"
-    [[ -n "$dirty" ]] && status="$status, dirty"
-    [[ "$behind" != "0" && "$behind" != "?" ]] && status="$status, ${behind} behind"
-    echo "  dotfiles-work: $status" >&2
-  elif ! _is_git_repo "$WORK_DOTFILES"; then
-    echo "  dotfiles-work: not found" >&2
-  fi
+  _doctor_repo "$DOTFILES" "dotfiles"
+  _doctor_repo "$WORK_DOTFILES" "dotfiles-work"
 }
 
 cmd_default() {
