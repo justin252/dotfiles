@@ -90,8 +90,8 @@ export DOTFILES
 export WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}"
 mkdir -p ~/.config/dotfiles
 cat > ~/.config/dotfiles/paths <<EOF
-DOTFILES=$DOTFILES
-WORK_DOTFILES=$WORK_DOTFILES
+DOTFILES="$DOTFILES"
+WORK_DOTFILES="$WORK_DOTFILES"
 EOF
 
 # Delegate all managed state (symlinks, skills, configs, hooks, dirs, seeds) to dotfiles tool
