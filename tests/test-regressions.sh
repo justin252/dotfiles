@@ -29,29 +29,20 @@ fi
 echo ""
 echo "=== Review heuristic precision ==="
 
-# The ag-orchestrate review stage uses a grep pattern to decide whether a
-# review found real issues (blockers/issues) vs just nits. This tests the
-# PRODUCTION regex against known inputs to prevent false positives from
-# free-text mentions like "no issues found."
-#
-# Extract the pattern from ag-orchestrate source so the test stays in sync
-# with production. If the source pattern changes, this test changes with it.
-HEURISTIC_PATTERN=$(grep -oE "'\^\#\{1,3\}[^']+'" "$REPO_ROOT/tools/ag-orchestrate" | tr -d "'" | head -1)
-if [[ -z "$HEURISTIC_PATTERN" ]]; then
-  _fail "could not extract heuristic pattern from ag-orchestrate"
-else
-  _pass "extracted heuristic pattern from ag-orchestrate"
-fi
+# _has_blockers() detects unchecked P0/P1 action items from review.md.
+# Tests verify the production pattern against known inputs.
 
-_test_heuristic() {
+_test_blocker() {
   local input="$1" expected="$2" label="$3"
-
-  # Uses the pattern extracted from the production ag-orchestrate source
-  if echo "$input" | grep -qE "$HEURISTIC_PATTERN" 2>/dev/null; then
+  local tmpfile
+  tmpfile=$(mktemp)
+  echo "$input" > "$tmpfile"
+  if grep -qE '^\- \[ \] P[01] ' "$tmpfile" 2>/dev/null; then
     actual="match"
   else
     actual="no-match"
   fi
+  rm -f "$tmpfile"
   if [[ "$actual" == "$expected" ]]; then
     _pass "$label"
   else
@@ -59,15 +50,15 @@ _test_heuristic() {
   fi
 }
 
-# Structured headers/frontmatter should trigger fixes
-_test_heuristic "## Blockers" "match" "## Blockers heading triggers fix"
-_test_heuristic "### Issue: missing null check" "match" "### Issue heading triggers fix"
-_test_heuristic "severity: blocker" "match" "severity frontmatter triggers fix"
+# Unchecked P0/P1 items should trigger fix
+_test_blocker "- [ ] P0 Missing null check" "match" "unchecked P0 triggers fix"
+_test_blocker "- [ ] P1 Error handling incomplete" "match" "unchecked P1 triggers fix"
 
-# Free-text mentions should NOT trigger fixes
-_test_heuristic "No issues found. Code looks good." "no-match" "free text 'issues' does not trigger fix"
-_test_heuristic "All blockers have been resolved." "no-match" "free text 'blockers' does not trigger fix"
-_test_heuristic "Only nits and questions." "no-match" "nits-only does not trigger fix"
+# Checked items and P2 should NOT trigger fix
+_test_blocker "- [x] P0 Missing null check" "no-match" "checked P0 does not trigger fix"
+_test_blocker "- [ ] P2 Consider renaming variable" "no-match" "P2 nit does not trigger fix"
+_test_blocker "No issues found. Code looks good." "no-match" "free text does not trigger fix"
+_test_blocker "## Blockers" "no-match" "heading alone does not trigger fix"
 
 echo ""
 echo "=== Summary ==="

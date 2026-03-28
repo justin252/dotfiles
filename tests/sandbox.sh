@@ -913,6 +913,31 @@ if [[ -n "$orch_state" && -f "$orch_state/pipeline.json" ]]; then
   else
     _fail "scout: findings file missing in test mode"
   fi
+
+  # Phase 4: review_pass tracking
+  rp=$(jq -r '.review_pass' "$orch_state/pipeline.json" 2>/dev/null)
+  if [[ "$rp" == "2" ]]; then
+    _pass "review loop: review_pass=2 after 2-pass loop"
+  else
+    _fail "review loop: review_pass should be 2, got $rp"
+  fi
+
+  # Phase 4: fix stage marked stuck (blockers remain after pass 2 in test mode)
+  fix_st=$(jq -r '.stages.fix.status' "$orch_state/pipeline.json" 2>/dev/null)
+  if [[ "$fix_st" == "stuck" ]]; then
+    _pass "review loop: fix stage stuck after unresolved blockers"
+  else
+    _fail "review loop: fix stage should be stuck, got $fix_st"
+  fi
+
+  # Phase 4: review.md uses P0/P1 format
+  if [[ -f "$orch_state/artifacts/review.md" ]]; then
+    if grep -q 'P0' "$orch_state/artifacts/review.md"; then
+      _pass "review stub: uses P0/P1 action item format"
+    else
+      _fail "review stub: should use P0/P1 format"
+    fi
+  fi
 else
   _fail "ag-orchestrate: pipeline.json not created"
 fi

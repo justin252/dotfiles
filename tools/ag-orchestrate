@@ -72,6 +72,28 @@ _smart_truncate() {
   fi
 }
 
+# --- blocker detection (matches review-instructions.md P0/P1 format) ---
+
+_has_blockers() {
+  local review_file="$1"
+  [[ -f "$review_file" ]] || return 1
+  # unchecked P0/P1 items; checked [x] and P2 items are not blockers
+  grep -qE '^\- \[ \] P[01] ' "$review_file" 2>/dev/null
+}
+
+# --- review_pass tracking ---
+
+_inc_review_pass() {
+  local state_dir="$1"
+  local tmp="$state_dir/pipeline.json.tmp"
+  jq '.review_pass = (.review_pass + 1)' "$state_dir/pipeline.json" > "$tmp" \
+    && mv "$tmp" "$state_dir/pipeline.json"
+}
+
+_get_review_pass() {
+  jq -r '.review_pass' "$1/pipeline.json"
+}
+
 # --- pipeline.json state management ---
 
 _init_pipeline() {
@@ -85,6 +107,7 @@ _init_pipeline() {
       session: $session,
       started: $started,
       current_stage: null,
+      review_pass: 0,
       stages: {
         scout:   {status: "pending"},
         test:    {status: "pending"},
@@ -218,7 +241,7 @@ _run_test_stage() {
     execute) echo "stub: would implement tasks from plan.md" > "$artifact_dir/execute.log" ;;
     verify)  ;; # passes immediately in test mode
     ship)    echo "stub: would create PR" > "$artifact_dir/output.md" ;;
-    review)  printf "## Blockers\n\nseverity: blocker\nStub blocker for fix-stage trigger\n" > "$artifact_dir/review.md" ;;
+    review)  printf "## Action items\n\n- [ ] P0 Stub blocker for fix-stage trigger\n" > "$artifact_dir/review.md" ;;
     fix)     echo "stub: would fix 1 blocker" > "$artifact_dir/fix.log" ;;
     retro)   echo "stub: would capture learnings to INBOX.md" > "$artifact_dir/retro.log" ;;
   esac
@@ -627,83 +650,128 @@ fi
 # --- Stage 5: Ship ---
 _run_stage "ship" "$ship_val" "shipping" 600 "/checkpoint"
 
-# --- Stage 6: Review ---
-if ! _should_skip "review"; then
-  cur_status="pending"
-  [[ "$resume" == true ]] && cur_status=$(_stage_status "$state_dir" "review")
-  if [[ "$cur_status" != "done" && "$cur_status" != "skipped" ]]; then
-    echo "stage: review ($review_val)" >&2
-    echo "reviewing" > "$state_dir/phase"
-    _start_stage "$state_dir" "review" "$review_val"
+# --- Stages 6-7: Review Loop (max 2 passes) ---
+# Review > fix > re-review. If blockers remain after pass 2: stuck + notify.
 
-    if [[ "$test_mode" == true ]]; then
-      _run_test_stage "$state_dir" "review" "$topic"
-      sleep 1
-      _finish_stage "$state_dir" "review" "done"
-    else
-      ~/tools/review --topic "$topic" 2>/dev/null &
-      review_pid=$!
-      review_elapsed=0
-      while (( review_elapsed < 600 )); do
-        if [[ -f "$HOME/.agents/artifacts/$topic/review-state.json" ]]; then
-          if jq -e '.status == "done" or .status == "failed"' "$HOME/.agents/artifacts/$topic/review-state.json" >/dev/null 2>&1; then
-            break
-          fi
-        fi
-        sleep 10
-        review_elapsed=$((review_elapsed + 10))
-      done
-      wait "$review_pid" 2>/dev/null || true
-      review_status="failed"
+_run_review_stage() {
+  local state_dir="$1" review_val="$2" topic="$3" test_mode="$4"
+
+  echo "stage: review ($review_val)" >&2
+  echo "reviewing" > "$state_dir/phase"
+  _start_stage "$state_dir" "review" "$review_val"
+
+  if [[ "$test_mode" == true ]]; then
+    _run_test_stage "$state_dir" "review" "$topic"
+    sleep 1
+    _finish_stage "$state_dir" "review" "done"
+  else
+    ~/tools/review --topic "$topic" 2>/dev/null &
+    local review_pid=$!
+    local review_elapsed=0
+    while (( review_elapsed < 600 )); do
       if [[ -f "$HOME/.agents/artifacts/$topic/review-state.json" ]]; then
-        review_status=$(jq -r '.status' "$HOME/.agents/artifacts/$topic/review-state.json" 2>/dev/null || echo "failed")
+        if jq -e '.status == "done" or .status == "failed"' "$HOME/.agents/artifacts/$topic/review-state.json" >/dev/null 2>&1; then
+          break
+        fi
       fi
-      _finish_stage "$state_dir" "review" "$review_status"
+      sleep 10
+      review_elapsed=$((review_elapsed + 10))
+    done
+    wait "$review_pid" 2>/dev/null || true
+    local review_status="failed"
+    if [[ -f "$HOME/.agents/artifacts/$topic/review-state.json" ]]; then
+      review_status=$(jq -r '.status' "$HOME/.agents/artifacts/$topic/review-state.json" 2>/dev/null || echo "failed")
     fi
+    _finish_stage "$state_dir" "review" "$review_status"
   fi
-fi
+}
 
-# --- Stage 7: Fix (conditional on review blockers) ---
-if ! _should_skip "fix"; then
-  cur_status="pending"
-  [[ "$resume" == true ]] && cur_status=$(_stage_status "$state_dir" "fix")
-  if [[ "$cur_status" != "done" && "$cur_status" != "skipped" ]]; then
+_run_fix_stage() {
+  local state_dir="$1" exe_val="$2" topic="$3" test_mode="$4" review_md="$5"
+  local topic_dir="$HOME/.agents/artifacts/$topic"
+  local context_bytes="${AG_CONTEXT_BYTES:-8000}"
+
+  echo "stage: fix ($exe_val)" >&2
+  echo "fixing" > "$state_dir/phase"
+  _start_stage "$state_dir" "fix" "$exe_val"
+
+  if [[ "$test_mode" == true ]]; then
+    _run_test_stage "$state_dir" "fix" "$topic"
+    sleep 1
+    _finish_stage "$state_dir" "fix" "done"
+  else
+    local fix_artifacts=(problem.md design.md plan.md output.md)
+    local fix_context=""
+    if [[ -d "$topic_dir" ]]; then
+      _log_context "$topic_dir" "${fix_artifacts[@]}"
+      fix_context="$(_gather_chain_context "$topic_dir" "$context_bytes" "${fix_artifacts[@]}")"
+      if [[ "${AG_DEBUG:-}" == "1" && -n "$fix_context" ]]; then
+        echo "debug: fix context:" >&2; echo "$fix_context" >&2
+      fi
+    fi
+    local fix_prompt="Read $review_md and fix all P0/P1 findings. Then run /checkpoint to amend and push."
+    if [[ -n "$fix_context" ]]; then
+      fix_prompt="Upstream artifacts for context:
+$fix_context
+$fix_prompt"
+    fi
+    local cmd
+    cmd="$(_build_cmd "$exe_val" "$fix_prompt")"
+    _run_in_session "$session" "$cmd" "$state_dir"
+    _current_model="$exe_val"
+    _wait_stage "$state_dir" "fix" 900 || true
+  fi
+}
+
+review_skip=false
+fix_skip=false
+if _should_skip "review"; then review_skip=true; fi
+if _should_skip "fix"; then fix_skip=true; fi
+
+if [[ "$review_skip" != true ]]; then
+  for (( rp=1; rp<=2; rp++ )); do
+    _inc_review_pass "$state_dir"
+
+    # Resume: skip if already done
+    if [[ "$resume" == true ]]; then
+      cur_status=$(_stage_status "$state_dir" "review")
+      if [[ "$cur_status" == "done" || "$cur_status" == "skipped" ]]; then
+        break
+      fi
+    fi
+
+    _run_review_stage "$state_dir" "$review_val" "$topic" "$test_mode"
+
+    # Resolve review.md path
     review_md="$HOME/.agents/artifacts/$topic/review.md"
     [[ "$test_mode" == true ]] && review_md="$state_dir/artifacts/review.md"
 
-    if [[ -f "$review_md" ]] && grep -qE '^#{1,3} .*(Blocker|Issue)|severity: *(blocker|issue)' "$review_md" 2>/dev/null; then
-      echo "stage: fix ($exe_val)" >&2
-      echo "fixing" > "$state_dir/phase"
-      _start_stage "$state_dir" "fix" "$exe_val"
-
-      if [[ "$test_mode" == true ]]; then
-        _run_test_stage "$state_dir" "fix" "$topic"
-        sleep 1
-        _finish_stage "$state_dir" "fix" "done"
-      else
-        fix_artifacts=(problem.md design.md plan.md output.md)
-        fix_context=""
-        if [[ -d "$topic_dir" ]]; then
-          _log_context "$topic_dir" "${fix_artifacts[@]}"
-          fix_context="$(_gather_chain_context "$topic_dir" "$context_bytes" "${fix_artifacts[@]}")"
-          if [[ "${AG_DEBUG:-}" == "1" && -n "$fix_context" ]]; then
-            echo "debug: fix context:" >&2; echo "$fix_context" >&2
-          fi
-        fi
-        fix_prompt="Read $review_md and fix all blocker/issue findings. Then run /checkpoint to amend and push."
-        if [[ -n "$fix_context" ]]; then
-          fix_prompt="Upstream artifacts for context:
-$fix_context
-$fix_prompt"
-        fi
-        cmd="$(_build_cmd "$exe_val" "$fix_prompt")"
-        _run_in_session "$session" "$cmd" "$state_dir"
-        _current_model="$exe_val"  # fix uses execute model for relaunch
-        _wait_stage "$state_dir" "fix" 900 || true
+    if ! _has_blockers "$review_md"; then
+      # No blockers; skip fix, exit loop
+      if [[ "$fix_skip" != true ]]; then
+        _update_stage "$state_dir" "fix" "status" "skipped"
       fi
-    else
-      _update_stage "$state_dir" "fix" "status" "skipped"
+      break
     fi
+
+    # Pass 2 with blockers: escalate
+    if (( rp == 2 )); then
+      _finish_stage "$state_dir" "fix" "stuck"
+      _escalate "$state_dir" "$topic" "fix" "Blockers remain after 2 review passes"
+      break
+    fi
+
+    # Pass 1 with blockers: fix, then loop for re-review
+    if [[ "$fix_skip" != true ]]; then
+      _run_fix_stage "$state_dir" "$exe_val" "$topic" "$test_mode" "$review_md"
+      # Reset review stage for pass 2
+      _update_stage "$state_dir" "review" "status" "pending"
+    fi
+  done
+else
+  _update_stage "$state_dir" "review" "status" "skipped"
+  if [[ "$fix_skip" != true ]]; then
+    _update_stage "$state_dir" "fix" "status" "skipped"
   fi
 fi
 
@@ -724,13 +792,15 @@ if [[ "$test_mode" == true ]]; then
   all_pass=true
   for s in scout test execute verify ship review fix retro; do
     st=$(_stage_status "$state_dir" "$s")
-    if [[ "$st" == "done" || "$st" == "skipped" ]]; then
+    if [[ "$st" == "done" || "$st" == "skipped" || "$st" == "stuck" ]]; then
       echo "  $s: $st ✓" >&2
     else
       echo "  $s: $st ✗" >&2
       all_pass=false
     fi
   done
+  rp=$(_get_review_pass "$state_dir")
+  echo "  review_pass: $rp" >&2
   if [[ "$all_pass" == true ]]; then
     echo "ALL STAGES PASS" >&2
   else
