@@ -75,8 +75,9 @@ _pull_repo() {
   # Pull from repo root (handles subdirectory paths)
   local root default_branch
   root="$(_repo_root "$repo")" || return 0
-  # Detect default branch from remote HEAD; fall back to main
-  default_branch="$(git -C "$root" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||')"
+  # Detect default branch from remote HEAD; fall back to main.
+  # || true: symbolic-ref exits non-zero when origin/HEAD isn't set (shallow clones, new remotes).
+  default_branch="$(git -C "$root" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||')" || true
   default_branch="${default_branch:-main}"
   echo "pulling $name ($default_branch)..." >&2
   if git -C "$root" fetch origin "$default_branch" 2>/dev/null && \

@@ -188,11 +188,18 @@ echo "=== Install ==="
 
 setup
 
+# Simulate CI shallow clone: remove origin/HEAD so _pull_repo's symbolic-ref
+# fallback is exercised. Restored after the test.
+_orig_head="$(git -C "$REPO_ROOT" symbolic-ref refs/remotes/origin/HEAD 2>/dev/null || true)"
+git -C "$REPO_ROOT" remote set-head origin --delete 2>/dev/null || true
+
 if bash "$REPO_ROOT/install.sh" >/dev/null 2>&1; then
   _pass "install.sh completes"
 else
   _fail "install.sh failed"
 fi
+
+[[ -n "$_orig_head" ]] && git -C "$REPO_ROOT" symbolic-ref refs/remotes/origin/HEAD "$_orig_head" 2>/dev/null || true
 
 # Symlinks
 for target in .zshrc .tmux.conf; do
