@@ -657,6 +657,60 @@ _ensure_dirs() {
   fi
 }
 
+_ensure_wt_hooks() {
+  # wt-hooks: work overlay only; merges $WORK_DOTFILES/wt-hooks/ into
+  # ~/.config/wt/hooks/ as per-file symlinks (not a dir-level symlink)
+  # so personal and work hooks can coexist in the same dir.
+  local src="$WORK_DOTFILES/wt-hooks"
+  local target="$HOME/.config/wt/hooks"
+  [[ -d "$src" ]] || return 0
+  echo "wt-hooks:" >&2
+
+  if $DRYRUN; then
+    if [[ ! -d "$target" || -L "$target" ]]; then
+      _yellow "  directory missing or not a real dir"
+      warnings=$((warnings + 1))
+      return 0
+    fi
+    local ok=0 fname
+    for f in "$src"/*; do
+      [[ -f "$f" ]] || continue
+      fname="$(basename "$f")"
+      if [[ -L "$target/$fname" && "$(readlink "$target/$fname")" == "$f" ]]; then
+        ((ok++)) || true
+      else
+        _yellow "  wrong: $fname"
+        warnings=$((warnings + 1))
+      fi
+    done
+    echo "  ok=$ok" >&2
+  else
+    mkdir -p "$target"
+    _prune_broken_links "$target"
+    local count=0 fname stale=0 link_name
+    for f in "$src"/*; do
+      [[ -f "$f" ]] || continue
+      fname="$(basename "$f")"
+      if [[ -f "$target/$fname" && ! -L "$target/$fname" ]]; then
+        _yellow "  skipping $fname (local file exists)"
+        warnings=$((warnings + 1))
+        continue
+      fi
+      ln -sf "$f" "$target/$fname"
+      ((count++)) || true
+    done
+    for link in "$target"/*; do
+      [[ -L "$link" ]] || continue
+      link_name="$(basename "$link")"
+      if [[ ! -f "$src/$link_name" ]]; then
+        rm -f "$link"
+        ((stale++)) || true
+      fi
+    done
+    echo "  $count synced${stale:+, $stale stale removed}" >&2
+  fi
+}
+
 _ensure_seeds() {
   echo "seeds:" >&2
   local missing=0
@@ -692,6 +746,7 @@ SEEDEOF
 _run_ensures() {
   _ensure_symlinks
   _ensure_flat_dirs
+  _ensure_wt_hooks
   _ensure_skills
   _ensure_codex
   _ensure_karabiner
