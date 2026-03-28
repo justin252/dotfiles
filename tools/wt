@@ -462,7 +462,7 @@ case "$subcommand" in
   open)
     [[ -z "${1:-}" ]] && die "usage: wt open <branch|PR#|PR-URL>"
     wt_path=$(cmd_new "$@")
-    ide="${DOTFILES_IDE_CMD:-code}"
+    ide="${DOTFILES_IDE:-code}"
     if command -v "$ide" &>/dev/null; then
       "$ide" "$wt_path"
     else

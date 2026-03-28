@@ -76,4 +76,4 @@ If no topic is identifiable, ask one clarifying question. Don't guess.
 Before completing, reflect:
 - Was the routing obvious or did it require judgment?
 - Did the user override the suggestion? What signal did I miss?
-- Append 1-3 lines to `~/.agents/learnings/lion.md`
+- Append 1-3 lines to `~/.agents/circus/lion.md`

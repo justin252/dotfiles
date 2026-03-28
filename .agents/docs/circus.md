@@ -69,10 +69,10 @@ Every animal learns. The elephant curates.
 
 ```
 Every animal:  skill epilogue (## Epilogue in SKILL.md)
-               → appends 1-3 lines to ~/.agents/learnings/<animal>.md
+               → appends 1-3 lines to ~/.agents/circus/<animal>.md
                → freeform dated entries, fast capture
 
-Elephant:      reads all animal learnings + INBOX.md
+Elephant:      reads all animal circus + INBOX.md
                → evaluates significance
                → sees cross-animal patterns no individual can see
                → graduates knowledge to permanent homes
@@ -91,7 +91,7 @@ Learning happens orthogonally, at every stage.
 
 ### Elephant as professor
 
-The elephant doesn't just route – it evaluates. Raw learnings are lab reports. The elephant reads across all students and decides:
+The elephant doesn't just route – it evaluates. Raw circus logs are lab reports. The elephant reads across all students and decides:
 
 - Significant finding → graduate (SKILL.md rule, AGENTS.md, AGENTS-work.md)
 - Recurring cross-animal pattern → systemic fix (route feedback between animals)
@@ -103,11 +103,11 @@ The elephant doesn't just route – it evaluates. Raw learnings are lab reports.
 → graduates to dog's SKILL.md as a checklist item
 
 **Cross-animal:** "Owl keeps finding error handling gaps that dog misses"
-→ routes feedback from owl to dog's learnings
+→ routes feedback from owl to dog's circus
 → or updates execute SKILL.md to include error handling pass
 
 **Project-level:** "Auth-related work always takes 3x longer than planned"
-→ updates octopus's learnings ("scope auth work at 3x")
+→ updates octopus's circus ("scope auth work at 3x")
 → or AGENTS.md rule if universal
 
 ### Promotion destinations
@@ -116,12 +116,12 @@ The elephant's decision tree:
 
 1. Universal (any animal could hit this)? → AGENTS.md
 2. Specific to one animal's domain, proven (3+ occurrences)? → that animal's SKILL.md
-3. Specific but unproven (1-2 occurrences)? → stays in learnings.md
+3. Specific but unproven (1-2 occurrences)? → stays in circus/<animal>.md
 4. Work-specific? → AGENTS-work.md (regardless of tier)
 
 ### Learnings are local-only
 
-`~/.agents/learnings/<animal>.md` – local, never synced. Same treatment as artifacts/. This avoids personal/work boundary issues. Everything is staging until the elephant promotes it to a versioned destination.
+`~/.agents/circus/<animal>.md` – local, never synced. Same treatment as artifacts/. This avoids personal/work boundary issues. Everything is staging until the elephant promotes it to a versioned destination.
 
 Format: freeform append (dated entries). Elephant restructures into sections during triage (patterns that work, patterns that fail, cross-animal feedback).
 
@@ -129,7 +129,7 @@ Format: freeform append (dated entries). Elephant restructures into sections dur
 
 Where a learning is captured determines its initial association:
 
-- **Inside a skill** (epilogue): auto-associates with that animal's learnings.md
+- **Inside a skill** (epilogue): auto-associates with that animal's circus/<animal>.md
 - **Regular session** (/retro or manual): goes to INBOX.md. Elephant routes to the right animal during triage.
 
 ---
@@ -186,8 +186,8 @@ Pipeline:    /lion run <topic>                 (lion sequences everything)
 Laptop is the durable state machine. Workspaces are ephemeral compute.
 
 - Learnings accumulate on workspace during session
-- `wss` disconnect hook auto-syncs `~/.agents/learnings/` and `~/.agents/INBOX.md` back to laptop
-- No manual sync needed – close session, learnings come home
+- `wss` disconnect hook auto-syncs `~/.agents/circus/` and `~/.agents/INBOX.md` back to laptop
+- No manual sync needed – close session, circus logs come home
 
 ---
 
@@ -269,14 +269,14 @@ You (🐙 design)
   │   ├─ resolve trivial text-level conflicts
   │   └─ CI failure / semantic conflict? → delegate to 🐕
               │
-  🐘 reads all learnings, graduates knowledge
+  🐘 reads all circus logs, graduates knowledge
               │
   Teammate reviews + merges
               │
   ◄──── AGENTS.md feeds back to you ────╯
 ```
 
-🦁 is a skill that composes ag/wt. Each `ag run` is a complete pipeline. 🦫 never writes code – manages branches/stacks and delegates code fixes to 🐕. Merge queue is infrastructure (GitHub), not 🦫. 🐘 is the curator: reads all animal learnings, graduates to SKILL.md/AGENTS.md/AGENTS-work.md.
+🦁 is a skill that composes ag/wt. Each `ag run` is a complete pipeline. 🦫 never writes code – manages branches/stacks and delegates code fixes to 🐕. Merge queue is infrastructure (GitHub), not 🦫. 🐘 is the curator: reads all animal circus logs, graduates to SKILL.md/AGENTS.md/AGENTS-work.md.
 
 ---
 
@@ -345,7 +345,7 @@ Runner-up: Opus 4.6 for complex architectural reviews.
 
 **🐘 Elephant – Curator** → **Sonnet 4.6** via Claude Code subagent
 
-Cross-animal pattern recognition, evaluating significance of learnings, deciding what graduates where. Needs good judgment and synthesis, not raw coding ability. Sonnet balances quality with speed for periodic triage passes.
+Cross-animal pattern recognition, evaluating significance of circus logs, deciding what graduates where. Needs good judgment and synthesis, not raw coding ability. Sonnet balances quality with speed for periodic triage passes.
 
 Runner-up: Haiku for light triage, Opus for deep project-level synthesis.
 
@@ -395,7 +395,7 @@ The top 5 models on SWE-bench Verified score within 1.3 points. **Harness and pr
 | 7 | ~~🐕 Dog rename (fox → dog)~~ | shipped | - |
 | 8 | ~~🦁 Lion skill (dispatch)~~ | shipped | - |
 | 9 | `wt` environment awareness | next | nothing |
-| 10 | `wss` disconnect sync (learnings) | next | nothing |
+| 10 | `wss` disconnect sync (circus) | next | nothing |
 | 11 | 🐘 Elephant upgrade (three-scope triage) | next | skill epilogues |
 | 12 | GUPP-lite (crash safety) | when needed | nothing |
 | 13 | 🐝 Bee (swarm) | later | 🦁 + 🦫 |

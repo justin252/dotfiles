@@ -87,7 +87,9 @@ tools/wt                     # Worktree CLI: resolve/list/rm/clean/migrate
 tools/artifacts              # Unified artifact browser: ~/.agents/artifacts/ (frontmatter-aware, typed actions)
 tools/review                 # Codex code review: review [PR] --status --json (async, writes review.md)
 tools/rebase-wip             # Stash current work, fetch/rebase, then restore work
-tools/session                # Session notes browser: ~/.agents/sessions/ (curated .md)
+tools/sessions               # Session notes browser: ~/.agents/sessions/ (curated .md)
+tools/notes                  # Personal topic notes browser: ~/.notes/ (learning notes from /learn)
+tools/_browse                # Shared fzf browser library (sourced by sessions, notes)
 tools/t                      # Tools browser: fzf picker for all tools with --help preview
 karabiner/karabiner.json     # Karabiner-Elements config (Joy-Con L → Claude Code controls)
 karabiner/joycon-karabiner.md # Joy-Con mapping spec
@@ -114,8 +116,9 @@ AGENTS.md                    # Repo-level agent instructions (this repo)
 - `wt` – worktree CLI and shell wrapper. Branch is the canonical input; `chore/feed-atlas` → worktree `{repo}-wt-chore-feed-atlas`. `wt new <branch>` finds an existing worktree, reuses the current dir if already on that branch, or creates one. `wt new 90` or `wt new <PR-URL>` resolves PRs. `wt list --json` for scripting. `wt` fzf switch. `wt list` show all. `wt rm` or `wt -d` delete (by branch or slug). `wt clean` remove merged worktrees. `wt clean --all` remove all worktrees. `wt migrate` renames old worktree paths to the current convention. Work shell overlay adds workspace routing via `REPO_WORKSPACE_MAP` – primitives route transparently over SSH, interactive commands (`wt <branch>`, bare `wt`) attach a remote tmux session.
 - `review` – Codex code review for any PR or branch. `review` auto-detects current branch's PR, `review 123` targets a specific PR, falls back to branch diff against main. Always async; writes `review.md` to auto-discovered topic dir (`~/.agents/artifacts/<branch-slug>/`, e.g. `feat/auth-flow` → `auth-flow`), notifies on completion. `--status` checks all reviews (table or `--json` array); self-heals stale pids. `--topic` to override auto-discovery.
 - `rebase-wip` – stash local edits, fetch/rebase onto the target branch, then reapply the stash. Useful when dotfiles change mid-task
-- `artifacts` (`a`) – unified artifact browser: `~/.agents/artifacts/` with frontmatter-aware picker. Actions: edit, view, execute, propose, review, claude, gemini, plan, cursor. `artifacts <query>` pre-filters.
-- `session` (`s`) – session notes browser: `~/.agents/sessions/` (curated .md summaries for context handoff). `session <query>` pre-filters.
+- `artifacts` (`a`) – unified artifact browser: `~/.agents/artifacts/` with frontmatter-aware picker. Actions: edit, execute, propose, review, ide, claude, codex. `artifacts <query>` pre-filters.
+- `sessions` (`s`) – session notes browser: `~/.agents/sessions/` (curated .md summaries for context handoff). Actions: ide, claude, codex. `sessions <query>` pre-filters.
+- `notes` (`n`) – personal topic notes browser: `~/.notes/` (learning notes from `/learn` sessions). Flat-file, one per topic, mtime-sorted. Actions: ide, claude, codex. `notes <query>` pre-filters.
 - `t` – tools browser: fzf picker for all `~/tools/` scripts, grouped by category, with `--help` preview. `t <query>` pre-filters.
 
 ## Testing

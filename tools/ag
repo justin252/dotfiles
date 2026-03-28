@@ -40,7 +40,7 @@ ag - agent session manager
   ag new proj/feature       grouped session (display-only grouping by prefix)
   ag new <name> --shell     create worktree + tmux, drop to shell
   ag new <name> -m MSG      launch with initial task (background)
-  ag new <name> --ide [cmd]  open IDE in worktree (default: \$DOTFILES_IDE_CMD)
+  ag new <name> --ide [cmd]  open IDE in worktree (default: \$DOTFILES_IDE)
   ag new <name> --claude    force using claude
   ag new <name> --gemini    force using gemini
   ag new <name> --codex     force using codex
@@ -502,13 +502,13 @@ RUNEOF
           slug={1}; src=\$(echo {3} | tr -d '[] ')
           slug=\$(echo \"\$slug\" | sed 's/^ *//;s/ *\$//')
           if [ \"\$src\" = 'art' ]; then
-            \${EDITOR:-vim} \"\$HOME/.agents/artifacts/\$slug/plan.md\"
+            \${EDITOR:-code} \"\$HOME/.agents/artifacts/\$slug/plan.md\"
           elif [ \"\$src\" = 'cursor' ]; then
-            \${EDITOR:-vim} \"\$HOME/.cursor/plans/\${slug}.plan.md\"
+            \${EDITOR:-code} \"\$HOME/.cursor/plans/\${slug}.plan.md\"
           elif [ \"\$src\" = 'claude' ]; then
             f=\"\$HOME/.claude/plans/\${slug}.md\"
             [ -f \"\$f\" ] || f=\"\$HOME/.claude/plans/saved/\${slug}.md\"
-            \${EDITOR:-vim} \"\$f\"
+            \${EDITOR:-code} \"\$f\"
           fi
         )" \
       ) || exit 0
@@ -1520,7 +1520,7 @@ INFOEOF
       echo "no worktree for '$_ag_open_topic'; run: ag new $_ag_open_topic" >&2
       exit 1
     fi
-    _ag_open_ide="${DOTFILES_IDE_CMD:-code}"
+    _ag_open_ide="${DOTFILES_IDE:-code}"
     if command -v "$_ag_open_ide" &>/dev/null; then
       "$_ag_open_ide" "$_ag_open_wt"
     else
@@ -1558,7 +1558,7 @@ INFOEOF
         --ide)    if [[ -n "${2:-}" && "$2" != -* ]]; then
                     ide_cmd="$2"; shift 2
                   else
-                    ide_cmd="${DOTFILES_IDE_CMD:-code}"; shift
+                    ide_cmd="${DOTFILES_IDE:-code}"; shift
                   fi ;;
         --shell)  shell_only=true; shift ;;
         --gemini) cmd="gemini"; shift ;;

@@ -59,7 +59,7 @@ See `~/.agents/conventions/artifact-templates.md` for canonical templates. Key p
 
 ## Epilogue
 
-Append 1-3 lines to `~/.agents/learnings/octopus.md`: what worked in the design process, what was underspecified, what surprised you.
+Append 1-3 lines to `~/.agents/circus/octopus.md`: what worked in the design process, what was underspecified, what surprised you.
 
 ## Next
 

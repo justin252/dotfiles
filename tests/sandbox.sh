@@ -567,7 +567,7 @@ else
 fi
 
 # wt open: missing IDE binary -> non-zero exit + names the command
-wt_open_out=$(cd "$wt_repo" && DOTFILES_IDE_CMD=nonexistent-ide-binary WT_CREATE_MODE=new "$REPO_ROOT/tools/wt" open "$wt_branch" 2>&1 || true)
+wt_open_out=$(cd "$wt_repo" && DOTFILES_IDE=nonexistent-ide-binary WT_CREATE_MODE=new "$REPO_ROOT/tools/wt" open "$wt_branch" 2>&1 || true)
 if [[ "$wt_open_out" == *"nonexistent-ide-binary"* ]]; then
   _pass "wt open: missing IDE binary -> names the missing command"
 else

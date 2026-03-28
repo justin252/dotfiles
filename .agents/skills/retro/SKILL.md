@@ -53,7 +53,7 @@ After writing, check INBOX.md size. If >10 items, nudge toward /triage.
 
 ## Epilogue
 
-Append 1-3 lines to `~/.agents/learnings/elephant.md`: retro effectiveness, signal-to-noise ratio, items that recur across sessions.
+Append 1-3 lines to `~/.agents/circus/elephant.md`: retro effectiveness, signal-to-noise ratio, items that recur across sessions.
 
 ## Next
 

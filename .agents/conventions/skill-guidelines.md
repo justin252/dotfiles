@@ -50,7 +50,7 @@ Optional:
 - **Modes**: if the skill has execution variants (interactive/autonomous/teach)
 - **Conventions**: if running as isolated subagent, duplicate essential rules
 - **Principles**: design philosophy specific to this skill
-- **Epilogue** (circus skills): self-reflection before handoff. Appends 1-3 lines to `~/.agents/learnings/<animal>.md`. Domain-specific prompts – what worked, what failed, what surprised. Place before ## Next. See circus.md § Learning.
+- **Epilogue** (circus skills): self-reflection before handoff. Appends 1-3 lines to `~/.agents/circus/<animal>.md`. Domain-specific prompts – what worked, what failed, what surprised. Place before ## Next. See circus.md § Learning.
 
 ## Naming
 
