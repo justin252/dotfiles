@@ -815,13 +815,11 @@ cmd_doctor() {
 }
 
 cmd_fix() {
-  # Collect managed paths that exist as real files/dirs instead of symlinks
   local -a blocked_targets=() blocked_sources=()
   local target source
   while IFS='|' read -r target source; do
     [[ -n "$target" ]] || continue
     [[ -e "$source" ]] || continue
-    # Only flag if it exists as a real file/dir (not a symlink)
     if [[ -e "$target" && ! -L "$target" ]]; then
       blocked_targets+=("$target")
       blocked_sources+=("$source")
