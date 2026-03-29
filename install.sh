@@ -85,14 +85,8 @@ if command -v rtk &> /dev/null && [[ ! -f ~/.claude/hooks/rtk-rewrite.sh ]]; the
   fi
 fi
 
-# Persist paths so standalone `dotfiles` runs resolve correctly in all environments
 export DOTFILES
 export WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}"
-mkdir -p ~/.config/dotfiles
-cat > ~/.config/dotfiles/paths <<EOF
-DOTFILES="$DOTFILES"
-WORK_DOTFILES="$WORK_DOTFILES"
-EOF
 
 # Delegate all managed state (symlinks, skills, configs, hooks, dirs, seeds) to dotfiles tool
 "$DOTFILES/tools/dotfiles"

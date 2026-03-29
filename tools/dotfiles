@@ -6,9 +6,6 @@
 # ever shows 5.x+, this constraint can be revisited. Avoid: local -A, nameref, |&.
 set -euo pipefail
 
-# Persisted paths config (written by install.sh) lets standalone runs
-# resolve correct repos in all environments (laptop, workspace, home).
-[[ -f "$HOME/.config/dotfiles/paths" ]] && source "$HOME/.config/dotfiles/paths"
 DOTFILES="${DOTFILES:-$HOME/dotfiles}"
 WORK_DOTFILES="${WORK_DOTFILES:-$HOME/dotfiles-work}"
 OS="$(uname -s)"
@@ -814,7 +811,48 @@ cmd_doctor() {
   echo "" >&2
   echo "platform:" >&2
   echo "  os: $OS" >&2
-  _is_git_repo "$WORK_DOTFILES" && echo "  context: work" >&2 || echo "  context: personal" >&2
+  [[ -d "$WORK_DOTFILES" ]] && echo "  context: work" >&2 || echo "  context: personal" >&2
+}
+
+cmd_fix() {
+  # Collect managed paths that exist as real files/dirs instead of symlinks
+  local -a blocked_targets=() blocked_sources=()
+  local target source
+  while IFS='|' read -r target source; do
+    [[ -n "$target" ]] || continue
+    [[ -e "$source" ]] || continue
+    # Only flag if it exists as a real file/dir (not a symlink)
+    if [[ -e "$target" && ! -L "$target" ]]; then
+      blocked_targets+=("$target")
+      blocked_sources+=("$source")
+    fi
+  done < <(_managed_links)
+
+  if [[ ${#blocked_targets[@]} -eq 0 ]]; then
+    echo "no blocked symlinks found" >&2
+    return 0
+  fi
+
+  echo "blocked symlinks:" >&2
+  local i
+  for i in "${!blocked_targets[@]}"; do
+    echo "  ${blocked_targets[$i]} → ${blocked_sources[$i]}" >&2
+  done
+  echo "" >&2
+
+  printf "Replace %d real file(s) with symlinks? [y/N] " "${#blocked_targets[@]}" >&2
+  local answer
+  read -r answer
+  [[ "$answer" == "y" || "$answer" == "Y" ]] || { echo "aborted" >&2; exit 0; }
+
+  for i in "${!blocked_targets[@]}"; do
+    rm -rf "${blocked_targets[$i]}"
+    mkdir -p "$(dirname "${blocked_targets[$i]}")"
+    ln -sfn "${blocked_sources[$i]}" "${blocked_targets[$i]}"
+    echo "  replaced: ${blocked_targets[$i]}" >&2
+  done
+  echo "" >&2
+  _bold "done: ${#blocked_targets[@]} replaced"
 }
 
 cmd_setup() {
@@ -842,6 +880,7 @@ Usage:
   dotfiles            Pull repos, verify symlinks, refresh skills, sync configs
   dotfiles setup      Full rebuild via install.sh (first-time setup, binary installs)
   dotfiles doctor     Read-only health check
+  dotfiles fix        Replace blocked real files with symlinks (interactive)
 
 Flags:
   -h, --help          Show this help
@@ -856,6 +895,7 @@ case "${1:-}" in
   ""              ) cmd_default ;;
   setup           ) shift; [[ "${1:-}" == -h || "${1:-}" == --help ]] && { echo "dotfiles setup: full rebuild via install.sh" >&2; exit 0; }; cmd_setup ;;
   doctor          ) shift; [[ "${1:-}" == -h || "${1:-}" == --help ]] && { echo "dotfiles doctor: read-only health check" >&2; exit 0; }; cmd_doctor ;;
+  fix             ) shift; [[ "${1:-}" == -h || "${1:-}" == --help ]] && { echo "dotfiles fix: replace blocked real files with symlinks" >&2; exit 0; }; cmd_fix ;;
   -h|--help       ) usage ;;
   *)              die "unknown command: $1" "Run 'dotfiles --help' for usage" ;;
 esac

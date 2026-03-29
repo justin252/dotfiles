@@ -346,6 +346,29 @@ else
   _fail "dotfiles: should repair broken symlink"
 fi
 
+# dotfiles fix: replace real file with symlink
+rm -f "$HOME/.agents/AGENTS.md"
+cp "$REPO_ROOT/.agents/AGENTS.md" "$HOME/.agents/AGENTS.md"   # create real file
+fix_out=$(echo "y" | DOTFILES="$REPO_ROOT" "$REPO_ROOT/tools/dotfiles" fix 2>&1 || true)
+if [[ -L "$HOME/.agents/AGENTS.md" ]]; then
+  _pass "dotfiles fix: replaces real file with symlink"
+else
+  _fail "dotfiles fix: should replace real file with symlink"
+fi
+if [[ "$fix_out" == *"replaced"* ]]; then
+  _pass "dotfiles fix: reports replaced paths"
+else
+  _fail "dotfiles fix: should report replaced paths"
+fi
+
+# dotfiles fix: nothing to fix
+fix_nothing=$(echo "" | DOTFILES="$REPO_ROOT" "$REPO_ROOT/tools/dotfiles" fix 2>&1 || true)
+if [[ "$fix_nothing" == *"no blocked"* ]]; then
+  _pass "dotfiles fix: reports nothing when clean"
+else
+  _fail "dotfiles fix: should report nothing when clean"
+fi
+
 # ━━━ wt ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 echo ""
