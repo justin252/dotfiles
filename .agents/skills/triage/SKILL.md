@@ -5,7 +5,7 @@ description: "🐘 Three-scope triage: consolidate learnings, sort INBOX, promot
 
 Fully autonomous. Auto-accept all reads/writes to INBOX.md, learnings, and SKILL.md files. Create PR for dotfiles changes – never merge without user confirmation.
 
-**Batch limit:** Process max 10 items per invocation (across all phases) to prevent context bloat. If more remain, stop and note "run /triage again for remaining items."
+**Batch limit:** Process max 10 items per invocation (across all phases) to prevent context bloat. If more remain, stop and note "run /triage again for remaining items." Override with `triage --all` for holistic sessions (user must request explicitly).
 
 ## Phase 0 – Consolidate learnings
 

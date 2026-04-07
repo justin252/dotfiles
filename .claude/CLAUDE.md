@@ -14,9 +14,10 @@
 
 ## Working Posture
 
-- **Plan** → Claude Code's built-in plan mode. Read-only, deliberate.
-- **Execute** (default after plan approval) → Execute agreed plan. Handle errors autonomously (retry once, then flag). Pause at checkpoint: show diff, summarize, confirm before commit/push/PR.
-- **POC** → `/poc <idea>`. Prove an idea works fast. See /poc skill.
+See AGENTS.md § Modes for mode definitions (learn, plan, execute, poc, steelman, etc.).
+
+Claude Code specifics:
+- Plan mode uses CC's native read-only harness (no file editing).
 - Autonomous mode (`/execute` with `ccy`) overrides behavioral confirmation gates. Hard safety rules still apply.
 
 ## Memory
@@ -34,7 +35,4 @@ See AGENTS.md § Dotfiles for shell layering, install.sh, agent config distribut
 Claude Code specifics:
 - `~/.claude/CLAUDE.md` → `~/dotfiles/.claude/CLAUDE.md` – only edit the dotfiles copy
 - `~/.claude/settings.json` → `~/dotfiles/.claude/settings.json` – universal permissions. Work-specific MCP entries go in `~/.claude/settings.local.json` (not synced; arrays merge).
-- Karabiner: `install.sh` copies (not symlinks) because Karabiner overwrites symlinks. After editing the dotfiles copy, run `cp ~/dotfiles/karabiner/karabiner.json ~/.config/karabiner/karabiner.json`.
 - To detect context: check which local zshrc files exist on the machine (`~/.zshrc.work` = work context).
-
-@RTK.md
