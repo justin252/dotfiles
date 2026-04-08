@@ -15,26 +15,17 @@ Self-contained workflow -- execute steps fully, don't inject extra confirmation 
    - Docs-only change (no source files modified)
    - Tests already passed this session (TDD workflow -- don't re-run)
    - Pure config change (no executable code modified). Note: shell scripts and tools ARE executable code – always test those
-3. **README**: update if changes affect it
-4. **Config review**: if any config files changed (CLAUDE.md, settings.json, zshrc, AGENTS.md), summarize what changed and why before committing
-5. **Commit + push + PR**: squash/reword history before the first push – not after. Show diff, summarize, confirm before committing. Before pushing, verify PR state: `gh pr view --json state -q .state` – if `MERGED`, abort with "PR already merged; create a new branch." Push and create/update PR. Use Graphite only when repo-level config enables it; default to git+gh. Always `--draft`.
+3. **Work overlay**: if AGENTS-work.md § Checkpoint is loaded, run its additional pre-push steps now.
+4. **README**: update if changes affect it
+5. **Config review**: if any config files changed (CLAUDE.md, settings.json, zshrc, AGENTS.md), summarize what changed and why before committing
+6. **Commit + push + PR**: squash/reword history before the first push – not after. Show diff, summarize, confirm before committing. Before pushing, verify PR state: `gh pr view --json state -q .state` – if `MERGED`, abort with "PR already merged; create a new branch." Push and create/update PR. Use Graphite only when repo-level config enables it; default to git+gh. Always `--draft`.
 
-   PR body:
-   ```
-   ## Motivation
-   <why, link issue if applicable>
+   PR body: follow AGENTS-work.md § PR Descriptions if loaded, otherwise AGENTS.md § Pull Requests.
 
-   ## Summary
-   - <what changed and why>
-
-   ## Test plan
-   - [ ] <verification steps>
-   ```
-
-6. **Win check**: does this session clear the promo-packet bar? Categories: cross-team unblock, DX improvement, arch decision, measurable perf win, reliability/incident. If yes, draft entry, confirm, log to `~/.agents/wins.md`
-7. **Async review**: if the topic has `output.md` or a current output entry in `plan.md`, launch `review --topic <topic>` after push/PR. Surface the log path and review artifact path.
-8. **Session summary**: if significant work was done (commits, artifacts created/updated, PRs opened), save a session summary to `~/.agents/sessions/<slug>.md`. Slug = branch name or topic. Frontmatter: topic, repo, date. Sections: What I was doing, Key decisions, Current state, Unresolved. Skip for trivial changes (typo, config tweak).
-9. **Retro**: run /retro (mandatory epilogue, not a confirmation gate – always execute)
+7. **Win check**: does this session clear the promo-packet bar? Categories: cross-team unblock, DX improvement, arch decision, measurable perf win, reliability/incident. If yes, draft entry, confirm, log to `~/.agents/wins.md`
+8. **Async review**: if the topic has `output.md` or a current output entry in `plan.md`, launch `review --topic <topic>` after push/PR. Surface the log path and review artifact path.
+9. **Session summary**: if significant work was done (commits, artifacts created/updated, PRs opened), save a session summary to `~/.agents/sessions/<slug>.md`. Slug = branch name or topic. Frontmatter: topic, repo, date. Sections: What I was doing, Key decisions, Current state, Unresolved. Skip for trivial changes (typo, config tweak).
+10. **Retro**: run /retro (mandatory epilogue, not a confirmation gate – always execute)
 
 **`checkpoint amend`** = amend last commit + force push + update PR body + async review handoff + retro.
 
@@ -46,7 +37,7 @@ Append 1-3 lines to `~/.agents/circus/beaver.md`: what shipping patterns worked,
 
 After completion, print one of:
 
-If async review was launched (step 9):
+If async review was launched (step 8):
 ```
 🦉 Review launched (async)
   tail -f ~/.agents/artifacts/<topic>/review-run.log

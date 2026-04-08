@@ -181,10 +181,11 @@ In all modes:
 - In execute mode (main agent): never commit without user confirmation – show diff, summarize, wait for go-ahead.
 - Before branch operations (checkout, rebase): `git diff --stat` to confirm clean state.
 - Before committing, verify current branch matches intent – check for open PRs, whether the PR is already merged, and whether changes belong there. `git diff --cached --stat` to verify only intended files staged.
+- `settings.json`: never stage the `model` field (session-local, toggled via /model).
 - First push on new branch: check `@{upstream}` – if unset, use `-u origin <branch>`.
 - Git hygiene aliases (`dotfiles/shell/zshrc`): `gm` (main + pull + full cleanup), `gsync` (rebase onto main), `gclean` (cleanup only). For Graphite stacks, use `gtr` not `gsync`.
 - Hygiene aliases are safe anytime. Push operations (`gpush`, `gpushup`) only through /checkpoint.
-- Advanced recipes (rebase, force-push, stashing, rename detection): see `conventions/git-recipes.md`.
+- MUST read `conventions/git-recipes.md` for advanced git ops. Key: --force-with-lease stales after rebase (use --force on personal branches), don't stash across branches, gh must run from target repo cwd.
 
 ## Pull Requests
 
@@ -226,7 +227,7 @@ Model: session → INBOX.md (short-term) → triage → AGENTS.md (long-term)
 - Triage when INBOX.md exceeds ~10 items. Proactively check and suggest `/triage` when it's growing – don't wait to be asked.
 - At triage, gate each item: work-specific learnings promote to AGENTS-work.md, not AGENTS.md. Personal dotfiles (AGENTS.md, skills/, CLAUDE.md) must not reference work-only tools, repos, or infrastructure. Heuristic: if the tool/pattern doesn't exist in `~/dotfiles/tools/`, it's work.
 - Skills (shared workflows) live in `~/.agents/skills/` – both Claude Code and Cursor read from here. Skill frontmatter must include `name` + `description` at minimum (Codex enforces).
-- Skill vs instruction: single command + context → AGENTS.md instruction. Multi-step, branching logic, or cross-repo → skill. See `conventions/skill-guidelines.md` for structure.
+- Skill vs instruction: single command + context → AGENTS.md instruction. Multi-step, branching logic, or cross-repo → skill. MUST read `conventions/skill-guidelines.md` before writing/modifying skills. Key: frontmatter needs name + description, document blast radius.
 - When updating a skill or its reference example, diff conventions against the artifact to catch drift.
 
 Artifacts (local, working):
@@ -235,7 +236,7 @@ Artifacts (local, working):
 - Delivery artifacts: output.md (what shipped), review.md (review loop for an output). Multi-output topics can use `outputs/<slug>.md` and `reviews/<slug>.md`.
 - Skills that produce structured findings (review, retro, triage) always persist artifacts. Chat/terminal output is supplementary, never the primary record. On write failure, warn and continue.
 - Each artifact type except reference can use ## Open for feedback loop.
-- Templates: `~/.agents/conventions/artifact-templates.md`. Agents consult when creating artifacts.
+- Templates: MUST read `conventions/artifact-templates.md` when creating artifacts. Key: frontmatter needs topic + status + created fields, chain field links artifact sequence.
 - `load <topic>` → search `~/.agents/artifacts/`, `~/.agents/docs/`, `~/.agents/sessions/`, and `~/.notes/`. Partial match; ambiguous → show options. Read all artifact types, summarize status + next steps.
 - `~/.agents/conventions/workflow.md` – comprehensive workflow reference. Read on demand: `@~/.agents/conventions/workflow.md`.
 
@@ -257,76 +258,8 @@ Capture:
 
 Personal dotfiles repo (`justin252/dotfiles`): universal base layer. Work dotfiles overlay via separate install.sh. Overlays are optional; this repo works standalone.
 
-<<<<<<< HEAD
-- MUST read `conventions/dotfiles.md` before modifying dotfiles, install.sh, tools, or shell config.
-- `~/.zprofile` is machine-local (tool installers own it). Dotfiles manage zshrc, not zprofile.
-=======
+- MUST read `conventions/dotfiles.md` before modifying dotfiles, install.sh, tools, or shell config. Key: install.sh is idempotent, symlinks not copies, mkdir -p before loops, test with sandbox.sh.
 - `~/.zprofile` is machine-local (tool installers like brew, pipx, volta own it). Dotfiles manage zshrc, not zprofile.
-
-### Shell config layering
-
-```
-~/.zshrc              -> ~/dotfiles/shell/zshrc         (universal, synced)
-  sources ~/.zshrc.work       (work overlay, if present)
-  sources ~/.zshrc.personal   (personal overlay, if present)
-```
-
-Overlays are symlinked by their respective install scripts. Personal zshrc ends with `true` to avoid exit-code leaks from conditional last lines.
-
-### install.sh
-
-Idempotent. Safe to re-run anytime. What it does:
-- Symlinks: `~/.zshrc`, `~/tools`, `~/.agents/AGENTS.md`, `~/.agents/skills/*/`, `~/.agents/conventions/`, `~/.agents/docs/`, `~/.claude/CLAUDE.md`, `~/.claude/settings.json`, `~/.claude/agents/`
-- Copies skills to `~/.cursor/skills/` (Cursor doesn't follow symlinks)
-- Seeds local-only dirs: `~/.agents/artifacts/`, `~/.agents/sessions/`, `~/.agents/state/`, `~/.agents/circus/`, `~/.notes/`; files: `~/.agents/INBOX.md`, `~/.agents/wins.md`
-- Installs fzf if missing (brew on macOS, binary download on Linux)
-- Sets `git pull.rebase true`
-- Karabiner: copies (not symlinks) on macOS
-
-Contribution defaults:
-- Clean-machine-first: `mkdir -p` before `find`/loops over managed dirs
-- Optional integrations warn instead of aborting the full install
-- Only delete clearly managed paths; if a path might contain user content, prefer symlink-only removal or warn
-- Validate on both macOS/BSD and Linux/GNU shell behavior
-
-### Agent config distribution
-
-```
-~/.agents/AGENTS.md          <- source of truth (this file)
-  Claude Code                @import via CLAUDE.md (native)
-  Cursor                     paste into User Rules (Settings > Rules)
-
-~/.agents/AGENTS-work.md     <- work overlay (if present)
-  Claude Code                @import via CLAUDE.md (native)
-  Cursor                     paste into User Rules alongside AGENTS.md
-
-~/.agents/skills/            <- merged personal + work skills
-  Claude Code                symlinks from ~/.claude/skills/
-  Cursor                     copied to ~/.cursor/skills/
-  Codex CLI                  reads ~/.agents/skills/ directly in this setup
-
-Repo-root AGENTS.md          <- per-project, auto-discovered by both tools
-```
-
-Cursor does NOT follow @import or read `~/.agents/` directly. User Rules (plain text in Settings UI) is the only global mechanism; no file-based auto-load. Paste both AGENTS.md and AGENTS-work.md into User Rules for full context.
-
-Cursor skills: copied (not symlinked) because Cursor doesn't follow symlinks for skill discovery (known bug). Run `dot` to rebuild skills (it refreshes automatically). `dot` rebuilds `~/.agents/skills` from dotfiles sources, then re-syncs Claude/Cursor from that shared layer.
-
-### Key tools
-
-All on PATH via `~/tools` symlink:
-- `h` – fzf alias browser. `h suggest` surfaces forgotten aliases from history.
-- `dotfiles` – unified dotfiles sync: pull repos, verify/repair symlinks, refresh skills, sync configs, re-source shell. `dotfiles setup` for full rebuild. `dotfiles doctor` for read-only diagnostics.
-- `sz` – re-source zshrc after edits
-- `rebase-wip` – stash local edits, fetch/rebase onto a target branch, then reapply the stash. Useful when dotfiles change mid-task
-- `wt` – navigate to any branch or PR. `wt <branch>` finds existing worktree or creates one. `wt 90` or `wt <PR-URL>` resolves PR. `wt` fzf switch. `wt -d` delete. `wt list` show all. `wt clean` remove merged worktrees. `wt clean --all` remove all worktrees. Composable: `ag` delegates worktree ops here.
-- `wss` – workspace SSH+tmux. `wss <name>` connect, `wss` fzf picker. Work-only (macOS guard).
-- `artifacts` (`a`) – unified artifact browser (fzf). Sources: `~/.agents/artifacts/`. Frontmatter-aware picker: [type] topic repo/component status. Actions: edit, view, execute, propose, review, ide, claude, codex. `artifacts <query>` pre-filters.
-- `review` – Codex code review for any PR or branch. `review` (auto-detect), `review 123` (PR), `review --status` (check progress), `review --json` (machine output). Always async; writes `review.md` + `review-state.json` to auto-discovered topic dir, notifies on completion.
-- `sessions` (`s`) – session notes browser (fzf). Sources: `~/.agents/sessions/`. Curated .md summaries for context handoff to new sessions. `sessions <query>` pre-filters.
-- `notes` (`n`) – personal topic notes browser (fzf). Sources: `~/.notes/`. Your learning notes from `/learn` sessions. Flat-file, one per topic, mtime-sorted. Actions: edit, ide, claude, codex. `notes <query>` pre-filters.
-- `t` – tools browser (fzf). Discovers all tools in `~/tools/`, grouped by `# category:` comment. Preview pane shows `--help`. `t <query>` pre-filters.
->>>>>>> 8b31479 (chore: move datadog plugins to work layer, revise PR template)
 
 ### Reference library
 
