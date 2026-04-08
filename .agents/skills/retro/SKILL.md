@@ -39,6 +39,8 @@ Auto-trigger: don't wait to be asked. Run at checkpoint, session end, and before
 
 ## Output
 
+**Filter before writing:** If a finding clearly maps to an existing AGENTS.md rule, skip it. Only inbox items that are NEW patterns or where the existing rule was insufficient. "Validates existing rule" items are noise.
+
 Write each finding as a separate entry under `## Inbox` in `~/.agents/INBOX.md`:
 
 ```markdown

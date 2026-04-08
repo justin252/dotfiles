@@ -7,7 +7,7 @@ Auto-consult when writing or modifying shell scripts (bash/zsh).
 - `set -euo pipefail` at top of every bash script
 - `-e` (errexit): exit on first error. `-u` (nounset): unset vars are errors. `-o pipefail`: propagate pipeline failures
 - Add `-E` (errtrace) if using ERR traps – ensures functions/subshells inherit them
-- Gotchas: `-u` breaks when sourcing external files that use unset vars – wrap with `set +u; source file; set -u`. `pipefail` breaks `cmd | grep pattern || default` – use `PIPESTATUS` array or disable locally
+- Gotchas: `-u` breaks when sourcing external files that use unset vars – wrap with `set +u; source file; set -u`. `pipefail` breaks `cmd | grep pattern || default` – use `PIPESTATUS` array or disable locally. bash 3.2 (macOS): `local -a arr` without init triggers unbound variable under `-u`; always `local -a arr=()`
 - `pipefail` is bash-only (not POSIX sh/dash) – errors if script runs as `sh`
 
 ## Error Handling

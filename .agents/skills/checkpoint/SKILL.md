@@ -17,7 +17,7 @@ Self-contained workflow -- execute steps fully, don't inject extra confirmation 
    - Pure config change (no executable code modified). Note: shell scripts and tools ARE executable code – always test those
 3. **README**: update if changes affect it
 4. **Config review**: if any config files changed (CLAUDE.md, settings.json, zshrc, AGENTS.md), summarize what changed and why before committing
-5. **Commit + push + PR**: squash/reword history before the first push – not after. Show diff, summarize, confirm before committing. Push and create/update PR. Use Graphite only when repo-level config enables it; default to git+gh. Always `--draft`.
+5. **Commit + push + PR**: squash/reword history before the first push – not after. Show diff, summarize, confirm before committing. Before pushing, verify PR state: `gh pr view --json state -q .state` – if `MERGED`, abort with "PR already merged; create a new branch." Push and create/update PR. Use Graphite only when repo-level config enables it; default to git+gh. Always `--draft`.
 
    PR body:
    ```
