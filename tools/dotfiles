@@ -52,6 +52,7 @@ EOF
     cat <<EOF
 $HOME/.zshrc.work|$WORK_DOTFILES/shell/zshrc.work
 $HOME/.agents/AGENTS-work.md|$WORK_DOTFILES/.agents/AGENTS-work.md
+$HOME/.claude/settings.local.json|$WORK_DOTFILES/.claude/settings.local.json
 EOF
   fi
 }
