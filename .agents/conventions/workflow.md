@@ -166,6 +166,18 @@ Three layers feed each other:
 
 ## Common Workflows
 
+### Stacked PRs (Graphite)
+
+Stacked PRs use Graphite (`gt`), not raw git:
+- `gt create <branch>` not `git checkout -b` – creates branch and tracks stack
+- `gt submit --draft` (`gtsub`) not `git push` + `gh pr create` – creates/updates PRs for entire stack. Always `--draft`; never `--publish` (means "not draft")
+- `gt restack` (`gtr`) not `git rebase` – rebases stack after changes
+- `gt sync` not `git fetch` – pulls latest main into Graphite tracking
+- `gt log short --stack` (`gts`) – view current stack
+- Graphite fallback: if `gt submit` fails, `git push -u origin <branch>` + `gh pr create --draft`
+
+Stack order: foundational first, renames/refactors in PR 1 (never mid-stack; conflict cascades). Each PR independently correct; fix belongs earlier? Amend and restack, don't patch at tip. Rebase each onto parent branch (not main) until parent merges.
+
 ### Execute from a plan
 
 ```bash

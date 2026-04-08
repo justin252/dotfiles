@@ -39,22 +39,19 @@
 - Exit loops if no progress toward verifiable goal. Never loop 3+ times on same failure – stop, note pattern, ask.
 - Ask before guessing paths/values – don't assume from directory listings.
 - Before creating files/dirs, confirm destination with user – especially when "save locally" or "keep it local" is ambiguous between repo, dotfiles, and `~/.agents/artifacts/`.
-- Flag over/under-prompting: if user is over-specifying something obvious, say so. If under-specifying is causing rework, flag that too. When flagging, log the pattern to INBOX.md so /triage can promote it to a default (AGENTS.md rule, alias, or skill).
+- Flag over/under-prompting: say so directly.
 - For review/planning sessions, present 1–2 decisions at a time, not a full menu.
 - When working across repos, confirm target repo early.
 - After disruptions (tool rejection, context restore, mode switch, concurrent edits from another tool), verify actual state (git status, git diff, ls) before retrying.
-- When source-of-truth artifacts change significantly, rebuild downstream from the new truth. Don't patch old artifacts around updated ones.
-- Before entering plan mode on a branch with uncommitted changes, check `git diff --stat` – the plan may already be implemented.
-- Before adding files/config to a codebase path, verify the path is stable – check for pending migrations or renames that would move the target.
+- Before acting on stale state (plan mode entry, artifact rebuild, path additions), verify current state first (`git diff --stat`, check for pending migrations).
 - In worktrees: verify edit target matches the worktree. `ag` worktree sessions should edit within the worktree, not the main repo checkout.
 - Multi-file tasks (3+ files, distinct context per step): delegate each logical step to a Task subagent with focused context. Inline is fine for <3 files or heavily shared context.
-- Subagent constraints: test-only runs – say "Do NOT modify any source files" (build-fix agents revert otherwise). Research runs – return findings in response, don't create files unless requested. Implement runs – edit files only, never commit (parent agent commits at /checkpoint).
+- Subagent constraints: specify scope (test-only, research-only, implement-only) and what NOT to touch.
 - When plan references another PR/branch, diff its changes against current branch before shipping.
 - Permission denial in autonomous mode: don't retry the same operation. Identify what was blocked, explain what permission it needs, and offer the manual command or suggest user run it interactively. Continue with remaining work that doesn't require the blocked permission.
 - Never auto-merge PRs or enable auto-merge. Stop at push/PR creation unless the user explicitly asks to merge now.
 - Never auto-post GitHub PR comments/reviews (`gh pr comment`, `gh pr review`) unless the user explicitly asks in the current session.
 - Autonomous session end: summarize completed work + remaining items. Send terminal notification so user knows the run finished.
-- Background agents (`AG_BACKGROUND=1`): never block on clarification. If stuck after 3 turns with no progress, write `~/.agents/artifacts/<topic>/stuck.md` (what's blocked, what was tried) and exit.
 - Start minimal, add when needed. Don't design for consumers that don't exist yet.
 - When designing skill boundaries, ask user to describe the full workflow before splitting responsibilities.
 - Renames: confirm final name before editing files. Name churn with partial edits costs O(files × renames).
@@ -90,53 +87,17 @@ Default to higher blast radius when uncertain. The cost of context-switching is 
 
 Checkpoint is the only release path – route through /checkpoint skill. Never bare commit+push.
 
-### Pipeline (The Circus)
+### Pipeline
 
-Animal = identity + memory. Skill = behavior. Each stage self-reflects via epilogue, then hands off. Artifacts are the interfaces.
-
-```
-🐙 design (/propose)    → plan.md
-🦫 branch (/tidy)       → healthy stack
-🐕 implement (/execute) → code + tests
-🦅 ship (/checkpoint)   → PR, output.md
-🦉 review (/review)     → review.md
-🦁 dispatch (/lion)     → orchestrates pipeline
-🐘 curator (/triage)    → graduates learnings across all animals
-```
-
-Each independently useful. `ag run <topic>` composes them into a pipeline. Learning is continuous – every animal captures; elephant curates.
-
-Full spec (model selection, learning model, build order): `~/.agents/docs/circus.md`
+Skills chain: /propose → /tidy → /execute → /checkpoint → /review. Each produces artifacts; `ag run <topic>` composes them. Full spec: `~/.agents/docs/circus.md`.
 
 ### Splitting changes
-Branch naming: `<type>/<slug>` (e.g. `feat/add-grep-tool`). All changes to main require a PR.
-Prefer splitting logically independent changes (refactor, bug fix, feature) into stacked PRs.
-Stacked PRs use Graphite (`gt`), not raw git:
-- `gt create <branch>` not `git checkout -b` – creates branch and tracks stack
-- `gt submit --draft` (`gtsub`) not `git push` + `gh pr create` – creates/updates PRs for entire stack. Always `--draft`; never `--publish` (means "not draft")
-- `gt restack` (`gtr`) not `git rebase` – rebases stack after changes
-- `gt sync` not `git fetch` – pulls latest main into Graphite tracking
-- `gt log short --stack` (`gts`) – view current stack
-- Graphite fallback: if `gt submit` fails, `git push -u origin <branch>` + `gh pr create --draft`
-
-**Proactive (preferred):** When I recognize a separable change while working, branch + commit it immediately before continuing.
-
-**Retroactive (at checkpoint):** If changes are already mixed, attempt to untangle. If too intertwined, ship as one PR and flag it.
-
-Stack order:
-- Foundational first. Renames/refactors in PR 1 – never mid-stack (conflict cascades).
-- Each PR independently correct; fix belongs earlier? Amend and restack, don't patch at tip.
-- Rebase each onto parent branch (not main) until parent merges. `git rebase --onto <target> <old-base>`.
+Branch naming: `<type>/<slug>`. All changes to main require a PR.
+Prefer splitting logically independent changes into stacked PRs. Proactive: branch separable changes immediately. Retroactive: untangle at checkpoint.
+MUST read `conventions/workflow.md § Stacked PRs` for Graphite commands and stack rebase patterns.
 
 ### Retro
-Auto-trigger – don't wait to be asked:
-- `/retro` is context-aware: full at checkpoint/session end, abbreviated before context loss.
-- Run automatically at checkpoint, session end, and before any context-loss event.
-
-Context-loss triggers (always run `/retro` before these):
-- Exiting plan mode / clearing context
-- Switching repos/tasks
-- Long break (user says "pause", "stop", "done for now")
+Auto-trigger at checkpoint, session end, and before context-loss events (exiting plan mode, switching repos/tasks, long break). Full at checkpoint; abbreviated before context loss.
 
 ## Stack
 
@@ -181,10 +142,11 @@ In all modes:
 - In execute mode (main agent): never commit without user confirmation – show diff, summarize, wait for go-ahead.
 - Before branch operations (checkout, rebase): `git diff --stat` to confirm clean state.
 - Before committing, verify current branch matches intent – check for open PRs, whether the PR is already merged, and whether changes belong there. `git diff --cached --stat` to verify only intended files staged.
+- `settings.json`: never stage the `model` field (session-local, toggled via /model).
 - First push on new branch: check `@{upstream}` – if unset, use `-u origin <branch>`.
 - Git hygiene aliases (`dotfiles/shell/zshrc`): `gm` (main + pull + full cleanup), `gsync` (rebase onto main), `gclean` (cleanup only). For Graphite stacks, use `gtr` not `gsync`.
 - Hygiene aliases are safe anytime. Push operations (`gpush`, `gpushup`) only through /checkpoint.
-- Advanced recipes (rebase, force-push, stashing, rename detection): see `conventions/git-recipes.md`.
+- MUST read `conventions/git-recipes.md` for advanced git ops. Key: --force-with-lease stales after rebase (use --force on personal branches), don't stash across branches, gh must run from target repo cwd.
 
 ## Pull Requests
 
@@ -224,29 +186,16 @@ Model: session → INBOX.md (short-term) → triage → AGENTS.md (long-term)
 - INBOX.md (`~/.agents/INBOX.md`) = short-term capture. Local, never synced.
 - retro = capture process → INBOX.md. triage = promotion → AGENTS.md or discard.
 - Triage when INBOX.md exceeds ~10 items. Proactively check and suggest `/triage` when it's growing – don't wait to be asked.
-- At triage, gate each item: work-specific learnings promote to AGENTS-work.md, not AGENTS.md. Personal dotfiles (AGENTS.md, skills/, CLAUDE.md) must not reference work-only tools, repos, or infrastructure. Heuristic: if the tool/pattern doesn't exist in `~/dotfiles/tools/`, it's work.
+- At triage, gate each item: work-specific → AGENTS-work.md, personal → AGENTS.md. MUST read `conventions/agents-md-guidelines.md` before promoting. Key: AGENTS.md must stay under 200 lines; never leak work-only tools/repos.
 - Skills (shared workflows) live in `~/.agents/skills/` – both Claude Code and Cursor read from here. Skill frontmatter must include `name` + `description` at minimum (Codex enforces).
-- Skill vs instruction: single command + context → AGENTS.md instruction. Multi-step, branching logic, or cross-repo → skill. See `conventions/skill-guidelines.md` for structure.
+- Skill vs instruction: single command + context → AGENTS.md instruction. Multi-step, branching logic, or cross-repo → skill. MUST read `conventions/skill-guidelines.md` before writing/modifying skills. Key: frontmatter needs name + description, document blast radius.
 - When updating a skill or its reference example, diff conventions against the artifact to catch drift.
 
-Artifacts (local, working):
-- `~/.agents/artifacts/<topic>/` = all long-lived artifacts. Flat by topic, frontmatter for metadata. Local-only (`.gitignore`).
-- Core artifacts: problem.md (why), design.md (how), plan.md (what/when), reference.md (learnings).
-- Delivery artifacts: output.md (what shipped), review.md (review loop for an output). Multi-output topics can use `outputs/<slug>.md` and `reviews/<slug>.md`.
-- Skills that produce structured findings (review, retro, triage) always persist artifacts. Chat/terminal output is supplementary, never the primary record. On write failure, warn and continue.
-- Each artifact type except reference can use ## Open for feedback loop.
-- Templates: `~/.agents/conventions/artifact-templates.md`. Agents consult when creating artifacts.
-- `load <topic>` → search `~/.agents/artifacts/`, `~/.agents/docs/`, `~/.agents/sessions/`, and `~/.notes/`. Partial match; ambiguous → show options. Read all artifact types, summarize status + next steps.
-- `~/.agents/conventions/workflow.md` – comprehensive workflow reference. Read on demand: `@~/.agents/conventions/workflow.md`.
-
-Docs (persisted, synced):
-- `~/.agents/docs/<slug>.md` = persisted reference docs. Synced via dotfiles repo (`.agents/docs/`).
-- Mature artifacts (designs, system descriptions) graduate here when they should survive across machines.
-- Updated by human or at checkpoint when design evolves significantly.
-
-Composability:
-- See § Pipeline for stage flow. Transitions + skill→doc mapping: see `workflow.md` § Composability.
-- Mature artifacts graduate to docs/ at checkpoint.
+Artifacts:
+- `~/.agents/artifacts/<topic>/` = all artifacts. MUST read `conventions/artifact-templates.md` when creating. Key: frontmatter needs topic + status + created fields.
+- `load <topic>` → search artifacts/, docs/, sessions/, notes/. Partial match; ambiguous → show options.
+- `~/.agents/docs/` = persisted reference docs, synced via dotfiles. Mature artifacts graduate here at checkpoint.
+- `conventions/workflow.md` – full workflow reference, on demand.
 
 Capture:
 - `log <thought>` → agent appends to INBOX.md (date, context, idea). Not a shell alias – agent writes via bash.
@@ -257,91 +206,9 @@ Capture:
 
 Personal dotfiles repo (`justin252/dotfiles`): universal base layer. Work dotfiles overlay via separate install.sh. Overlays are optional; this repo works standalone.
 
-<<<<<<< HEAD
-- MUST read `conventions/dotfiles.md` before modifying dotfiles, install.sh, tools, or shell config.
-- `~/.zprofile` is machine-local (tool installers own it). Dotfiles manage zshrc, not zprofile.
-=======
+- MUST read `conventions/dotfiles.md` before modifying dotfiles, install.sh, tools, or shell config. Key: install.sh is idempotent, symlinks not copies, mkdir -p before loops, test with sandbox.sh.
 - `~/.zprofile` is machine-local (tool installers like brew, pipx, volta own it). Dotfiles manage zshrc, not zprofile.
-
-### Shell config layering
-
-```
-~/.zshrc              -> ~/dotfiles/shell/zshrc         (universal, synced)
-  sources ~/.zshrc.work       (work overlay, if present)
-  sources ~/.zshrc.personal   (personal overlay, if present)
-```
-
-Overlays are symlinked by their respective install scripts. Personal zshrc ends with `true` to avoid exit-code leaks from conditional last lines.
-
-### install.sh
-
-Idempotent. Safe to re-run anytime. What it does:
-- Symlinks: `~/.zshrc`, `~/tools`, `~/.agents/AGENTS.md`, `~/.agents/skills/*/`, `~/.agents/conventions/`, `~/.agents/docs/`, `~/.claude/CLAUDE.md`, `~/.claude/settings.json`, `~/.claude/agents/`
-- Copies skills to `~/.cursor/skills/` (Cursor doesn't follow symlinks)
-- Seeds local-only dirs: `~/.agents/artifacts/`, `~/.agents/sessions/`, `~/.agents/state/`, `~/.agents/circus/`, `~/.notes/`; files: `~/.agents/INBOX.md`, `~/.agents/wins.md`
-- Installs fzf if missing (brew on macOS, binary download on Linux)
-- Sets `git pull.rebase true`
-- Karabiner: copies (not symlinks) on macOS
-
-Contribution defaults:
-- Clean-machine-first: `mkdir -p` before `find`/loops over managed dirs
-- Optional integrations warn instead of aborting the full install
-- Only delete clearly managed paths; if a path might contain user content, prefer symlink-only removal or warn
-- Validate on both macOS/BSD and Linux/GNU shell behavior
-
-### Agent config distribution
-
-```
-~/.agents/AGENTS.md          <- source of truth (this file)
-  Claude Code                @import via CLAUDE.md (native)
-  Cursor                     paste into User Rules (Settings > Rules)
-
-~/.agents/AGENTS-work.md     <- work overlay (if present)
-  Claude Code                @import via CLAUDE.md (native)
-  Cursor                     paste into User Rules alongside AGENTS.md
-
-~/.agents/skills/            <- merged personal + work skills
-  Claude Code                symlinks from ~/.claude/skills/
-  Cursor                     copied to ~/.cursor/skills/
-  Codex CLI                  reads ~/.agents/skills/ directly in this setup
-
-Repo-root AGENTS.md          <- per-project, auto-discovered by both tools
-```
-
-Cursor does NOT follow @import or read `~/.agents/` directly. User Rules (plain text in Settings UI) is the only global mechanism; no file-based auto-load. Paste both AGENTS.md and AGENTS-work.md into User Rules for full context.
-
-Cursor skills: copied (not symlinked) because Cursor doesn't follow symlinks for skill discovery (known bug). Run `dot` to rebuild skills (it refreshes automatically). `dot` rebuilds `~/.agents/skills` from dotfiles sources, then re-syncs Claude/Cursor from that shared layer.
-
-### Key tools
-
-All on PATH via `~/tools` symlink:
-- `h` – fzf alias browser. `h suggest` surfaces forgotten aliases from history.
-- `dotfiles` – unified dotfiles sync: pull repos, verify/repair symlinks, refresh skills, sync configs, re-source shell. `dotfiles setup` for full rebuild. `dotfiles doctor` for read-only diagnostics.
-- `sz` – re-source zshrc after edits
-- `rebase-wip` – stash local edits, fetch/rebase onto a target branch, then reapply the stash. Useful when dotfiles change mid-task
-- `wt` – navigate to any branch or PR. `wt <branch>` finds existing worktree or creates one. `wt 90` or `wt <PR-URL>` resolves PR. `wt` fzf switch. `wt -d` delete. `wt list` show all. `wt clean` remove merged worktrees. `wt clean --all` remove all worktrees. Composable: `ag` delegates worktree ops here.
-- `wss` – workspace SSH+tmux. `wss <name>` connect, `wss` fzf picker. Work-only (macOS guard).
-- `artifacts` (`a`) – unified artifact browser (fzf). Sources: `~/.agents/artifacts/`. Frontmatter-aware picker: [type] topic repo/component status. Actions: edit, view, execute, propose, review, ide, claude, codex. `artifacts <query>` pre-filters.
-- `review` – Codex code review for any PR or branch. `review` (auto-detect), `review 123` (PR), `review --status` (check progress), `review --json` (machine output). Always async; writes `review.md` + `review-state.json` to auto-discovered topic dir, notifies on completion.
-- `sessions` (`s`) – session notes browser (fzf). Sources: `~/.agents/sessions/`. Curated .md summaries for context handoff to new sessions. `sessions <query>` pre-filters.
-- `notes` (`n`) – personal topic notes browser (fzf). Sources: `~/.notes/`. Your learning notes from `/learn` sessions. Flat-file, one per topic, mtime-sorted. Actions: edit, ide, claude, codex. `notes <query>` pre-filters.
-- `t` – tools browser (fzf). Discovers all tools in `~/tools/`, grouped by `# category:` comment. Preview pane shows `--help`. `t <query>` pre-filters.
->>>>>>> 8b31479 (chore: move datadog plugins to work layer, revise PR template)
 
 ### Reference library
 
-On-demand context. Read when triggered; never auto-load.
-
-Docs (`~/.agents/docs/`):
-- `circus.md` – agent pipeline architecture, model selection, build order.
-
-Conventions (`~/.agents/conventions/`):
-- `dotfiles.md` – shell layering, install.sh, agent config, key tools, testing.
-- `shell-scripts.md` – strict mode, quoting, BSD/GNU traps. MUST read before writing shell scripts.
-- `cli-guidelines.md` – clig.dev applied. MUST read before writing CLI tools.
-- `skill-guidelines.md` – skill structure, frontmatter, testing.
-- `artifact-templates.md` – artifact frontmatter, templates.
-- `workflow.md` – full workflow reference, skill composability.
-- `git-recipes.md` – advanced git operations (rebase, force-push, stashing, rename detection).
-
-AGENTS-work.md extends this library with work-specific entries.
+On-demand context in `~/.agents/conventions/` and `~/.agents/docs/`. Read when triggered; never auto-load. AGENTS-work.md extends with work-specific entries.

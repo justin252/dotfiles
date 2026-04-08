@@ -14,11 +14,7 @@
 
 ## Working Posture
 
-See AGENTS.md § Modes for mode definitions (learn, plan, execute, poc, steelman, etc.).
-
-Claude Code specifics:
-- Plan mode uses CC's native read-only harness (no file editing).
-- Autonomous mode (`/execute` with `ccy`) overrides behavioral confirmation gates. Hard safety rules still apply.
+Autonomous mode (`/execute` with `ccy`) overrides confirmation gates. Hard safety rules still apply.
 
 ## Memory
 
