@@ -188,27 +188,33 @@ In all modes:
 
 ## Pull Requests
 
+- Title: conventional commit format, under 70 chars. Describe capability, not file diff.
+- PRs are accomplishment records – what the system can now do, not a line-by-line diff of file changes
+- Model-first: describe the system model the PR establishes or changes (concepts, relationships, invariants), not what files were touched
+- Design decisions: source from design doc/plan artifacts. State final decision with rationale and alternatives considered, not ad-hoc
+- Visual aids where they help: tables for cases/logic the reviewer needs to think through; diagrams for data flow, state machines, hierarchies. Don't overdo it
+- Stacked PRs: note position in the series and dependencies
 - Body structure:
   ```
   ## Motivation
-  <why this change – the problem or need, link to issue if applicable>
+  <why – problem, need, or gap. Link to issue/design doc>
 
   ## What this does
-  <capabilities enabled, not file diffs – the "so what">
-  <tables, before/after, command examples, diagrams where helpful>
+  <system model – concepts, relationships, invariants>
+  <tables for case logic, diagrams for flow – only when they help>
+  <capabilities enabled, behavioral shifts>
 
   ## Design decisions
-  <key choices, tradeoffs, gotchas – skip for trivial PRs>
+  <from design doc/plan – choices, rationale, alternatives>
+  <skip for trivial PRs>
 
   ## Test plan
   - [ ] <how to verify>
   ```
-- Title: conventional commit format, under 70 chars. Describe capability, not file diff.
 - Reference issue numbers when applicable
 - After pushing follow-up commits, update the PR body to reflect new changes
 - Descriptions = current intent, not changelog. No "what changed from v1" sections. Commit history handles evolution.
 - Before `gh pr edit --body`: always `gh pr view --json body` first, diff new content against existing, merge. GitHub has no edit history; overwriting destroys user content permanently.
-- Per-repo CLAUDE.md can override this template
 
 ## Memory
 
@@ -251,8 +257,76 @@ Capture:
 
 Personal dotfiles repo (`justin252/dotfiles`): universal base layer. Work dotfiles overlay via separate install.sh. Overlays are optional; this repo works standalone.
 
+<<<<<<< HEAD
 - MUST read `conventions/dotfiles.md` before modifying dotfiles, install.sh, tools, or shell config.
 - `~/.zprofile` is machine-local (tool installers own it). Dotfiles manage zshrc, not zprofile.
+=======
+- `~/.zprofile` is machine-local (tool installers like brew, pipx, volta own it). Dotfiles manage zshrc, not zprofile.
+
+### Shell config layering
+
+```
+~/.zshrc              -> ~/dotfiles/shell/zshrc         (universal, synced)
+  sources ~/.zshrc.work       (work overlay, if present)
+  sources ~/.zshrc.personal   (personal overlay, if present)
+```
+
+Overlays are symlinked by their respective install scripts. Personal zshrc ends with `true` to avoid exit-code leaks from conditional last lines.
+
+### install.sh
+
+Idempotent. Safe to re-run anytime. What it does:
+- Symlinks: `~/.zshrc`, `~/tools`, `~/.agents/AGENTS.md`, `~/.agents/skills/*/`, `~/.agents/conventions/`, `~/.agents/docs/`, `~/.claude/CLAUDE.md`, `~/.claude/settings.json`, `~/.claude/agents/`
+- Copies skills to `~/.cursor/skills/` (Cursor doesn't follow symlinks)
+- Seeds local-only dirs: `~/.agents/artifacts/`, `~/.agents/sessions/`, `~/.agents/state/`, `~/.agents/circus/`, `~/.notes/`; files: `~/.agents/INBOX.md`, `~/.agents/wins.md`
+- Installs fzf if missing (brew on macOS, binary download on Linux)
+- Sets `git pull.rebase true`
+- Karabiner: copies (not symlinks) on macOS
+
+Contribution defaults:
+- Clean-machine-first: `mkdir -p` before `find`/loops over managed dirs
+- Optional integrations warn instead of aborting the full install
+- Only delete clearly managed paths; if a path might contain user content, prefer symlink-only removal or warn
+- Validate on both macOS/BSD and Linux/GNU shell behavior
+
+### Agent config distribution
+
+```
+~/.agents/AGENTS.md          <- source of truth (this file)
+  Claude Code                @import via CLAUDE.md (native)
+  Cursor                     paste into User Rules (Settings > Rules)
+
+~/.agents/AGENTS-work.md     <- work overlay (if present)
+  Claude Code                @import via CLAUDE.md (native)
+  Cursor                     paste into User Rules alongside AGENTS.md
+
+~/.agents/skills/            <- merged personal + work skills
+  Claude Code                symlinks from ~/.claude/skills/
+  Cursor                     copied to ~/.cursor/skills/
+  Codex CLI                  reads ~/.agents/skills/ directly in this setup
+
+Repo-root AGENTS.md          <- per-project, auto-discovered by both tools
+```
+
+Cursor does NOT follow @import or read `~/.agents/` directly. User Rules (plain text in Settings UI) is the only global mechanism; no file-based auto-load. Paste both AGENTS.md and AGENTS-work.md into User Rules for full context.
+
+Cursor skills: copied (not symlinked) because Cursor doesn't follow symlinks for skill discovery (known bug). Run `dot` to rebuild skills (it refreshes automatically). `dot` rebuilds `~/.agents/skills` from dotfiles sources, then re-syncs Claude/Cursor from that shared layer.
+
+### Key tools
+
+All on PATH via `~/tools` symlink:
+- `h` – fzf alias browser. `h suggest` surfaces forgotten aliases from history.
+- `dotfiles` – unified dotfiles sync: pull repos, verify/repair symlinks, refresh skills, sync configs, re-source shell. `dotfiles setup` for full rebuild. `dotfiles doctor` for read-only diagnostics.
+- `sz` – re-source zshrc after edits
+- `rebase-wip` – stash local edits, fetch/rebase onto a target branch, then reapply the stash. Useful when dotfiles change mid-task
+- `wt` – navigate to any branch or PR. `wt <branch>` finds existing worktree or creates one. `wt 90` or `wt <PR-URL>` resolves PR. `wt` fzf switch. `wt -d` delete. `wt list` show all. `wt clean` remove merged worktrees. `wt clean --all` remove all worktrees. Composable: `ag` delegates worktree ops here.
+- `wss` – workspace SSH+tmux. `wss <name>` connect, `wss` fzf picker. Work-only (macOS guard).
+- `artifacts` (`a`) – unified artifact browser (fzf). Sources: `~/.agents/artifacts/`. Frontmatter-aware picker: [type] topic repo/component status. Actions: edit, view, execute, propose, review, ide, claude, codex. `artifacts <query>` pre-filters.
+- `review` – Codex code review for any PR or branch. `review` (auto-detect), `review 123` (PR), `review --status` (check progress), `review --json` (machine output). Always async; writes `review.md` + `review-state.json` to auto-discovered topic dir, notifies on completion.
+- `sessions` (`s`) – session notes browser (fzf). Sources: `~/.agents/sessions/`. Curated .md summaries for context handoff to new sessions. `sessions <query>` pre-filters.
+- `notes` (`n`) – personal topic notes browser (fzf). Sources: `~/.notes/`. Your learning notes from `/learn` sessions. Flat-file, one per topic, mtime-sorted. Actions: edit, ide, claude, codex. `notes <query>` pre-filters.
+- `t` – tools browser (fzf). Discovers all tools in `~/tools/`, grouped by `# category:` comment. Preview pane shows `--help`. `t <query>` pre-filters.
+>>>>>>> 8b31479 (chore: move datadog plugins to work layer, revise PR template)
 
 ### Reference library
 
