@@ -18,6 +18,7 @@
 - Before proposing new tools/aliases, grep existing config to avoid duplicating what's already there.
 - Verify platform capabilities before designing around them. Try the command or read source, not just `--help` – plumbing/porcelain splits hide commands.
 - Shell scripts: MUST read `.agents/conventions/shell-scripts.md` before writing or modifying shell scripts. Covers strict mode, quoting, cross-platform traps (BSD vs GNU), error handling, security, testing.
+- TypeScript/React: MUST read `.agents/conventions/typescript-react.md` before writing or reviewing TS/React/JSX code. Key: strict tsconfig, explicit return types, exhaustive deps, no `any`, stable keys.
 - Batch file processors: rescue/catch per item, not per batch. One bad file must not crash the tool.
 - Don't embed volatile counts (test count, line count, file count) in docs or README. Describe what, not how many.
 - When implementing from plan, challenge correctness of stateful operations (counters, file naming, sequencing). Plans are proposals, not specs.
