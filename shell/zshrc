@@ -152,7 +152,7 @@ export AG_REVIEW_MODEL="codex:gpt-5.4"    # 🦉 review
 export AG_RETRO_MODEL="claude:haiku"       # 🐘 retro
 
 # ─── Claude ───────────────────────────────────────────────────
-export CLAUDE_CODE_EFFORT_LEVEL=max
+# Effort: set with /effort (saved per model in settings.json); exporting CLAUDE_CODE_EFFORT_LEVEL would lock it
 # Plan (read-only research, probes design)
 alias ccplan="claude --permission-mode plan"
 alias ccplanc="claude -c --permission-mode plan"
